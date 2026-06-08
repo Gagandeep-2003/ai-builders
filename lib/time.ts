@@ -212,6 +212,18 @@ export function formatInTimeZone(
   }).format(value);
 }
 
+function zonedDateKey(date: Date, timeZone: string) {
+  return formatInTimeZone(date, timeZone, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+function isSameZonedDay(first: Date, second: Date, timeZone: string) {
+  return zonedDateKey(first, timeZone) === zonedDateKey(second, timeZone);
+}
+
 export function formatSessionTime(
   session: CourseSession,
   batch: Batch,
@@ -331,6 +343,11 @@ export function getActiveOrNextJoinSession(
   const activeSession = sessions.find((session) => {
     return isSessionJoinWindowOpen(session, batch, now);
   });
+  const todaySession = sessions.find((session) => {
+    if (session.status === "completed") return false;
+    const { startsAt } = getSessionDateTimes(session, batch);
+    return isSameZonedDay(startsAt, now, batch.timeZone || DEFAULT_TIME_ZONE);
+  });
 
-  return activeSession ?? getNextSession(sessions);
+  return activeSession ?? todaySession ?? getNextSession(sessions);
 }

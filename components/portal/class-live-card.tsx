@@ -18,6 +18,10 @@ export function ClassLiveCard({
   const [nearClass, setNearClass] = useState(false);
   const [canJoin, setCanJoin] = useState(false);
   const { opensAt } = getSessionJoinWindow(nextSession, batch);
+  const disabledMessage = `Join activates 15 minutes before class, at ${opensAt.toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })}.`;
 
   useEffect(() => {
     const check = () => {
@@ -57,6 +61,7 @@ export function ClassLiveCard({
           <input type="hidden" name="sessionId" value={nextSession.id} />
           <button
             disabled={!canJoin}
+            title={canJoin ? "Join your live class" : disabledMessage}
             className="button-motion inline-flex items-center justify-center gap-3 rounded-xl bg-accent px-5 py-3 font-bold text-bg-base shadow-[0_18px_44px_rgba(110,231,183,0.18)] disabled:cursor-not-allowed disabled:border disabled:border-border disabled:bg-bg-elevated disabled:text-text-muted disabled:shadow-none"
           >
             <span className="relative flex h-2.5 w-2.5">
@@ -65,12 +70,12 @@ export function ClassLiveCard({
               ) : null}
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-bg-base" />
             </span>
-            {canJoin ? "Join Live Class" : "Available on class day"}
+            {canJoin ? "Join Live Class" : "Join unlocks soon"}
             {canJoin ? <ExternalLink className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
           </button>
           {!canJoin ? (
             <p className="mt-2 max-w-xs text-xs text-text-muted">
-              Opens 15 minutes before class on {opensAt.toLocaleDateString()} and closes when class ends.
+              {disabledMessage} It closes when class ends.
             </p>
           ) : null}
         </form>
