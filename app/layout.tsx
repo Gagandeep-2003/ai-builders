@@ -27,10 +27,15 @@ export const metadata: Metadata = {
   title: "AI Builders Summer Bootcamp",
   description:
     "A private student learning portal for AI Builders Summer Bootcamp.",
+  manifest: "/site.webmanifest",
   icons: {
-    icon: [{ url: "/icon2.png", type: "image/png" }],
-    shortcut: "/icon2.png",
-    apple: "/icon2.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 };
 
