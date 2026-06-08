@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { getStudentDashboardData } from "@/lib/data";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { getSessionDateTimes, getSessionScheduleDate } from "@/lib/time";
+import { getSessionDateTimes, getSessionScheduleDate, isSessionJoinWindowOpen } from "@/lib/time";
 
 export async function joinClassAction(formData: FormData) {
   const sessionId = String(formData.get("sessionId") ?? "");
@@ -26,6 +26,7 @@ export async function joinClassAction(formData: FormData) {
   const data = await getStudentDashboardData();
   const session = data.sessions.find((item) => item.id === sessionId);
   if (!session) redirect("/class");
+  if (!isSessionJoinWindowOpen(session, data.batch)) redirect("/class?join=not-open");
 
   const { meetLink } = getSessionDateTimes(session, data.batch);
   const classDate = getSessionScheduleDate(session, data.batch);

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Lock, Video } from "lucide-react";
 import { joinClassAction } from "@/app/actions/class";
 import type { Batch, CourseSession } from "@/lib/course-data";
-import { formatSessionTime, getSessionDateTimes } from "@/lib/time";
+import { formatSessionTime, getSessionJoinWindow } from "@/lib/time";
 
 export function ClassLiveCard({
   batch,
@@ -17,17 +17,15 @@ export function ClassLiveCard({
 }) {
   const [nearClass, setNearClass] = useState(false);
   const [canJoin, setCanJoin] = useState(false);
-  const { startsAt } = getSessionDateTimes(nextSession, batch);
+  const { opensAt } = getSessionJoinWindow(nextSession, batch);
 
   useEffect(() => {
     const check = () => {
       const now = new Date();
-      const { startsAt, endsAt } = getSessionDateTimes(nextSession, batch);
-      const windowStart = startsAt.getTime() - 20 * 60_000;
-      const windowEnd = endsAt.getTime() + 10 * 60_000;
-      const classDayStart = startsAt.getTime() - 16 * 60 * 60_000;
-      setNearClass(now.getTime() >= windowStart && now.getTime() <= windowEnd);
-      setCanJoin(now.getTime() >= classDayStart && now.getTime() <= windowEnd);
+      const { opensAt, closesAt } = getSessionJoinWindow(nextSession, batch);
+      const isOpen = now.getTime() >= opensAt.getTime() && now.getTime() <= closesAt.getTime();
+      setNearClass(isOpen);
+      setCanJoin(isOpen);
     };
 
     check();
@@ -72,7 +70,7 @@ export function ClassLiveCard({
           </button>
           {!canJoin ? (
             <p className="mt-2 max-w-xs text-xs text-text-muted">
-              Opens before the scheduled class on {startsAt.toLocaleDateString()} and closes shortly after class ends.
+              Opens 15 minutes before class on {opensAt.toLocaleDateString()} and closes when class ends.
             </p>
           ) : null}
         </form>

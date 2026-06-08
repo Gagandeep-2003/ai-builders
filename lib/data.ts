@@ -67,31 +67,6 @@ function curriculumWithStatus(batch = demoBatch): CurriculumSession[] {
   return applySessionStatuses(sessions, batch);
 }
 
-function applyAttendanceCompletion(
-  sessions: CurriculumSession[],
-  attendance: AttendanceItem[],
-): CurriculumSession[] {
-  const completedSessionIds = new Set(
-    attendance
-      .filter((item) => item.status === "present")
-      .map((item) => item.sessionId),
-  );
-  let currentAssigned = false;
-
-  return sessions.map((session) => {
-    if (session.status === "completed" || completedSessionIds.has(session.id)) {
-      return { ...session, status: "completed" };
-    }
-
-    if (!currentAssigned) {
-      currentAssigned = true;
-      return { ...session, status: "current" };
-    }
-
-    return { ...session, status: "locked" };
-  });
-}
-
 function fallbackDashboardData(): DashboardData {
   return {
     student: demoStudent,
@@ -506,7 +481,7 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
     student: effectiveStudent,
     batch: effectiveBatch,
     modules: curriculum.modules,
-    sessions: applyAttendanceCompletion(curriculum.sessions, attendance),
+    sessions: curriculum.sessions,
     homework,
     resources,
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,

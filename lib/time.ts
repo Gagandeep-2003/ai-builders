@@ -156,6 +156,22 @@ export function getSessionDateTimes(session: CourseSession, batch: Batch) {
   };
 }
 
+export function getSessionJoinWindow(session: CourseSession, batch: Batch) {
+  const { startsAt, endsAt } = getSessionDateTimes(session, batch);
+
+  return {
+    startsAt,
+    endsAt,
+    opensAt: new Date(startsAt.getTime() - 15 * 60_000),
+    closesAt: endsAt,
+  };
+}
+
+export function isSessionJoinWindowOpen(session: CourseSession, batch: Batch, now = new Date()) {
+  const { opensAt, closesAt } = getSessionJoinWindow(session, batch);
+  return now.getTime() >= opensAt.getTime() && now.getTime() <= closesAt.getTime();
+}
+
 export function applySessionStatuses(
   sessions: CourseSession[],
   batch: Batch,
@@ -313,10 +329,7 @@ export function getActiveOrNextJoinSession(
   now = new Date(),
 ) {
   const activeSession = sessions.find((session) => {
-    const { startsAt, endsAt } = getSessionDateTimes(session, batch);
-    const joinWindowStart = startsAt.getTime() - 20 * 60_000;
-    const joinWindowEnd = endsAt.getTime() + 10 * 60_000;
-    return now.getTime() >= joinWindowStart && now.getTime() <= joinWindowEnd;
+    return isSessionJoinWindowOpen(session, batch, now);
   });
 
   return activeSession ?? getNextSession(sessions);

@@ -26,6 +26,11 @@ export default async function ClassPage({
           We could not sync your attendance. Please try joining again or message your tutor.
         </div>
       ) : null}
+      {join === "not-open" ? (
+        <div className="rounded-xl border border-accent-warm/30 bg-accent-warm/10 p-4 text-sm text-amber-100">
+          The class link opens 15 minutes before the scheduled start time.
+        </div>
+      ) : null}
       <ClassLiveCard batch={data.batch} nextSession={nextSession} viewerTimeZone={data.student.timeZone} />
 
       <section className="grid gap-4 md:grid-cols-2">
