@@ -27,6 +27,11 @@ export const metadata: Metadata = {
   title: "AI Builders Summer Bootcamp",
   description:
     "A private student learning portal for AI Builders Summer Bootcamp.",
+  icons: {
+    icon: [{ url: "/icon2.png", type: "image/png" }],
+    shortcut: "/icon2.png",
+    apple: "/icon2.png",
+  },
 };
 
 export default function RootLayout({
