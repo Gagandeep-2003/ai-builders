@@ -490,6 +490,553 @@ const moduleTwoCoursework: CourseworkSession[] = [
   },
 ];
 
+const moduleThreeCoursework: CourseworkSession[] = [
+  {
+    moduleNumber: 3,
+    moduleTitle: "Automation Studio: Agents & Workflows",
+    sessionNumber: 1,
+    sessionTitle: "AI Agents and Tools",
+    whatStudentsLearn:
+      "Students are introduced to AI agents, tool use, goals, memory, actions, and how agents can support multi-step work.",
+    tools: ["ChatGPT", "Claude", "Gemini", "AI agent tools"],
+    aiType: "AI Agents",
+    tasks: [
+      {
+        type: "class_challenge",
+        title: "Class Challenge 1",
+        description: "Agent Role Designer. Students design an AI agent for a real workflow and define its goal, tools, inputs, actions, and success criteria.",
+        googleDocLink: "",
+        mission: "Design a useful AI agent that can complete a multi-step task instead of only answering one question.",
+        scenario:
+          "AI agents are different from simple chatbots because they can follow a goal, use tools, make decisions, and complete steps. In this challenge, you will design an agent that helps with a real workflow such as study planning, content creation, customer support, research, or project management.",
+        instructions: ["Choose one real workflow that has multiple steps.", "Define the user and the problem the agent will solve.", "Give the agent a clear role and goal.", "List the inputs and tools the agent may need.", "Write the step-by-step actions the agent should take.", "Define what a successful final output looks like."],
+        prompt:
+          "Act as an AI agent designer.\n\nHelp me design an AI agent for this workflow:\n[WORKFLOW]\n\nCreate:\n1. Agent name\n2. User it helps\n3. Main goal\n4. Inputs needed\n5. Tools needed\n6. Step-by-step actions\n7. Expected final output\n8. Safety rules\n9. Success criteria\n\nMake the agent practical and beginner-friendly.",
+        deliverables: ["Workflow chosen", "Agent name and role", "User and problem", "Inputs and tools list", "Step-by-step action plan", "Safety rules", "Success criteria"],
+        checklist: ["Agent goal is clear.", "Workflow has more than one step.", "Tools are relevant to the task.", "Safety rules are included.", "Success criteria are measurable."],
+      },
+      {
+        type: "class_challenge",
+        title: "Class Challenge 2",
+        description: "Human vs Agent Workflow. Students compare a manual workflow with an AI-agent-assisted workflow.",
+        googleDocLink: "",
+        mission: "Understand how AI agents reduce repetitive work by comparing manual steps with agent-supported steps.",
+        scenario:
+          "Before building automation, you must understand the current process. In this challenge, you will map how a task is done manually and then redesign it as an AI-agent-supported workflow.",
+        instructions: ["Choose a repeated task such as weekly planning, summarizing emails, making posts, researching topics, or organizing files.", "Map the manual workflow step by step.", "Identify slow, repetitive, or error-prone steps.", "Design an AI-agent-assisted version.", "Decide which steps should stay human-controlled.", "Create a comparison table and final recommendation."],
+        prompt:
+          "Compare a manual workflow with an AI-agent-assisted workflow.\n\nTask: [TASK]\n\nCreate:\n1. Manual workflow steps\n2. Pain points\n3. AI-agent workflow steps\n4. Steps automated by AI\n5. Steps controlled by humans\n6. Time saved estimate\n7. Risks or limitations\n8. Final recommendation",
+        deliverables: ["Manual workflow map", "Pain points list", "AI-agent workflow map", "Human-control steps", "Comparison table", "Final recommendation"],
+        checklist: ["Manual process is clearly mapped.", "Agent workflow is realistic.", "Human oversight is included.", "Comparison explains time or quality improvement."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 1",
+        description: "Personal Agent Idea. Students design a personal AI agent that helps with school, productivity, creativity, or daily life.",
+        googleDocLink: "",
+        mission: "Create a personal AI agent concept that could become your Module 3 automation project.",
+        scenario:
+          "Your final Module 3 project will grow across sessions. This task helps you start by choosing an agent idea that can later connect to n8n, Zapier, or ClawBot workflows.",
+        instructions: ["Choose one personal area where an AI agent could help you.", "Define the repeated task or problem.", "Describe what the agent should do daily or weekly.", "List tools or apps it might connect to.", "Write 5 user commands the agent should understand.", "Explain what the agent should not do.", "Connect this idea to a possible final automation showcase."],
+        prompt:
+          "Act as a personal AI automation coach.\n\nHelp me design a personal AI agent for:\n[AREA OR PROBLEM]\n\nInclude:\n1. Agent name\n2. Problem it solves\n3. Daily or weekly tasks\n4. Apps/tools it connects to\n5. Five example user commands\n6. Boundaries and safety rules\n7. First version plan\n8. Future upgrade idea",
+        deliverables: ["Personal agent idea", "Problem and user", "Task list", "Tool/app connection list", "5 example commands", "Boundaries", "Final project connection"],
+        checklist: ["Agent idea is useful and realistic.", "The task is repeated enough for automation.", "Tools/apps are identified.", "Boundaries are clear.", "Connection to final project is explained."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 2",
+        description: "Agent Safety Rules. Students write safety and control rules for an AI agent.",
+        googleDocLink: "",
+        mission: "Create safety, privacy, and human-approval rules for an AI agent before automation begins.",
+        scenario:
+          "A powerful agent can make mistakes if it acts without limits. In this task, you will create rules that keep an AI agent safe, transparent, and human-controlled.",
+        instructions: ["Choose the AI agent you designed in class or at home.", "List what data the agent can access and what it should never access.", "Define actions that require human approval.", "Define what the agent should do when unsure.", "Write user-facing disclosure text.", "Create a simple safety checklist."],
+        prompt:
+          "Act as an AI safety reviewer.\n\nReview this agent:\n[AGENT DESCRIPTION]\n\nCreate safety rules for:\n1. Data access\n2. Privacy boundaries\n3. Actions requiring human approval\n4. What to do when unsure\n5. Mistake handling\n6. User disclosure\n7. Safety checklist\n8. Final risk rating",
+        deliverables: ["Agent description", "Data access rules", "Human approval rules", "Uncertainty handling", "User disclosure text", "Safety checklist"],
+        checklist: ["Privacy boundaries are specific.", "Human approval is required for risky actions.", "User disclosure is understandable.", "Safety checklist is practical."],
+      },
+    ],
+  },
+  {
+    moduleNumber: 3,
+    moduleTitle: "Automation Studio: Agents & Workflows",
+    sessionNumber: 2,
+    sessionTitle: "Introduction to AI Automation",
+    whatStudentsLearn:
+      "Students learn what automation is, why it matters, and how tools like n8n can connect triggers, AI processing, and outputs.",
+    tools: ["n8n"],
+    aiType: "AI Automation",
+    tasks: [
+      {
+        type: "class_challenge",
+        title: "Class Challenge 1",
+        description: "Automation Map. Students map a simple workflow using trigger, action, AI step, and output.",
+        googleDocLink: "",
+        mission: "Design your first automation map before building it in n8n.",
+        scenario:
+          "Automation is easier when the workflow is clear. In this challenge, you will map a simple process such as form response to summary, email to task, or topic to content idea.",
+        instructions: ["Choose a simple repeated workflow.", "Identify the trigger that starts the workflow.", "List the data that enters the workflow.", "Decide where AI should be used.", "Define the final output.", "Draw or write the workflow as Trigger -> AI Step -> Action -> Output.", "Explain why automation is useful for this case."],
+        prompt:
+          "Act as an automation architect.\n\nHelp me design an automation for:\n[WORKFLOW]\n\nCreate:\n1. Trigger\n2. Input data\n3. AI processing step\n4. Output action\n5. Apps/tools involved\n6. Workflow diagram in text\n7. Why this should be automated\n8. Possible failure points",
+        deliverables: ["Workflow idea", "Trigger", "Input data", "AI step", "Output", "Text workflow diagram", "Failure points"],
+        checklist: ["Trigger is clear.", "AI step has a purpose.", "Output is specific.", "Failure points are considered."],
+      },
+      {
+        type: "class_challenge",
+        title: "Class Challenge 2",
+        description: "n8n Node Detective. Students identify the role of different nodes in a sample automation.",
+        googleDocLink: "",
+        mission: "Understand how n8n workflows are built from connected nodes.",
+        scenario:
+          "n8n workflows are made of nodes. Each node has a job: start, receive data, transform data, call AI, send output, or notify someone. In this challenge, you will break down a workflow into node roles.",
+        instructions: ["Open or review a simple n8n workflow example.", "Identify the trigger node.", "Identify processing or transformation nodes.", "Identify where AI could be added.", "Identify the output or notification node.", "Create a node-role table.", "Suggest one improvement to the workflow."],
+        prompt:
+          "Explain this n8n workflow in simple terms:\n[PASTE OR DESCRIBE WORKFLOW]\n\nCreate a table with:\n1. Node name\n2. Node purpose\n3. Input\n4. Output\n5. Why it is needed\n6. Possible improvement",
+        deliverables: ["Workflow reviewed", "Node-role table", "AI insertion point", "Output node explanation", "One improvement idea"],
+        checklist: ["Trigger node is identified.", "Node roles are accurate.", "AI insertion point makes sense.", "Improvement idea is practical."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 1",
+        description: "Automation Opportunity List. Students list 5 tasks in their life or project that could be automated.",
+        googleDocLink: "",
+        mission: "Find automation opportunities that could become your Module 3 project.",
+        scenario:
+          "Automation should solve real repeated problems. In this task, you will look at your school, personal routine, content work, or app project and identify tasks that repeat often.",
+        instructions: ["List 5 repeated tasks from school, life, content, or project work.", "For each task, identify trigger, input, action, and output.", "Rate each task for usefulness, difficulty, and time saved.", "Choose the strongest automation idea.", "Explain why it should be built first.", "Prepare a first workflow sketch."],
+        prompt:
+          "Act as an automation coach.\n\nHelp me find 5 tasks I can automate.\n\nFor each task, include:\n1. Task name\n2. Trigger\n3. Input\n4. Output\n5. Apps/tools involved\n6. Time saved\n7. Difficulty\n8. Usefulness score\n\nEnd by helping me choose the best first automation.",
+        deliverables: ["5 automation ideas", "Trigger/input/output for each", "Usefulness and difficulty scores", "Selected best idea", "First workflow sketch"],
+        checklist: ["All 5 ideas are repeated tasks.", "Trigger and output are clear.", "Scoring is thoughtful.", "Selected idea is realistic."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 2",
+        description: "Manual-to-Automated Reflection. Students document one task before and after automation.",
+        googleDocLink: "",
+        mission: "Explain how automation changes a real workflow.",
+        scenario:
+          "Good automation does not just save clicks; it changes how work moves. In this task, you will document how one workflow looks manually and how it could work after automation.",
+        instructions: ["Choose one repeated manual task.", "Write the current manual process.", "Estimate time and effort required.", "Write the automated version.", "Identify tools needed.", "Explain risks or checks needed.", "Write a short before-and-after reflection."],
+        prompt:
+          "Compare my manual workflow with an automated version.\n\nManual task: [TASK]\n\nCreate:\n1. Current manual steps\n2. Time and effort estimate\n3. Automated workflow\n4. Tools needed\n5. AI role if any\n6. Human approval checkpoints\n7. Benefits\n8. Risks",
+        deliverables: ["Manual process", "Automated process", "Tool list", "Human approval points", "Benefits and risks", "Reflection"],
+        checklist: ["Manual workflow is specific.", "Automated workflow is realistic.", "Human checks are included.", "Reflection explains the difference."],
+      },
+    ],
+  },
+  {
+    moduleNumber: 3,
+    moduleTitle: "Automation Studio: Agents & Workflows",
+    sessionNumber: 3,
+    sessionTitle: "Build Your First AI Workflow",
+    whatStudentsLearn:
+      "Students build a simple n8n automation using triggers, AI processing, outputs, nodes, connections, and AI nodes.",
+    tools: ["n8n"],
+    aiType: "AI Automation",
+    tasks: [
+      {
+        type: "class_challenge",
+        title: "Class Challenge 1",
+        description: "First AI Workflow Build. Students build a simple n8n workflow that takes input, uses AI, and creates an output.",
+        googleDocLink: "",
+        mission: "Build your first functional AI workflow in n8n.",
+        scenario:
+          "You have already mapped automation. Now you will build a simple workflow that starts with an input, sends it to an AI step, and produces a useful output such as a summary, email draft, task list, or content idea.",
+        instructions: ["Open n8n.", "Create a new workflow.", "Add a trigger or manual trigger.", "Add an AI or text-processing step.", "Add an output step such as note, email draft, document, or response.", "Run the workflow with sample input.", "Save screenshots of the workflow and output."],
+        prompt:
+          "Help me build a beginner n8n AI workflow.\n\nWorkflow goal: [GOAL]\nInput: [INPUT]\nAI task: [SUMMARIZE / CLASSIFY / DRAFT / EXTRACT / PLAN]\nOutput: [OUTPUT]\n\nGive me a node-by-node plan and a test input I can use.",
+        deliverables: ["Workflow goal", "Node list", "Test input", "AI output", "Workflow screenshot", "Run result"],
+        checklist: ["Workflow has trigger, AI step, and output.", "Workflow runs with test input.", "Output matches goal.", "Evidence is clear."],
+      },
+      {
+        type: "class_challenge",
+        title: "Class Challenge 2",
+        description: "Debug the Workflow. Students identify and fix one issue in their n8n automation.",
+        googleDocLink: "",
+        mission: "Learn how to test and debug an automation workflow.",
+        scenario:
+          "Real workflows often fail because of missing data, wrong field mapping, unclear prompts, or broken outputs. In this challenge, you will intentionally review your workflow and fix one issue.",
+        instructions: ["Run your Class Challenge 1 workflow.", "Look for an issue, weak output, wrong mapping, or unclear result.", "Identify the node where the issue happens.", "Update the prompt, field mapping, or node setting.", "Run the workflow again.", "Document before and after results."],
+        prompt:
+          "Act as an n8n workflow debugger.\n\nMy workflow is:\n[DESCRIBE WORKFLOW]\n\nProblem:\n[DESCRIBE ISSUE]\n\nHelp me identify:\n1. Likely cause\n2. Node to check\n3. Field or prompt to fix\n4. Test input\n5. Expected corrected output",
+        deliverables: ["Issue found", "Node causing issue", "Fix applied", "Before result", "After result", "Debug reflection"],
+        checklist: ["Issue is clearly described.", "Fix targets the correct node or prompt.", "Workflow is retested.", "Before-and-after evidence is included."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 1",
+        description: "Student Helper Workflow. Students build or design an n8n workflow that helps with school or productivity.",
+        googleDocLink: "",
+        mission: "Create a practical student-focused AI workflow.",
+        scenario:
+          "AI workflows become useful when they solve daily problems. This task asks you to build or plan a workflow that helps with study notes, reminders, summaries, assignments, or task planning.",
+        instructions: ["Choose a student problem.", "Define the trigger and input.", "Use AI to summarize, plan, rewrite, classify, or extract.", "Define the output.", "Build the workflow in n8n if possible.", "If building is not possible, create a detailed node plan.", "Test or simulate the workflow."],
+        prompt:
+          "Design an n8n workflow for a student helper.\n\nProblem: [PROBLEM]\nInput: [INPUT]\nAI action: [ACTION]\nOutput: [OUTPUT]\n\nCreate a node plan with trigger, AI step, output step, test data, and improvement ideas.",
+        deliverables: ["Student problem", "Workflow plan or build", "Node list", "Test data", "Output evidence", "Improvement idea"],
+        checklist: ["Problem is student-focused.", "Workflow is practical.", "AI step adds value.", "Testing or simulation is included."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 2",
+        description: "Automation Build Log. Students keep a build diary for their first automation.",
+        googleDocLink: "",
+        mission: "Document your automation process like a real workflow builder.",
+        scenario:
+          "Automation builders need to record what they tried, what failed, and what improved. This task helps you create a build log for your first workflow so you can explain your process in the final showcase.",
+        instructions: ["Choose the workflow you built or planned.", "Write the first version of the workflow.", "Record problems, errors, or weak outputs.", "Write how you fixed or improved them.", "Save screenshots or notes.", "Write a final summary of what you learned."],
+        prompt:
+          "Help me write a build log for my n8n automation.\n\nWorkflow: [WORKFLOW]\n\nCreate sections for:\n1. Goal\n2. First version\n3. Test input\n4. Problem found\n5. Fix attempted\n6. Improved result\n7. What I learned\n8. Next improvement",
+        deliverables: ["Workflow goal", "First version notes", "Problems found", "Fixes", "Screenshots/links", "Learning summary"],
+        checklist: ["Build process is documented.", "Problems and fixes are included.", "Evidence is included.", "Learning summary is honest."],
+      },
+    ],
+  },
+  {
+    moduleNumber: 3,
+    moduleTitle: "Automation Studio: Agents & Workflows",
+    sessionNumber: 4,
+    sessionTitle: "AI Workflow: Content Pipeline",
+    whatStudentsLearn:
+      "Students build an advanced n8n content pipeline that turns a topic into a blog post, social caption, image alt text, and ready-to-publish content package.",
+    tools: ["n8n", "OpenAI / Claude", "Google Docs or Sheets"],
+    aiType: "AI Automation",
+    tasks: [
+      {
+        type: "class_challenge",
+        title: "Class Challenge 1",
+        description: "Topic to Content Package. Students build a content pipeline that turns one topic into multiple content outputs.",
+        googleDocLink: "",
+        mission: "Create a content automation pipeline that transforms one idea into a complete content package.",
+        scenario:
+          "Creators often need to turn one idea into many formats: blog, captions, summaries, and image text. In this challenge, you will design or build an AI workflow that produces multiple outputs from one topic.",
+        instructions: ["Choose one topic related to your project, school, business, or creativity.", "Define the input format.", "Create an AI prompt that generates a blog outline, short post, caption, and image alt text.", "Build or plan the workflow in n8n.", "Send the outputs to a document, sheet, or clear response.", "Review the outputs and improve the prompt once."],
+        prompt:
+          "Create a content package from this topic:\n[TOPIC]\n\nGenerate:\n1. Blog title\n2. Blog outline\n3. Short educational post\n4. Social media caption\n5. Image alt text\n6. Hashtag ideas\n7. Call-to-action\n\nKeep the tone clear, useful, and age-appropriate.",
+        deliverables: ["Topic chosen", "Workflow/node plan", "Prompt used", "Blog outline", "Social caption", "Image alt text", "Refinement note"],
+        checklist: ["One topic creates multiple outputs.", "Outputs are organized.", "Prompt is refined once.", "Pipeline could be repeated with new topics."],
+      },
+      {
+        type: "class_challenge",
+        title: "Class Challenge 2",
+        description: "Audience Tone Switcher. Students adapt the same content for different audiences using AI automation.",
+        googleDocLink: "",
+        mission: "Build or design a workflow that changes content tone for different audiences.",
+        scenario:
+          "Good content changes depending on the audience. A message for students is different from a message for parents, teachers, or customers. In this challenge, you will use AI to adapt one content idea for different groups.",
+        instructions: ["Choose one content idea.", "Select 3 audiences.", "Write one base message.", "Use AI to adapt the message for each audience.", "If using n8n, create branches or repeated AI steps.", "Compare the outputs and explain what changed."],
+        prompt:
+          "Adapt this content idea for different audiences:\n[CONTENT IDEA]\n\nAudiences:\n1. Students\n2. Parents or teachers\n3. General public/customers\n\nFor each audience, create:\n1. Tone\n2. Short message\n3. Call-to-action\n4. Words to avoid\n5. Why this version fits the audience",
+        deliverables: ["Base content idea", "3 audience versions", "Tone notes", "Workflow or prompt plan", "Comparison explanation"],
+        checklist: ["Each audience version is different.", "Tone choices are explained.", "Content stays accurate.", "Comparison is clear."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 1",
+        description: "Weekly Content Engine. Students create a workflow plan for generating a weekly content calendar.",
+        googleDocLink: "",
+        mission: "Design a repeatable AI content workflow for one week of content.",
+        scenario:
+          "A content pipeline becomes powerful when it can be reused. In this task, you will design a weekly content engine that generates ideas, captions, and publishing notes from a single theme.",
+        instructions: ["Choose one weekly theme.", "Generate 5 content ideas.", "Create captions or post summaries for each idea.", "Add recommended format: blog, short video, carousel, or infographic.", "Add a simple posting schedule.", "Explain how the workflow could be automated in n8n."],
+        prompt:
+          "Create a weekly content calendar for this theme:\n[THEME]\n\nGenerate:\n1. Five content ideas\n2. Format for each idea\n3. Caption or post summary\n4. Target audience\n5. Publishing day\n6. Call-to-action\n7. How this could be automated in n8n",
+        deliverables: ["Weekly theme", "5 content ideas", "Captions/summaries", "Publishing schedule", "n8n automation plan", "Reflection"],
+        checklist: ["Calendar has 5 useful ideas.", "Each idea has a format and audience.", "Schedule is realistic.", "Automation plan is clear."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 2",
+        description: "Capstone Content Pipeline. Students connect the content pipeline idea to their final automation project.",
+        googleDocLink: "",
+        mission: "Plan how a content pipeline can support your Module 3 final automation showcase.",
+        scenario:
+          "Your final project should show a useful workflow. This task helps you decide whether your capstone automation can include a content pipeline, reporting pipeline, or notification pipeline.",
+        instructions: ["Review your Module 3 automation project idea.", "Decide what content or report the workflow could generate.", "Define the input, AI processing, and output.", "List where the output should be saved or sent.", "Write the prompt for the AI step.", "Create a test example."],
+        prompt:
+          "Help me add a content or report pipeline to my automation project.\n\nProject idea: [PROJECT]\n\nCreate:\n1. Input\n2. AI processing step\n3. Output format\n4. Destination app\n5. Prompt for AI step\n6. Test example\n7. Success criteria\n8. Possible improvements",
+        deliverables: ["Project connection", "Input/process/output plan", "Prompt", "Test example", "Destination app", "Success criteria"],
+        checklist: ["Pipeline connects to the capstone idea.", "Input and output are clear.", "Prompt is reusable.", "Success criteria are included."],
+      },
+    ],
+  },
+  {
+    moduleNumber: 3,
+    moduleTitle: "Automation Studio: Agents & Workflows",
+    sessionNumber: 5,
+    sessionTitle: "Advanced Automations using Zapier",
+    whatStudentsLearn:
+      "Students create advanced automation workflows using Zapier to connect apps and automate complex multi-step processes.",
+    tools: ["Zapier"],
+    aiType: "AI Automation",
+    tasks: [
+      {
+        type: "class_challenge",
+        title: "Class Challenge 1",
+        description: "Zapier Multi-App Workflow. Students design a Zapier workflow connecting two or more apps.",
+        googleDocLink: "",
+        mission: "Create a multi-app automation plan using Zapier.",
+        scenario:
+          "Zapier helps connect apps without writing code. In this challenge, you will design a workflow that starts in one app and automatically triggers actions in another app.",
+        instructions: ["Choose a workflow involving at least two apps.", "Define the trigger app and trigger event.", "Define the action app and action result.", "Add one filter, condition, or formatting step if possible.", "Write the Zapier setup plan.", "Test or simulate the workflow with sample data."],
+        prompt:
+          "Design a Zapier automation.\n\nWorkflow goal: [GOAL]\nTrigger app: [APP]\nTrigger event: [EVENT]\nAction app: [APP]\nAction result: [RESULT]\n\nInclude optional filter, test data, expected output, and possible failure points.",
+        deliverables: ["Workflow goal", "Trigger app/event", "Action app/result", "Filter or condition", "Test data", "Expected output"],
+        checklist: ["At least two apps are connected.", "Trigger and action are clear.", "Test data is included.", "Failure points are considered."],
+      },
+      {
+        type: "class_challenge",
+        title: "Class Challenge 2",
+        description: "Lead-to-Message Automation. Students create a Zapier workflow for responding to a form, lead, or request.",
+        googleDocLink: "",
+        mission: "Design an automation that responds to a user submission or request.",
+        scenario:
+          "Many real businesses automate form responses, signups, leads, and support requests. In this challenge, you will design a workflow that receives user input and sends a helpful response or records it.",
+        instructions: ["Choose a form or request scenario.", "Define the input fields.", "Create a trigger from form submission or new row.", "Create an action such as email, message, spreadsheet update, or task creation.", "Add a response template.", "Explain how this saves time and reduces missed follow-ups."],
+        prompt:
+          "Create a Zapier workflow for a new submission.\n\nScenario: [SCENARIO]\nInput fields: [FIELDS]\n\nDesign:\n1. Trigger\n2. Filter or condition\n3. Action 1\n4. Action 2 if needed\n5. Message template\n6. Data storage plan\n7. Test example",
+        deliverables: ["Scenario", "Input fields", "Trigger/action plan", "Response template", "Storage plan", "Test example"],
+        checklist: ["Submission flow is clear.", "Response is useful.", "Data storage is planned.", "Workflow reduces manual follow-up."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 1",
+        description: "Zapier vs n8n Comparison. Students compare Zapier and n8n for their automation project.",
+        googleDocLink: "",
+        mission: "Decide whether Zapier or n8n is better for your final automation idea.",
+        scenario:
+          "Different automation tools fit different needs. In this task, you will compare Zapier and n8n based on ease of use, flexibility, cost, integrations, and project fit.",
+        instructions: ["Choose your Module 3 automation idea.", "List what apps/tools it needs.", "Compare how Zapier would handle it.", "Compare how n8n would handle it.", "Identify pros and cons of each.", "Choose the better tool for your project and explain why."],
+        prompt:
+          "Compare Zapier and n8n for this automation project:\n[PROJECT]\n\nEvaluate:\n1. Ease of setup\n2. Flexibility\n3. Integrations\n4. AI support\n5. Cost/limitations\n6. Best fit\n7. Final recommendation",
+        deliverables: ["Project idea", "Tool needs", "Zapier pros/cons", "n8n pros/cons", "Final tool recommendation"],
+        checklist: ["Comparison is based on the project.", "Both tools are evaluated fairly.", "Recommendation is clear.", "Limitations are included."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 2",
+        description: "Automation Failure Plan. Students create a fallback plan for an automation that may fail.",
+        googleDocLink: "",
+        mission: "Create a plan for what happens when automation breaks.",
+        scenario:
+          "Real automations can fail because apps disconnect, fields change, AI outputs are weak, or users submit messy data. This task helps you design a backup plan.",
+        instructions: ["Choose one workflow from n8n or Zapier.", "List 5 things that could go wrong.", "For each failure, define how the system or user should respond.", "Create a notification or logging plan.", "Decide when a human should review the workflow.", "Write a final reliability checklist."],
+        prompt:
+          "Act as an automation reliability reviewer.\n\nReview this workflow:\n[WORKFLOW]\n\nCreate:\n1. Five possible failures\n2. Cause of each failure\n3. How to detect it\n4. What should happen next\n5. Human review point\n6. Logging or notification plan\n7. Reliability checklist",
+        deliverables: ["Workflow reviewed", "5 failure risks", "Detection plan", "Human review plan", "Notification/logging plan", "Reliability checklist"],
+        checklist: ["Risks are realistic.", "Fallback steps are clear.", "Human review is included.", "Checklist improves reliability."],
+      },
+    ],
+  },
+  {
+    moduleNumber: 3,
+    moduleTitle: "Automation Studio: Agents & Workflows",
+    sessionNumber: 6,
+    sessionTitle: "Introduction to ClawBot",
+    whatStudentsLearn:
+      "Students learn ClawBot foundations, including installation, configuration, VPS setup, and launching an automation hub.",
+    tools: ["ClawBot"],
+    aiType: "AI Automation",
+    tasks: [
+      {
+        type: "class_challenge",
+        title: "Class Challenge 1",
+        description: "ClawBot Setup Map. Students create a setup plan for launching a ClawBot automation hub.",
+        googleDocLink: "",
+        mission: "Plan the setup of a ClawBot automation hub step by step.",
+        scenario:
+          "Before launching an automation hub, you need a clear setup plan: environment, configuration, access, skills, and testing. In this challenge, you will map how ClawBot would be prepared for a real use case.",
+        instructions: ["Define what your ClawBot hub should help automate.", "List setup requirements such as environment, account, VPS, or configuration.", "List the channels or tools it may connect to.", "Define the first skill or workflow it should support.", "Create a test plan for confirming the setup works.", "Write questions or blockers you need to resolve."],
+        prompt:
+          "Act as a ClawBot setup mentor.\n\nHelp me plan a ClawBot automation hub for:\n[USE CASE]\n\nCreate:\n1. Goal of the hub\n2. Setup requirements\n3. Tools/channels to connect\n4. First skill to add\n5. Configuration checklist\n6. Test plan\n7. Possible blockers",
+        deliverables: ["ClawBot use case", "Setup requirements", "Channel/tool list", "First skill idea", "Configuration checklist", "Test plan"],
+        checklist: ["Hub goal is clear.", "Setup requirements are listed.", "First skill is practical.", "Testing plan is included."],
+      },
+      {
+        type: "class_challenge",
+        title: "Class Challenge 2",
+        description: "Automation Hub Use Case. Students design one real ClawBot workflow for a team, class, or project.",
+        googleDocLink: "",
+        mission: "Design a real automation hub workflow that ClawBot could support.",
+        scenario:
+          "ClawBot becomes valuable when it supports a team workflow. In this challenge, you will design how it could help a class, club, business, or project team handle repeated tasks.",
+        instructions: ["Choose a team or group scenario.", "Identify the repeated task or communication problem.", "Define the trigger and expected response.", "List what information ClawBot needs.", "Write sample commands or messages.", "Define how the workflow should report completion."],
+        prompt:
+          "Design a ClawBot workflow for this group:\n[GROUP]\n\nProblem: [PROBLEM]\n\nCreate:\n1. Workflow name\n2. Trigger command/message\n3. Data needed\n4. ClawBot action steps\n5. Output message\n6. Completion report\n7. Human approval point if needed",
+        deliverables: ["Group scenario", "Workflow name", "Trigger command", "Required data", "Action steps", "Output message", "Completion report"],
+        checklist: ["Workflow solves a group problem.", "Trigger is easy to understand.", "Output is clear.", "Human approval is added if needed."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 1",
+        description: "ClawBot Launch Checklist. Students create a launch checklist for a safe and organized ClawBot setup.",
+        googleDocLink: "",
+        mission: "Prepare a launch checklist for using ClawBot responsibly.",
+        scenario:
+          "Launching an automation hub without a checklist can lead to broken workflows, wrong permissions, or messy outputs. This task helps you prepare a careful launch process.",
+        instructions: ["Choose a ClawBot use case.", "List setup requirements.", "List access and permission rules.", "List test cases.", "List safety and rollback steps.", "Create a final launch checklist."],
+        prompt:
+          "Create a ClawBot launch checklist for:\n[USE CASE]\n\nInclude:\n1. Setup steps\n2. Required accounts/access\n3. Permissions\n4. Skills/workflows to enable\n5. Test cases\n6. Safety checks\n7. Rollback plan\n8. Final launch approval checklist",
+        deliverables: ["Use case", "Setup checklist", "Permission rules", "Test cases", "Safety checks", "Rollback plan"],
+        checklist: ["Checklist is practical.", "Permissions are considered.", "Test cases are included.", "Rollback plan is clear."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 2",
+        description: "ClawBot Project Fit. Students decide whether ClawBot fits their final automation project.",
+        googleDocLink: "",
+        mission: "Evaluate whether ClawBot should be part of your final Module 3 project.",
+        scenario:
+          "Not every automation needs ClawBot. This task helps you decide whether your capstone should use ClawBot, n8n, Zapier, or a combination.",
+        instructions: ["Describe your final automation project idea.", "List what the automation must do.", "Compare ClawBot, n8n, and Zapier for your idea.", "Identify where ClawBot adds value.", "Decide whether to include ClawBot.", "Write your tool decision clearly."],
+        prompt:
+          "Evaluate tool fit for my automation project:\n[PROJECT]\n\nCompare:\n1. ClawBot\n2. n8n\n3. Zapier\n\nFor each, explain strengths, limitations, setup difficulty, and project fit. End with a final recommendation.",
+        deliverables: ["Project description", "Tool comparison", "ClawBot value", "Final tool decision", "Reasoning"],
+        checklist: ["Project needs are clear.", "Tools are compared fairly.", "Decision is explained.", "ClawBot is included only if useful."],
+      },
+    ],
+  },
+  {
+    moduleNumber: 3,
+    moduleTitle: "Automation Studio: Agents & Workflows",
+    sessionNumber: 7,
+    sessionTitle: "Mastering ClawBot Skills",
+    whatStudentsLearn:
+      "Students implement document and file handling skills, integrate channel connectors, and extend ClawBot with custom skills.",
+    tools: ["ClawBot"],
+    aiType: "AI Automation",
+    tasks: [
+      {
+        type: "class_challenge",
+        title: "Class Challenge 1",
+        description: "Custom Skill Designer. Students design one ClawBot skill for document, file, or channel handling.",
+        googleDocLink: "",
+        mission: "Design a custom ClawBot skill that performs a useful action.",
+        scenario:
+          "A skill makes an automation hub more powerful. In this challenge, you will design one skill that helps users handle documents, files, messages, or project information.",
+        instructions: ["Choose one skill type: document summary, file organization, channel update, task creation, or report generation.", "Define the command that triggers the skill.", "Define the input data.", "Define the action steps.", "Define the final output.", "Write test cases for the skill.", "Add safety or confirmation rules."],
+        prompt:
+          "Act as a ClawBot custom skill designer.\n\nDesign a skill for:\n[SKILL PURPOSE]\n\nInclude:\n1. Skill name\n2. Trigger command\n3. Inputs needed\n4. Step-by-step behavior\n5. Output format\n6. Test cases\n7. Confirmation or safety rules\n8. Success criteria",
+        deliverables: ["Skill name", "Trigger command", "Input requirements", "Behavior steps", "Output format", "Test cases", "Safety rules"],
+        checklist: ["Skill has a clear purpose.", "Trigger command is simple.", "Output format is defined.", "Test cases and safety rules are included."],
+      },
+      {
+        type: "class_challenge",
+        title: "Class Challenge 2",
+        description: "Channel Connector Flow. Students design how ClawBot sends updates through a communication channel.",
+        googleDocLink: "",
+        mission: "Design a channel-connected workflow for updates, summaries, or alerts.",
+        scenario:
+          "Automation becomes more useful when it reaches people in the right place. In this challenge, you will design a ClawBot connector flow that sends useful information to a channel such as chat, email, or project workspace.",
+        instructions: ["Choose the channel or destination.", "Choose what event should trigger an update.", "Define what message should be sent.", "Define the message format.", "Add rules for who should receive it.", "Add failure or retry behavior.", "Create a sample output message."],
+        prompt:
+          "Design a ClawBot channel connector workflow.\n\nChannel: [CHANNEL]\nTrigger: [TRIGGER]\nAudience: [AUDIENCE]\n\nCreate:\n1. Message purpose\n2. Data included\n3. Message template\n4. Delivery rules\n5. Failure handling\n6. Sample output\n7. Improvement idea",
+        deliverables: ["Channel selected", "Trigger", "Audience", "Message template", "Delivery rules", "Sample output", "Failure handling"],
+        checklist: ["Channel choice matches the workflow.", "Message is useful and concise.", "Delivery rules are clear.", "Failure handling is considered."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 1",
+        description: "File Handling Skill Plan. Students design a ClawBot skill that processes uploaded files.",
+        googleDocLink: "",
+        mission: "Plan a file-handling skill for a real document or project workflow.",
+        scenario:
+          "Many automation systems need to read, summarize, rename, sort, or extract information from files. In this task, you will design a ClawBot file-handling skill.",
+        instructions: ["Choose a file type such as PDF, document, spreadsheet, image, or notes.", "Define what the skill should do with the file.", "List inputs and expected outputs.", "Write a sample command.", "Define error cases such as wrong file type or missing data.", "Explain how the skill supports your final automation project."],
+        prompt:
+          "Design a ClawBot file-handling skill.\n\nFile type: [FILE TYPE]\nTask: [TASK]\n\nInclude:\n1. Skill name\n2. Sample command\n3. Input requirements\n4. Processing steps\n5. Output format\n6. Error cases\n7. Project connection",
+        deliverables: ["File type", "Skill name", "Sample command", "Processing steps", "Output format", "Error cases", "Project connection"],
+        checklist: ["File type and task are clear.", "Output format is specific.", "Error cases are realistic.", "Project connection is explained."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 2",
+        description: "Final Automation Architecture. Students map their final Module 3 automation system.",
+        googleDocLink: "",
+        mission: "Create a complete architecture map for your final automation showcase.",
+        scenario:
+          "Before the final showcase, you need to know how all parts connect: trigger, tools, AI step, data, output, and user. This task helps you map your complete automation system.",
+        instructions: ["Choose your final Module 3 automation project.", "List all tools involved.", "Define trigger, AI step, actions, and output.", "Show where ClawBot, n8n, or Zapier fits.", "Add safety and human review checkpoints.", "Create a text-based architecture diagram.", "List what still needs to be built or tested."],
+        prompt:
+          "Create an architecture map for my final automation project:\n[PROJECT]\n\nInclude:\n1. User\n2. Trigger\n3. Input data\n4. Tools/apps\n5. AI processing step\n6. Automation actions\n7. Output/destination\n8. Human review point\n9. Safety checks\n10. What still needs testing",
+        deliverables: ["Final project description", "Tool list", "Architecture diagram", "Human review points", "Safety checks", "Testing to-do list"],
+        checklist: ["Architecture is complete.", "Tools are connected logically.", "Human review is included.", "Testing plan is clear."],
+      },
+    ],
+  },
+  {
+    moduleNumber: 3,
+    moduleTitle: "Automation Studio: Agents & Workflows",
+    sessionNumber: 8,
+    sessionTitle: "Showcase Session - Present Your Smart Automation",
+    whatStudentsLearn:
+      "Students present their final automation projects and explain the workflow, tools, AI steps, testing, results, and future improvements.",
+    tools: ["Gamma", "n8n", "Zapier", "ClawBot"],
+    aiType: "AI Productivity",
+    tasks: [
+      {
+        type: "class_challenge",
+        title: "Class Challenge 1",
+        description: "Automation Showcase Deck. Students create a final presentation for their Module 3 automation project.",
+        googleDocLink: "",
+        mission: "Create a polished showcase deck for your final automation system.",
+        scenario:
+          "A final automation project needs to be explained clearly: what problem it solves, how the workflow runs, which tools are used, what AI does, and how the result helps users.",
+        instructions: ["Open Gamma or another approved presentation tool.", "Create a deck for your final automation project.", "Include problem, user, workflow diagram, tools, AI step, demo evidence, testing, safety, and future improvements.", "Keep slides visual and concise.", "Add screenshots or workflow images.", "Prepare a 3-minute explanation."],
+        prompt:
+          "Create a Gamma presentation outline for my automation project:\n[PROJECT]\n\nInclude slides for:\n1. Title and problem\n2. Target user\n3. Workflow overview\n4. Tools used\n5. AI/agent role\n6. Demo screenshots\n7. Testing results\n8. Safety and human review\n9. Impact\n10. Future improvements",
+        deliverables: ["Gamma deck link or export", "Workflow diagram", "Tool explanation", "Demo screenshots", "Testing results", "Future improvement slide"],
+        checklist: ["Presentation explains the problem clearly.", "Workflow diagram is included.", "Tools and AI role are explained.", "Demo evidence is included.", "Future improvements are thoughtful."],
+      },
+      {
+        type: "class_challenge",
+        title: "Class Challenge 2",
+        description: "Live Automation Demo Rehearsal. Students practice presenting the workflow live and collect feedback.",
+        googleDocLink: "",
+        mission: "Practice a clear live demo of your automation project.",
+        scenario:
+          "A good showcase is not only a deck; it is also a smooth demonstration. In this challenge, you will rehearse your automation demo and improve it based on feedback.",
+        instructions: ["Prepare a 3-minute demo script.", "Show the trigger, workflow, AI step, and final output.", "Explain one challenge and how you solved it.", "Present to a partner or small group.", "Collect feedback on clarity, confidence, and workflow understanding.", "Improve one part of your demo."],
+        prompt:
+          "Act as a demo coach.\n\nReview my automation demo plan:\n[DEMO PLAN]\n\nGive feedback on:\n1. Opening explanation\n2. Workflow clarity\n3. Tool explanation\n4. Demo order\n5. Timing\n6. Risky/confusing parts\n7. One improvement to make first",
+        deliverables: ["Demo script", "Peer feedback", "Improved demo section", "Before-and-after note", "Final rehearsal reflection"],
+        checklist: ["Demo script is clear.", "Feedback is collected.", "One improvement is made.", "Workflow can be explained in 3 minutes."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 1",
+        description: "Final Automation Submission. Students submit their final workflow, links, screenshots, and reflection.",
+        googleDocLink: "",
+        mission: "Submit your complete Module 3 automation project package.",
+        scenario:
+          "This is your final Module 3 submission. You will collect all evidence of your automation project so it is ready for review, grading, or portfolio use.",
+        instructions: ["Submit the workflow link or screenshots.", "Submit the presentation deck.", "Submit a short explanation of the problem and user.", "Submit the trigger, AI step, action, and output.", "Include testing evidence.", "Include safety or human review notes.", "Write a reflection on what you learned."],
+        prompt:
+          "Help me prepare my final automation submission.\n\nProject: [PROJECT]\n\nCreate sections for:\n1. Project summary\n2. User/problem\n3. Workflow steps\n4. Tools used\n5. AI/agent role\n6. Demo evidence\n7. Testing evidence\n8. Safety notes\n9. Learning reflection\n10. Future upgrades",
+        deliverables: ["Workflow link or screenshots", "Presentation link", "Project summary", "Testing evidence", "Safety notes", "Learning reflection", "Future upgrade plan"],
+        checklist: ["All project evidence is included.", "Workflow is understandable.", "Testing and safety notes are present.", "Reflection is specific."],
+      },
+      {
+        type: "home_task",
+        title: "Home Task 2",
+        description: "Automation Version 2 Roadmap. Students plan how to improve the workflow after feedback.",
+        googleDocLink: "",
+        mission: "Create a realistic Version 2 roadmap for your automation project.",
+        scenario:
+          "Real automation systems improve over time. After testing and presenting, you should know what to fix, expand, or simplify. This task helps you plan the next version.",
+        instructions: ["Review your final automation project.", "Collect feedback or self-review notes.", "List 3 problems or limitations.", "List 3 future improvements.", "Prioritize improvements by impact and difficulty.", "Create a 2-week improvement roadmap.", "Explain what success would look like in Version 2."],
+        prompt:
+          "Create a Version 2 roadmap for my automation project:\n[PROJECT]\n\nInclude:\n1. Current limitations\n2. User feedback\n3. Three improvements\n4. Priority ranking\n5. Two-week timeline\n6. Tools or skills needed\n7. Success criteria\n8. Long-term vision",
+        deliverables: ["Current limitations", "Feedback notes", "3 improvements", "Priority ranking", "2-week roadmap", "Success criteria", "Long-term vision"],
+        checklist: ["Limitations are honest.", "Improvements are realistic.", "Timeline is practical.", "Success criteria are clear."],
+      },
+    ],
+  },
+];
+
 function normalizeDocLink(value: string) {
   const match = value.match(/\/document\/d\/([^/]+)/);
   return match?.[1] ?? value;
@@ -506,7 +1053,7 @@ function detailKey(moduleNumber: number, sessionNumber: number, kind: HomeworkKi
   return `${moduleNumber}:${sessionNumber}:${kind}:${normalizeTaskTitle(title)}`;
 }
 
-const allCoursework = [...moduleOneCoursework, ...moduleTwoCoursework];
+const allCoursework = [...moduleOneCoursework, ...moduleTwoCoursework, ...moduleThreeCoursework];
 
 const courseworkByDocId = new Map<string, CourseworkDetail>(
   allCoursework.flatMap((session) =>
