@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   CalendarClock,
   ChartNoAxesCombined,
+  Clock3,
   ClipboardCheck,
   Files,
   FolderOpen,
@@ -41,6 +42,7 @@ const navIcons = {
   students: UsersRound,
   attendance: CalendarCheck,
   homework: BookOpenCheck,
+  slots: Clock3,
 };
 
 export type NavIconName = keyof typeof navIcons;
