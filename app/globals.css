@@ -209,6 +209,18 @@ textarea:focus-visible {
   }
 }
 
+@keyframes resource-sweep {
+  0%,
+  42% {
+    transform: translateX(-120%);
+  }
+
+  74%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

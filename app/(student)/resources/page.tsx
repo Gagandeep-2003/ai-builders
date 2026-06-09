@@ -10,7 +10,7 @@ export default async function ResourcesPage() {
     <AnimatedPage>
       <PageHeader
         title="Resource Library"
-        subtitle="Search templates, links, videos, PDFs, and notes connected to your sessions."
+        subtitle="Open session decks inside the portal, expand them when needed, and keep upcoming module resources organized."
       />
       <ResourceLibrary resources={data.resources} modules={data.modules} />
     </AnimatedPage>
