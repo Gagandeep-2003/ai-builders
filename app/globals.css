@@ -186,6 +186,59 @@ textarea:focus-visible {
   scrollbar-width: thin;
 }
 
+.electric-border {
+  --electric-color: #7df9ff;
+  --electric-radius: 24px;
+  --electric-duration: 3s;
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--electric-radius);
+  padding: 0.38rem;
+}
+
+.electric-border-svg {
+  pointer-events: none;
+  position: absolute;
+  inset: -0.38rem;
+  z-index: 2;
+  height: calc(100% + 0.76rem);
+  width: calc(100% + 0.76rem);
+  overflow: visible;
+}
+
+.electric-border-svg rect {
+  fill: none;
+  stroke: var(--electric-color);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 68 32;
+  animation: electric-border-flow var(--electric-duration) linear infinite;
+  opacity: 0.95;
+}
+
+.electric-border-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--electric-color) 24%, transparent), transparent 56%),
+    linear-gradient(135deg, color-mix(in srgb, var(--electric-color) 14%, transparent), transparent 46%);
+  filter: blur(11px);
+  opacity: 0.72;
+  animation: electric-border-pulse calc(var(--electric-duration) * 1.4) ease-in-out infinite;
+}
+
+.electric-border-content {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: calc(var(--electric-radius) - 6px);
+  background: var(--bg-card);
+}
+
 .journey-poster-stage {
   position: relative;
   min-height: 27rem;
@@ -271,6 +324,27 @@ textarea:focus-visible {
 
   50% {
     box-shadow: 0 0 34px rgba(110, 231, 183, 0.12);
+  }
+}
+
+@keyframes electric-border-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes electric-border-pulse {
+  0%,
+  100% {
+    opacity: 0.52;
+  }
+
+  50% {
+    opacity: 0.92;
   }
 }
 

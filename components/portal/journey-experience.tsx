@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, BadgeCheck, BookOpen, Orbit, Sparkles, Trophy } from "lucide-react";
 import type { CourseModule, CourseSession, StudentProfile } from "@/lib/course-data";
@@ -13,6 +13,16 @@ type JourneyExperienceProps = {
   sessions: CurriculumSession[];
   completedCount: number;
   nextSession?: CourseSession;
+};
+
+type ElectricBorderProps = {
+  children: ReactNode;
+  color?: string;
+  speed?: number;
+  chaos?: number;
+  borderRadius?: number;
+  className?: string;
+  style?: CSSProperties;
 };
 
 const moduleVisuals = [
@@ -72,6 +82,66 @@ function getModuleProgress(sessions: CurriculumSession[], moduleId: string) {
     completed,
     total: moduleSessions.length || 8,
   };
+}
+
+function ElectricBorder({
+  children,
+  color = "#7df9ff",
+  speed = 1,
+  chaos = 0.12,
+  borderRadius = 24,
+  className,
+  style,
+}: ElectricBorderProps) {
+  const filterId = useId().replace(/:/g, "");
+  const duration = `${Math.max(0.75, 3 / Math.max(speed, 0.1))}s`;
+
+  return (
+    <div
+      className={cn("electric-border", className)}
+      style={
+        {
+          "--electric-color": color,
+          "--electric-radius": `${borderRadius}px`,
+          "--electric-duration": duration,
+          ...style,
+        } as CSSProperties
+      }
+    >
+      <svg className="electric-border-svg" aria-hidden="true">
+        <defs>
+          <filter id={filterId}>
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency={chaos}
+              numOctaves="2"
+              seed="7"
+              result="noise"
+            >
+              <animate
+                attributeName="seed"
+                values="7;19;43;11;7"
+                dur={duration}
+                repeatCount="indefinite"
+              />
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" />
+          </filter>
+        </defs>
+        <rect
+          x="6"
+          y="6"
+          width="calc(100% - 12px)"
+          height="calc(100% - 12px)"
+          rx={borderRadius}
+          pathLength="100"
+          filter={`url(#${filterId})`}
+        />
+      </svg>
+      <div className="electric-border-glow" />
+      <div className="electric-border-content">{children}</div>
+    </div>
+  );
 }
 
 export function JourneyExperience({
@@ -135,40 +205,42 @@ export function JourneyExperience({
           </div>
         </div>
 
-        <motion.aside
-          className="relative overflow-hidden rounded-xl border border-border bg-bg-card p-5"
-          whileHover={{ y: -3 }}
-          transition={{ duration: 0.18 }}
-        >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(110,231,183,0.18),transparent_38%),linear-gradient(145deg,rgba(96,165,250,0.08),transparent)]" />
-          <div className="relative">
-            <div className="flex items-center gap-4">
-              <div
-                aria-hidden="true"
-                className="h-20 w-20 rounded-2xl border border-accent/25 bg-cover bg-center shadow-2xl"
-                style={{ backgroundImage: `url("data:image/svg+xml,${avatarSvg}")` }}
-              />
-              <div className="min-w-0">
-                <p className="truncate font-heading text-xl font-black">{student.fullName}</p>
-                <p className="mt-1 truncate text-sm text-text-secondary">{student.email}</p>
-                <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 font-mono text-[0.65rem] uppercase text-accent">
-                  <BadgeCheck className="h-3.5 w-3.5" />
-                  Builder profile
-                </span>
+        <ElectricBorder color="#7df9ff" speed={1.15} chaos={0.08} borderRadius={18}>
+          <motion.aside
+            className="relative overflow-hidden rounded-xl bg-bg-card p-5"
+            whileHover={{ y: -3 }}
+            transition={{ duration: 0.18 }}
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(125,249,255,0.16),transparent_38%),linear-gradient(145deg,rgba(110,231,183,0.1),transparent)]" />
+            <div className="relative">
+              <div className="flex items-center gap-4">
+                <div
+                  aria-hidden="true"
+                  className="h-20 w-20 rounded-2xl border border-cyan-200/25 bg-cover bg-center shadow-2xl"
+                  style={{ backgroundImage: `url("data:image/svg+xml,${avatarSvg}")` }}
+                />
+                <div className="min-w-0">
+                  <p className="truncate font-heading text-xl font-black">{student.fullName}</p>
+                  <p className="mt-1 truncate text-sm text-text-secondary">{student.email}</p>
+                  <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 font-mono text-[0.65rem] uppercase text-cyan-100">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Builder profile
+                  </span>
+                </div>
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <p className="font-mono text-[0.65rem] uppercase text-text-muted">Timezone</p>
+                  <p className="mt-1 text-sm font-bold">{student.timeZone}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <p className="font-mono text-[0.65rem] uppercase text-text-muted">Country</p>
+                  <p className="mt-1 text-sm font-bold">{student.country || "Student"}</p>
+                </div>
               </div>
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                <p className="font-mono text-[0.65rem] uppercase text-text-muted">Timezone</p>
-                <p className="mt-1 text-sm font-bold">{student.timeZone}</p>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                <p className="font-mono text-[0.65rem] uppercase text-text-muted">Country</p>
-                <p className="mt-1 text-sm font-bold">{student.country || "Student"}</p>
-              </div>
-            </div>
-          </div>
-        </motion.aside>
+          </motion.aside>
+        </ElectricBorder>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
