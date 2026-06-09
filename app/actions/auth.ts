@@ -18,15 +18,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   }
 
   if (!isSupabaseConfigured()) {
-    if (email === "admin@bootcamp.com" && password === "admin1234") {
-      redirect("/admin");
-    }
-
-    if (email === "student@demo.com" && password === "student1234") {
-      redirect("/dashboard");
-    }
-
-    return { error: "Use student@demo.com / student1234 or admin@bootcamp.com / admin1234 in demo mode." };
+    return { error: "Authentication is unavailable. Please contact your course administrator." };
   }
 
   const supabase = await createServerSupabaseClient();

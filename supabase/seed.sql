@@ -77,6 +77,8 @@ on conflict (id) do update set
 -- Create these users manually in Authentication first:
 --   student@demo.com / student1234
 --   admin@bootcamp.com / admin1234
+-- Optional production admin:
+--   gagandeepsingh220903@gmail.com
 -- This seed links public app rows to the existing auth.users rows by email.
 do $$
 begin
@@ -87,6 +89,7 @@ begin
   if not exists (select 1 from auth.users where lower(email) = 'admin@bootcamp.com') then
     raise exception 'Missing auth user: admin@bootcamp.com. Create it in Supabase Authentication before running seed.sql.';
   end if;
+
 end $$;
 
 insert into public.profiles (id, email, full_name, role)
@@ -97,6 +100,10 @@ union all
 select id, email, 'Bootcamp Admin', 'admin'::public.app_role
 from auth.users
 where lower(email) = 'admin@bootcamp.com'
+union all
+select id, email, 'Gagandeep Singh', 'admin'::public.app_role
+from auth.users
+where lower(email) = 'gagandeepsingh220903@gmail.com'
 union all
 select id, email, 'John Kurian', 'student'::public.app_role
 from auth.users
