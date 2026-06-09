@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock3, LockKeyhole, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, LockKeyhole } from "lucide-react";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { getAdminData } from "@/lib/data";
@@ -104,23 +104,6 @@ export default async function AdminSlotsPage() {
             </div>
           </article>
         ))}
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-accent/20 bg-[linear-gradient(135deg,rgba(110,231,183,0.14),rgba(56,189,248,0.08),rgba(255,255,255,0.02))] p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-mono text-xs uppercase text-accent">Booking rules</p>
-            <h2 className="mt-2 font-heading text-2xl font-bold">Only clean one-hour IST slots are shown as available</h2>
-          </div>
-          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/30 bg-bg-base/30 px-4 py-2 text-sm text-accent">
-            <Sparkles className="h-4 w-4" />
-            Half-hour aware
-          </span>
-        </div>
-        <p className="mt-4 max-w-3xl text-sm leading-6 text-text-secondary">
-          Exact bookings turn red. Partial clashes turn amber, because a one-hour class cannot safely overlap another one-hour class.
-          The Thursday overnight bucket skips 2:00 AM and keeps 2:30 AM as requested.
-        </p>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-2">

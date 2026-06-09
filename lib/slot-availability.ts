@@ -36,8 +36,7 @@ export type AvailabilitySlot = {
 
 const dayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-// This is the admin's fixed IST bucket. The overnight USA-friendly set intentionally
-// keeps the 2:30 AM option and skips 2:00 AM as requested.
+// This is the admin's fixed IST bucket. Only half-hour-start slots are tracked.
 export const availabilityBucket: AvailabilityDay[] = [
   {
     dayIndex: 0,
@@ -47,7 +46,7 @@ export const availabilityBucket: AvailabilityDay[] = [
   {
     dayIndex: 2,
     label: "Tuesday",
-    slots: ["18:30", "19:00", "19:30", "21:30", "22:00", "22:30"],
+    slots: ["18:30", "19:30", "21:30", "22:30"],
   },
   {
     dayIndex: 3,
@@ -57,12 +56,12 @@ export const availabilityBucket: AvailabilityDay[] = [
   {
     dayIndex: 4,
     label: "Thursday",
-    slots: ["00:30", "01:00", "01:30", "02:30", "07:30", "21:30", "22:00", "22:30"],
+    slots: ["00:30", "01:30", "02:30", "07:30", "21:30", "22:30"],
   },
   {
     dayIndex: 5,
     label: "Friday",
-    slots: ["00:30", "07:30", "17:30", "19:30", "20:00", "20:30", "21:00", "21:30"],
+    slots: ["00:30", "07:30", "17:30", "19:30", "20:30", "21:30"],
   },
   {
     dayIndex: 6,
@@ -178,7 +177,7 @@ export function getBookedSlots(batches: Batch[], students: StudentProfile[]) {
         endMinutes,
         timeLabel: formatRange(startMinutes, endMinutes),
       };
-    });
+    }).filter((slot) => slot.startMinutes % 60 === 30);
   });
 }
 
