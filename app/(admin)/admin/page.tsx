@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Activity,
   CalendarClock,
   ClipboardCheck,
   FilePlus2,
@@ -15,6 +16,73 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getAdminData } from "@/lib/data";
 import { ADMIN_TIME_ZONE, formatInTimeZone, formatSessionTime, getSessionDateTimes } from "@/lib/time";
 import { formatDate } from "@/lib/utils";
+
+function getPresenceState(lastSeenAt: string | undefined, now: Date) {
+  if (!lastSeenAt) {
+    return {
+      label: "No activity yet",
+      tone: "border-border bg-white/[0.025] text-text-muted",
+      dot: "bg-text-muted",
+      rank: 3,
+    };
+  }
+
+  const seenAt = new Date(lastSeenAt);
+  const ageMs = now.getTime() - seenAt.getTime();
+
+  if (!Number.isFinite(ageMs)) {
+    return {
+      label: "No activity yet",
+      tone: "border-border bg-white/[0.025] text-text-muted",
+      dot: "bg-text-muted",
+      rank: 3,
+    };
+  }
+
+  if (ageMs <= 2 * 60_000) {
+    return {
+      label: "Online now",
+      tone: "border-accent/30 bg-accent/10 text-accent",
+      dot: "bg-accent shadow-[0_0_14px_rgba(110,231,183,0.75)]",
+      rank: 0,
+    };
+  }
+
+  if (ageMs <= 15 * 60_000) {
+    return {
+      label: "Active recently",
+      tone: "border-amber-300/30 bg-amber-300/10 text-amber-100",
+      dot: "bg-amber-200",
+      rank: 1,
+    };
+  }
+
+  return {
+    label: "Away",
+    tone: "border-border bg-white/[0.025] text-text-secondary",
+    dot: "bg-text-secondary",
+    rank: 2,
+  };
+}
+
+function formatLastSeen(lastSeenAt: string | undefined, now: Date) {
+  if (!lastSeenAt) return "No portal activity recorded yet";
+
+  const seenAt = new Date(lastSeenAt);
+  const ageMs = now.getTime() - seenAt.getTime();
+  if (!Number.isFinite(ageMs)) return "No portal activity recorded yet";
+
+  const minutes = Math.max(0, Math.round(ageMs / 60_000));
+  if (minutes < 1) return "Seen just now";
+  if (minutes === 1) return "Seen 1 minute ago";
+  if (minutes < 60) return `Seen ${minutes} minutes ago`;
+
+  const hours = Math.round(minutes / 60);
+  if (hours === 1) return "Seen 1 hour ago";
+  if (hours < 24) return `Seen ${hours} hours ago`;
+
+  return `Seen ${formatDate(lastSeenAt)}`;
+}
 
 export default async function AdminDashboardPage() {
   const data = await getAdminData();
@@ -64,6 +132,16 @@ export default async function AdminDashboardPage() {
     })
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   const pendingPasswordRequests = data.passwordRequests.filter((request) => request.status === "pending");
+  const studentActivity = data.students
+    .map((student) => ({
+      student,
+      presence: getPresenceState(student.lastSeenAt, now),
+      lastSeen: formatLastSeen(student.lastSeenAt, now),
+      lastSeenMs: student.lastSeenAt ? new Date(student.lastSeenAt).getTime() : 0,
+    }))
+    .sort((a, b) => a.presence.rank - b.presence.rank || b.lastSeenMs - a.lastSeenMs);
+  const onlineStudents = studentActivity.filter((item) => item.presence.label === "Online now").length;
+  const recentStudents = studentActivity.filter((item) => item.presence.label === "Active recently").length;
 
   return (
     <AnimatedPage>
@@ -78,6 +156,52 @@ export default async function AdminDashboardPage() {
         <StatCard icon="review" label="Homework Assigned Today" value={homeworkToday} />
         <StatCard icon="megaphone" label="Pending Reviews" value={pendingReviews} />
       </div>
+
+      <section className="premium-card rounded-xl p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-mono text-xs uppercase text-accent">Live portal signal</p>
+            <h2 className="mt-2 font-heading text-2xl font-bold">Student activity</h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 font-mono text-xs text-accent">
+              {onlineStudents} online
+            </span>
+            <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 font-mono text-xs text-amber-100">
+              {recentStudents} recent
+            </span>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          {studentActivity.slice(0, 8).map(({ student, presence, lastSeen }) => {
+            const batch = data.batches.find((item) => item.id === student.batchId);
+            return (
+              <article
+                key={`activity-${student.id}`}
+                className={`rounded-xl border p-4 ${presence.tone}`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${presence.dot}`} />
+                      <p className="truncate font-heading font-bold text-text-primary">{student.fullName}</p>
+                    </div>
+                    <p className="mt-2 text-xs text-text-secondary">{student.email}</p>
+                    <p className="mt-1 text-xs text-text-muted">{batch?.name ?? "Unassigned batch"}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-current/20 px-2.5 py-1 font-mono text-[0.65rem] uppercase">
+                      <Activity className="h-3 w-3" />
+                      {presence.label}
+                    </span>
+                    <p className="mt-2 text-xs text-text-muted">{lastSeen}</p>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <section>
         <h2 className="font-heading text-2xl font-bold">Shortcuts</h2>

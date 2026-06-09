@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bell, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { touchPresenceAction } from "@/app/actions/presence";
 
 export type ClassAlert = {
   id: string;
@@ -48,6 +49,34 @@ export function PortalAutoSync({
       window.removeEventListener("focus", refresh);
     };
   }, [refreshMs, router]);
+
+  useEffect(() => {
+    let stopped = false;
+
+    const touchPresence = () => {
+      if (document.visibilityState !== "visible") return;
+      void touchPresenceAction().catch(() => {
+        if (!stopped) {
+          console.warn("Unable to update portal presence");
+        }
+      });
+    };
+
+    touchPresence();
+    const timer = window.setInterval(touchPresence, 60_000);
+    const onVisibility = () => touchPresence();
+    const onFocus = () => touchPresence();
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
 
   useEffect(() => {
     if (!("Notification" in window) || Notification.permission !== "granted") return;

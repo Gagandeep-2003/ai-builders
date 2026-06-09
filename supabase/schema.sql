@@ -14,6 +14,7 @@ create table public.profiles (
   email text not null,
   full_name text not null,
   role public.app_role not null default 'student',
+  last_seen_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -178,6 +179,7 @@ create table public.announcements (
 );
 
 create index profiles_role_idx on public.profiles (role);
+create index profiles_last_seen_at_idx on public.profiles (last_seen_at desc);
 create index students_user_id_idx on public.students (user_id);
 create index students_batch_id_idx on public.students (batch_id);
 create index batch_class_slots_batch_id_idx on public.batch_class_slots (batch_id);

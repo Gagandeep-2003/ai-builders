@@ -47,6 +47,7 @@ export type StudentProfile = {
   userId: string;
   fullName: string;
   email: string;
+  lastSeenAt?: string;
   parentName: string;
   parentEmail: string;
   country: string;
@@ -286,6 +287,7 @@ export const demoStudent: StudentProfile = {
   userId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   fullName: "Aarav Mehta",
   email: "student@demo.com",
+  lastSeenAt: "2026-06-01T09:10:00.000Z",
   parentName: "Priya Mehta",
   parentEmail: "parent@example.com",
   country: "India",

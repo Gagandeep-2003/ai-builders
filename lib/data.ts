@@ -199,6 +199,7 @@ function mapStudent(row: DbRow): StudentProfile {
     userId: text(row, "user_id"),
     fullName: text(row, "full_name"),
     email: profile ? text(profile, "email") : text(row, "email"),
+    lastSeenAt: profile ? text(profile, "last_seen_at") || undefined : undefined,
     parentName: text(row, "parent_name"),
     parentEmail: text(row, "parent_email"),
     country: text(row, "country", "India"),
@@ -415,7 +416,7 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
 
   const { data: ownedStudentRow } = await supabase
     .from("students")
-    .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email), batches(id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order))")
+    .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at), batches(id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order))")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -424,7 +425,7 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
   if (!studentRow) {
     const { data: firstStudentRow } = await supabase
       .from("students")
-      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email), batches(id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order))")
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at), batches(id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order))")
       .limit(1)
       .maybeSingle();
 
@@ -524,7 +525,7 @@ export async function getAdminData(): Promise<AdminData> {
   ] = await Promise.all([
     supabase
       .from("students")
-      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email)")
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
       .order("enrolled_at", { ascending: false }),
     supabase
       .from("batches")
