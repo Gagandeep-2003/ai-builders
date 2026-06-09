@@ -100,6 +100,7 @@ function fallbackAdminData(): AdminData {
 }
 
 type DbRow = Record<string, unknown>;
+const CLIENT_INFO_NOTE_PREFIX = "__client_info__:";
 
 function isDbRow(value: unknown): value is DbRow {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -113,6 +114,28 @@ function text(row: DbRow, key: string, fallback = "") {
 function num(row: DbRow, key: string, fallback = 0) {
   const value = row[key];
   return typeof value === "number" ? value : fallback;
+}
+
+function parseSubmissionClientInfo(notes?: string) {
+  if (!notes?.startsWith(CLIENT_INFO_NOTE_PREFIX)) return {};
+
+  try {
+    const parsed = JSON.parse(notes.slice(CLIENT_INFO_NOTE_PREFIX.length));
+    if (!isDbRow(parsed)) return {};
+
+    return {
+      userAgent: text(parsed, "userAgent") || undefined,
+      browserName: text(parsed, "browserName") || undefined,
+      browserVersion: text(parsed, "browserVersion") || undefined,
+      osName: text(parsed, "osName") || undefined,
+      deviceType: text(parsed, "deviceType") || undefined,
+      viewportWidth: num(parsed, "viewportWidth") || undefined,
+      viewportHeight: num(parsed, "viewportHeight") || undefined,
+      language: text(parsed, "language") || undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 function textList(row: DbRow, key: string) {
@@ -226,6 +249,7 @@ function mapHomework(row: DbRow): HomeworkItem {
   const submissionSummaries = submissions.map((item) => {
     const itemStartedAt = text(item, "started_at");
     const itemSubmittedAt = text(item, "submitted_at");
+    const clientInfo = parseSubmissionClientInfo(text(item, "notes"));
     return {
       studentId: text(item, "student_id"),
       status: text(item, "status", "pending") as SubmissionStatus,
@@ -235,6 +259,7 @@ function mapHomework(row: DbRow): HomeworkItem {
         itemStartedAt && itemSubmittedAt
           ? Math.max(0, Math.round((new Date(itemSubmittedAt).getTime() - new Date(itemStartedAt).getTime()) / 1000))
           : undefined,
+      ...clientInfo,
     };
   });
   const timeSpentSeconds =
@@ -565,7 +590,7 @@ export async function getAdminData(): Promise<AdminData> {
       .order("session_number", { ascending: true }),
     supabase
       .from("homework")
-      .select("id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, started_at, submitted_at)")
+      .select("id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, notes, started_at, submitted_at)")
       .order("created_at", { ascending: false }),
     supabase
       .from("resources")

@@ -23,6 +23,8 @@ type HomeworkSubmitResult = {
   error?: string;
 };
 
+const CLIENT_INFO_NOTE_PREFIX = "__client_info__:";
+
 async function getStudentContext() {
   if (!isSupabaseConfigured()) return null;
 
@@ -42,6 +44,29 @@ async function getStudentContext() {
 
   if (!student) return null;
   return { supabase, studentId: student.id };
+}
+
+function serializeClientInfoNote(clientInfo?: SubmissionClientInfo) {
+  if (!clientInfo) return null;
+
+  return `${CLIENT_INFO_NOTE_PREFIX}${JSON.stringify({
+    userAgent: clientInfo.userAgent || "",
+    browserName: clientInfo.browserName || "",
+    browserVersion: clientInfo.browserVersion || "",
+    osName: clientInfo.osName || "",
+    deviceType: clientInfo.deviceType || "",
+    viewportWidth: clientInfo.viewportWidth || null,
+    viewportHeight: clientInfo.viewportHeight || null,
+    language: clientInfo.language || "",
+  })}`;
+}
+
+function getSubmissionNotesForClientInfo(existingNotes?: string | null, clientInfo?: SubmissionClientInfo) {
+  const clientInfoNote = serializeClientInfoNote(clientInfo);
+  if (!clientInfoNote) return existingNotes ?? null;
+  if (!existingNotes || existingNotes.startsWith(CLIENT_INFO_NOTE_PREFIX)) return clientInfoNote;
+
+  return existingNotes;
 }
 
 async function saveSubmissionEvidence({
@@ -173,7 +198,7 @@ export async function markHomeworkStarted(homeworkId: string) {
   }
   const { data: existing } = await context.supabase
     .from("submissions")
-    .select("id, started_at")
+    .select("id, started_at, notes")
     .eq("homework_id", homeworkId)
     .eq("student_id", context.studentId)
     .maybeSingle();
@@ -296,7 +321,7 @@ export async function markHomeworkSubmittedWithEvidence(
 
   const { data: existing } = await context.supabase
     .from("submissions")
-    .select("id, started_at")
+    .select("id, started_at, notes")
     .eq("homework_id", homeworkId)
     .eq("student_id", context.studentId)
     .maybeSingle();
@@ -308,6 +333,7 @@ export async function markHomeworkSubmittedWithEvidence(
         status: "submitted",
         started_at: existing.started_at ?? now,
         submitted_at: now,
+        notes: getSubmissionNotesForClientInfo(existing.notes, clientInfo),
       })
       .eq("id", existing.id);
 
@@ -327,6 +353,7 @@ export async function markHomeworkSubmittedWithEvidence(
       status: "submitted",
       started_at: now,
       submitted_at: now,
+      notes: getSubmissionNotesForClientInfo(null, clientInfo),
     });
 
     if (error) {

@@ -20,17 +20,17 @@ function isHomeworkAssignedToStudent(homework: HomeworkItem, student: StudentPro
 
 function getDeviceFields(submission: NonNullable<HomeworkItem["submissions"]>[number]) {
   return [
-    ["Browser", [submission.browserName, submission.browserVersion].filter(Boolean).join(" ") || "Not captured"],
-    ["Device", submission.deviceType || "Not captured"],
-    ["OS", submission.osName || "Not captured"],
+    ["Browser", [submission.browserName, submission.browserVersion].filter(Boolean).join(" ")],
+    ["Device", submission.deviceType],
+    ["OS", submission.osName],
     [
       "Viewport",
       submission.viewportWidth && submission.viewportHeight
         ? `${submission.viewportWidth} × ${submission.viewportHeight}`
-        : "Not captured",
+        : "",
     ],
-    ["Language", submission.language || "Not captured"],
-  ];
+    ["Language", submission.language],
+  ].filter((item): item is [string, string] => Boolean(item[1]));
 }
 
 export function AdminHomeworkWorkbook({
@@ -196,6 +196,7 @@ export function AdminHomeworkWorkbook({
                         {items.map((item) => {
                           const submission = getStudentSubmission(item, selectedStudent.id);
                           const status = submission?.status ?? "pending";
+                          const deviceFields = submission ? getDeviceFields(submission) : [];
                           return (
                             <article key={item.id} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
                               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -251,22 +252,24 @@ export function AdminHomeworkWorkbook({
                                             : "No evidence row was found for this submitted task. Ask the student to submit again after the evidence migration is applied."}
                                         </div>
                                       )}
-                                      <div className="mt-3 grid gap-2 rounded-lg border border-border/70 bg-bg-base/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
-                                        {getDeviceFields(submission).map(([label, value]) => (
-                                          <div key={label}>
-                                            <p className="font-mono text-[10px] uppercase text-text-muted">{label}</p>
-                                            <p className="mt-1 truncate text-xs font-semibold text-text-primary">{value}</p>
-                                          </div>
-                                        ))}
-                                        {submission.userAgent ? (
-                                          <div className="sm:col-span-2 lg:col-span-3">
-                                            <p className="font-mono text-[10px] uppercase text-text-muted">User agent</p>
-                                            <p className="mt-1 line-clamp-2 break-all text-[11px] leading-5 text-text-secondary">
-                                              {submission.userAgent}
-                                            </p>
-                                          </div>
-                                        ) : null}
-                                      </div>
+                                      {deviceFields.length || submission.userAgent ? (
+                                        <div className="mt-3 grid gap-2 rounded-lg border border-border/70 bg-bg-base/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                                          {deviceFields.map(([label, value]) => (
+                                            <div key={label}>
+                                              <p className="font-mono text-[10px] uppercase text-text-muted">{label}</p>
+                                              <p className="mt-1 truncate text-xs font-semibold text-text-primary">{value}</p>
+                                            </div>
+                                          ))}
+                                          {submission.userAgent ? (
+                                            <div className="sm:col-span-2 lg:col-span-3">
+                                              <p className="font-mono text-[10px] uppercase text-text-muted">User agent</p>
+                                              <p className="mt-1 line-clamp-2 break-all text-[11px] leading-5 text-text-secondary">
+                                                {submission.userAgent}
+                                              </p>
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      ) : null}
                                     </div>
                                   ) : null}
                                 </div>
