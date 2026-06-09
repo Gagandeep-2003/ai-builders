@@ -126,11 +126,33 @@ async function saveSubmissionEvidence({
     };
   }
 
+  const legacyPayload = {
+    homework_id: homeworkId,
+    student_id: studentId,
+    screen_image: screenImage || null,
+    camera_image: cameraImage || null,
+    captured_at: now,
+  };
+
+  const legacyFallback = await supabase.from("submission_evidence").upsert(
+    legacyPayload,
+    { onConflict: "homework_id,student_id" },
+  );
+
+  if (!legacyFallback.error) {
+    return {
+      saved: true,
+      imagesSaved: hasImages,
+      metadataSaved: false,
+      error: fallback.error.message || error.message,
+    };
+  }
+
   return {
     saved: false,
     imagesSaved: false,
     metadataSaved: false,
-    error: fallback.error.message || error.message,
+    error: legacyFallback.error.message || fallback.error.message || error.message,
   };
 }
 
@@ -141,11 +163,14 @@ export async function markHomeworkStarted(homeworkId: string) {
   if (!context) return;
 
   const now = new Date().toISOString();
-  await context.supabase
+  const expiredCleanup = await context.supabase
     .from("submission_evidence")
     .delete()
     .eq("student_id", context.studentId)
     .lt("expires_at", now);
+  if (expiredCleanup.error?.message.includes("expires_at")) {
+    await context.supabase.from("submission_evidence").delete().eq("student_id", context.studentId).is("screen_image", null).is("camera_image", null);
+  }
   const { data: existing } = await context.supabase
     .from("submissions")
     .select("id, started_at")

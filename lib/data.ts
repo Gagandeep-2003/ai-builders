@@ -288,12 +288,18 @@ async function getSubmissionEvidenceRows(supabase: Awaited<ReturnType<typeof cre
 
   if (!withClientInfo.error) return withClientInfo.data ?? [];
 
-  const fallback = await supabase
+  const withExpiry = await supabase
     .from("submission_evidence")
     .select("homework_id, student_id, screen_image, camera_image, captured_at, expires_at")
     .gt("expires_at", expiresAt);
 
-  return fallback.data ?? [];
+  if (!withExpiry.error) return withExpiry.data ?? [];
+
+  const legacy = await supabase
+    .from("submission_evidence")
+    .select("homework_id, student_id, screen_image, camera_image, captured_at");
+
+  return legacy.data ?? [];
 }
 
 function mapResource(row: DbRow): ResourceItem {
