@@ -5,6 +5,22 @@ export type ResourceType = "pdf" | "link" | "video" | "note";
 export type PasswordRequestStatus = "pending" | "approved" | "rejected" | "used";
 export type HomeworkKind = "class_challenge" | "home_task";
 
+export type HomeworkDetails = {
+  moduleNumber: number;
+  moduleTitle: string;
+  sessionNumber: number;
+  sessionTitle: string;
+  whatStudentsLearn: string;
+  tools: string[];
+  aiType: string;
+  mission?: string;
+  scenario?: string;
+  instructions?: string[];
+  prompt?: string;
+  deliverables?: string[];
+  checklist?: string[];
+};
+
 export type CourseModule = {
   id: string;
   title: string;
@@ -72,6 +88,7 @@ export type HomeworkItem = {
   assignedStudentId?: string;
   title: string;
   description: string;
+  details?: HomeworkDetails;
   kind: HomeworkKind;
   contentUrl: string;
   dueDate: string;

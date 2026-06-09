@@ -27,6 +27,21 @@ export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
         <StatusBadge status={homework.status} />
       </div>
       <p className="mt-4 text-sm leading-6 text-text-secondary">{homework.description}</p>
+      {homework.details ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-border bg-bg-elevated px-3 py-1 font-mono text-[11px] uppercase text-text-secondary">
+            Module {homework.details.moduleNumber} · Session {homework.details.sessionNumber}
+          </span>
+          {homework.details.tools.slice(0, 3).map((tool) => (
+            <span
+              key={tool}
+              className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 font-mono text-[11px] uppercase text-accent"
+            >
+              {tool}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <p className="mt-3 font-mono text-xs uppercase text-text-muted">{progressLabel}</p>
       {homework.timeSpentSeconds ? (
         <p className="mt-3 font-mono text-xs text-text-muted">

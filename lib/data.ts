@@ -28,6 +28,7 @@ import {
   type SubmissionStatus,
   type StudentProfile,
 } from "@/lib/course-data";
+import { getCourseworkDetailByUrl } from "@/lib/coursework-details";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { applySessionStatuses } from "@/lib/time";
@@ -239,14 +240,16 @@ function mapHomework(row: DbRow): HomeworkItem {
     startedAt && submittedAt
       ? Math.max(0, Math.round((new Date(submittedAt).getTime() - new Date(startedAt).getTime()) / 1000))
       : undefined;
+  const courseworkDetail = getCourseworkDetailByUrl(text(row, "content_url"));
 
   return {
     id: text(row, "id"),
     sessionId: text(row, "session_id"),
     batchId: text(row, "batch_id"),
     assignedStudentId: text(row, "assigned_student_id") || undefined,
-    title: text(row, "title"),
-    description: text(row, "description"),
+    title: courseworkDetail?.title ?? text(row, "title"),
+    description: courseworkDetail?.description ?? text(row, "description"),
+    details: courseworkDetail,
     kind: text(row, "kind", "home_task") as HomeworkKind,
     contentUrl: text(row, "content_url"),
     dueDate: text(row, "due_date"),
