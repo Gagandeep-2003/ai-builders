@@ -206,6 +206,7 @@ export function HomeworkDocumentViewer({
   const [screenImage, setScreenImage] = useState("");
   const [cameraImage, setCameraImage] = useState("");
   const [captureError, setCaptureError] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
   const hasStarted = Boolean(startedAt) && !needsRestart;
@@ -242,11 +243,14 @@ export function HomeworkDocumentViewer({
   }
 
   function requestCompletion() {
+    setCaptureError("");
+    setSaveNotice("");
     setProofOpen(true);
   }
 
   async function captureScreen() {
     setCaptureError("");
+    setSaveNotice("");
     try {
       if (!navigator.mediaDevices?.getDisplayMedia) {
         throw new Error("Screen capture is not available in this browser.");
@@ -260,6 +264,7 @@ export function HomeworkDocumentViewer({
 
   async function captureCamera() {
     setCaptureError("");
+    setSaveNotice("");
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("Camera capture is not available in this browser.");
@@ -275,13 +280,31 @@ export function HomeworkDocumentViewer({
   }
 
   function completeTask() {
-    setIsCompleted(true);
-    setCompletedSeconds(elapsedSeconds);
-    setCelebration("completed");
-    setProofOpen(false);
+    setCaptureError("");
+    setSaveNotice("");
     const clientInfo = getClientInfo();
     startTransition(async () => {
-      await markHomeworkSubmittedWithEvidence(homeworkId, screenImage, cameraImage, clientInfo);
+      const result = await markHomeworkSubmittedWithEvidence(homeworkId, screenImage, cameraImage, clientInfo);
+      if (!result.submitted) {
+        setProofOpen(true);
+        setCaptureError(result.error ?? "Submission proof could not be saved. Please try again.");
+        return;
+      }
+
+      setIsCompleted(true);
+      setCompletedSeconds(elapsedSeconds);
+      setCelebration("completed");
+      setProofOpen(false);
+
+      if (result.evidenceSaved && result.evidenceImagesSaved) {
+        setSaveNotice(
+          result.evidenceMetadataSaved
+            ? "Submission proof and device details were saved for admin review."
+            : "Submission proof was saved. Device details need the metadata migration to appear.",
+        );
+      } else if (!screenImage && !cameraImage) {
+        setSaveNotice("Activity submitted without proof images. Admin will see that capture was skipped.");
+      }
     });
   }
 
@@ -357,6 +380,11 @@ export function HomeworkDocumentViewer({
                   {captureError}
                 </div>
               ) : null}
+              {saveNotice ? (
+                <div className="mt-5 rounded-xl border border-accent/25 bg-accent/10 p-3 text-sm text-accent">
+                  {saveNotice}
+                </div>
+              ) : null}
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <div className="rounded-xl border border-border bg-white/[0.025] p-4">
@@ -418,7 +446,7 @@ export function HomeworkDocumentViewer({
                   className="button-motion inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 font-bold text-bg-base disabled:opacity-60"
                 >
                   <CheckCircle2 className="h-4 w-4" />
-                  Submit Activity
+                  {isPending ? "Saving proof..." : "Submit Activity"}
                 </button>
               </div>
             </motion.div>
@@ -441,8 +469,13 @@ export function HomeworkDocumentViewer({
               Mark Complete
             </button>
           ) : (
-            <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 font-mono text-sm text-emerald-200">
-              Completed
+            <div className="space-y-2">
+              <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 font-mono text-sm text-emerald-200">
+                Completed
+              </div>
+              {saveNotice ? (
+                <p className="max-w-md text-xs leading-5 text-text-secondary">{saveNotice}</p>
+              ) : null}
             </div>
           )}
         </div>

@@ -4,6 +4,25 @@ import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
+type SubmissionClientInfo = {
+  userAgent?: string;
+  browserName?: string;
+  browserVersion?: string;
+  osName?: string;
+  deviceType?: string;
+  viewportWidth?: number;
+  viewportHeight?: number;
+  language?: string;
+};
+
+type HomeworkSubmitResult = {
+  submitted: boolean;
+  evidenceSaved: boolean;
+  evidenceImagesSaved: boolean;
+  evidenceMetadataSaved: boolean;
+  error?: string;
+};
+
 async function getStudentContext() {
   if (!isSupabaseConfigured()) return null;
 
@@ -23,6 +42,96 @@ async function getStudentContext() {
 
   if (!student) return null;
   return { supabase, studentId: student.id };
+}
+
+async function saveSubmissionEvidence({
+  supabase,
+  homeworkId,
+  studentId,
+  screenImage,
+  cameraImage,
+  clientInfo,
+  now,
+}: {
+  supabase: NonNullable<Awaited<ReturnType<typeof createServerSupabaseClient>>>;
+  homeworkId: string;
+  studentId: string;
+  screenImage?: string;
+  cameraImage?: string;
+  clientInfo?: SubmissionClientInfo;
+  now: string;
+}) {
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString();
+  const hasImages = Boolean(screenImage || cameraImage);
+  const hasMetadata = Boolean(clientInfo);
+
+  if (!hasImages && !hasMetadata) {
+    return {
+      saved: false,
+      imagesSaved: false,
+      metadataSaved: false,
+    };
+  }
+
+  const fullPayload = {
+    homework_id: homeworkId,
+    student_id: studentId,
+    screen_image: screenImage || null,
+    camera_image: cameraImage || null,
+    captured_at: now,
+    expires_at: expiresAt,
+    user_agent: clientInfo?.userAgent || null,
+    browser_name: clientInfo?.browserName || null,
+    browser_version: clientInfo?.browserVersion || null,
+    os_name: clientInfo?.osName || null,
+    device_type: clientInfo?.deviceType || null,
+    viewport_width: clientInfo?.viewportWidth || null,
+    viewport_height: clientInfo?.viewportHeight || null,
+    language: clientInfo?.language || null,
+  };
+
+  const { error } = await supabase.from("submission_evidence").upsert(
+    fullPayload,
+    { onConflict: "homework_id,student_id" },
+  );
+
+  if (!error) {
+    return {
+      saved: true,
+      imagesSaved: hasImages,
+      metadataSaved: hasMetadata,
+    };
+  }
+
+  const imageOnlyPayload = {
+    homework_id: homeworkId,
+    student_id: studentId,
+    screen_image: screenImage || null,
+    camera_image: cameraImage || null,
+    captured_at: now,
+    expires_at: expiresAt,
+  };
+
+  const fallback = await supabase.from("submission_evidence").upsert(
+    imageOnlyPayload,
+    { onConflict: "homework_id,student_id" },
+  );
+
+  if (!fallback.error) {
+    return {
+      saved: true,
+      imagesSaved: hasImages,
+      metadataSaved: false,
+      error: error.message,
+    };
+  }
+
+  return {
+    saved: false,
+    imagesSaved: false,
+    metadataSaved: false,
+    error: fallback.error.message || error.message,
+  };
 }
 
 export async function markHomeworkStarted(homeworkId: string) {
@@ -114,26 +223,52 @@ export async function markHomeworkSubmittedWithEvidence(
   homeworkId: string,
   screenImage?: string,
   cameraImage?: string,
-  clientInfo?: {
-    userAgent?: string;
-    browserName?: string;
-    browserVersion?: string;
-    osName?: string;
-    deviceType?: string;
-    viewportWidth?: number;
-    viewportHeight?: number;
-    language?: string;
-  },
-) {
+  clientInfo?: SubmissionClientInfo,
+): Promise<HomeworkSubmitResult> {
   if (!homeworkId || !isSupabaseConfigured()) {
     revalidatePath("/homework");
-    return;
+    return {
+      submitted: false,
+      evidenceSaved: false,
+      evidenceImagesSaved: false,
+      evidenceMetadataSaved: false,
+      error: "Homework could not be submitted because Supabase is not configured.",
+    };
   }
 
   const context = await getStudentContext();
-  if (!context) return;
+  if (!context) {
+    return {
+      submitted: false,
+      evidenceSaved: false,
+      evidenceImagesSaved: false,
+      evidenceMetadataSaved: false,
+      error: "Could not identify the current student.",
+    };
+  }
 
   const now = new Date().toISOString();
+  const hasCapturedProof = Boolean(screenImage || cameraImage);
+  const evidence = await saveSubmissionEvidence({
+    supabase: context.supabase,
+    homeworkId,
+    studentId: context.studentId,
+    screenImage,
+    cameraImage,
+    clientInfo,
+    now,
+  });
+
+  if (hasCapturedProof && !evidence.saved) {
+    return {
+      submitted: false,
+      evidenceSaved: false,
+      evidenceImagesSaved: false,
+      evidenceMetadataSaved: false,
+      error: `Proof was captured but could not be saved. ${evidence.error ?? "Please run the submission evidence migration and try again."}`,
+    };
+  }
+
   const { data: existing } = await context.supabase
     .from("submissions")
     .select("id, started_at")
@@ -142,7 +277,7 @@ export async function markHomeworkSubmittedWithEvidence(
     .maybeSingle();
 
   if (existing) {
-    await context.supabase
+    const { error } = await context.supabase
       .from("submissions")
       .update({
         status: "submitted",
@@ -150,85 +285,33 @@ export async function markHomeworkSubmittedWithEvidence(
         submitted_at: now,
       })
       .eq("id", existing.id);
+
+    if (error) {
+      return {
+        submitted: false,
+        evidenceSaved: evidence.saved,
+        evidenceImagesSaved: evidence.imagesSaved,
+        evidenceMetadataSaved: evidence.metadataSaved,
+        error: error.message,
+      };
+    }
   } else {
-    await context.supabase.from("submissions").insert({
+    const { error } = await context.supabase.from("submissions").insert({
       homework_id: homeworkId,
       student_id: context.studentId,
       status: "submitted",
       started_at: now,
       submitted_at: now,
     });
-  }
-
-  if (screenImage || cameraImage) {
-    const evidencePayload = {
-      homework_id: homeworkId,
-      student_id: context.studentId,
-      screen_image: screenImage || null,
-      camera_image: cameraImage || null,
-      captured_at: now,
-      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
-      user_agent: clientInfo?.userAgent || null,
-      browser_name: clientInfo?.browserName || null,
-      browser_version: clientInfo?.browserVersion || null,
-      os_name: clientInfo?.osName || null,
-      device_type: clientInfo?.deviceType || null,
-      viewport_width: clientInfo?.viewportWidth || null,
-      viewport_height: clientInfo?.viewportHeight || null,
-      language: clientInfo?.language || null,
-    };
-
-    const { error } = await context.supabase.from("submission_evidence").upsert(
-      evidencePayload,
-      { onConflict: "homework_id,student_id" },
-    );
 
     if (error) {
-      await context.supabase.from("submission_evidence").upsert(
-        {
-          homework_id: homeworkId,
-          student_id: context.studentId,
-          screen_image: screenImage || null,
-          camera_image: cameraImage || null,
-          captured_at: now,
-          expires_at: evidencePayload.expires_at,
-        },
-        { onConflict: "homework_id,student_id" },
-      );
-    }
-  } else if (clientInfo) {
-    const evidencePayload = {
-      homework_id: homeworkId,
-      student_id: context.studentId,
-      screen_image: null,
-      camera_image: null,
-      captured_at: now,
-      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
-      user_agent: clientInfo.userAgent || null,
-      browser_name: clientInfo.browserName || null,
-      browser_version: clientInfo.browserVersion || null,
-      os_name: clientInfo.osName || null,
-      device_type: clientInfo.deviceType || null,
-      viewport_width: clientInfo.viewportWidth || null,
-      viewport_height: clientInfo.viewportHeight || null,
-      language: clientInfo.language || null,
-    };
-    const { error } = await context.supabase.from("submission_evidence").upsert(
-      evidencePayload,
-      { onConflict: "homework_id,student_id" },
-    );
-    if (error) {
-      await context.supabase.from("submission_evidence").upsert(
-        {
-          homework_id: homeworkId,
-          student_id: context.studentId,
-          screen_image: null,
-          camera_image: null,
-          captured_at: now,
-          expires_at: evidencePayload.expires_at,
-        },
-        { onConflict: "homework_id,student_id" },
-      );
+      return {
+        submitted: false,
+        evidenceSaved: evidence.saved,
+        evidenceImagesSaved: evidence.imagesSaved,
+        evidenceMetadataSaved: evidence.metadataSaved,
+        error: error.message,
+      };
     }
   }
 
@@ -238,6 +321,14 @@ export async function markHomeworkSubmittedWithEvidence(
   revalidatePath("/progress");
   revalidatePath("/admin/homework");
   revalidatePath("/admin");
+
+  return {
+    submitted: true,
+    evidenceSaved: evidence.saved,
+    evidenceImagesSaved: evidence.imagesSaved,
+    evidenceMetadataSaved: evidence.metadataSaved,
+    error: evidence.error,
+  };
 }
 
 export async function resetHomeworkProgress(homeworkId: string) {

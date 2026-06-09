@@ -217,7 +217,7 @@ export function AdminHomeworkWorkbook({
                                           <p className="font-mono text-xs uppercase text-accent">Submission proof</p>
                                         </div>
                                         <p className="font-mono text-[11px] text-text-muted">
-                                          {submission.proofCapturedAt ? `Captured ${formatDate(submission.proofCapturedAt)}` : "Captured"}
+                                          {submission.proofCapturedAt ? `Captured ${formatDate(submission.proofCapturedAt)}` : "No evidence row saved"}
                                           {submission.proofExpiresAt ? ` · Deletes ${formatDate(submission.proofExpiresAt)}` : ""}
                                         </p>
                                       </div>
@@ -246,7 +246,9 @@ export function AdminHomeworkWorkbook({
                                         </div>
                                       ) : (
                                         <div className="mt-3 rounded-lg border border-border/70 bg-bg-card/60 p-3 text-sm text-text-secondary">
-                                          No proof image was attached. The student may have submitted after capture was blocked or skipped.
+                                          {submission.proofCapturedAt
+                                            ? "No proof image was attached. The student may have submitted after capture was blocked or skipped."
+                                            : "No evidence row was found for this submitted task. Ask the student to submit again after the evidence migration is applied."}
                                         </div>
                                       )}
                                       <div className="mt-3 grid gap-2 rounded-lg border border-border/70 bg-bg-base/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
