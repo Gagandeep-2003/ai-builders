@@ -25,7 +25,7 @@ type ModuleDeck = {
 type SessionDeck = {
   sessionNumber: number;
   title: string;
-  url: string;
+  embedUrl: string;
 };
 
 const moduleDecks: ModuleDeck[] = [
@@ -34,14 +34,14 @@ const moduleDecks: ModuleDeck[] = [
     title: "Agentic AI Essentials: Prompts to Projects",
     status: "live",
     sessions: [
-      { sessionNumber: 1, title: "Welcome to the AI Era", url: "https://canva.link/nagwp3u7n53wt6x" },
-      { sessionNumber: 2, title: "AI for School: Study Smarter", url: "https://canva.link/wj8dnj8m98o1huk" },
-      { sessionNumber: 3, title: "AI for Creative Writing", url: "https://canva.link/3au4lqpez4sirno" },
-      { sessionNumber: 4, title: "AI Image & Video Creation", url: "https://canva.link/01ydqebrzl3h536" },
-      { sessionNumber: 5, title: "AI Audio Generation", url: "https://canva.link/2ft6f8jrv60mvyi" },
-      { sessionNumber: 6, title: "AI for Task Organisation", url: "https://canva.link/z59ulxxuf3dwviy" },
-      { sessionNumber: 7, title: "AI without Internet", url: "https://canva.link/f5vp9yd7eb5fisp" },
-      { sessionNumber: 8, title: "AI Presentations & Showcase", url: "https://canva.link/cx7o4p9a52f5u80" },
+      { sessionNumber: 1, title: "Welcome to the AI Era", embedUrl: "https://www.canva.com/design/DAHKOZzhemU/view?embed" },
+      { sessionNumber: 2, title: "AI for School: Study Smarter", embedUrl: "https://www.canva.com/design/DAHME3sC8F0/view?embed" },
+      { sessionNumber: 3, title: "AI for Creative Writing", embedUrl: "https://www.canva.com/design/DAHME5kXegM/view?embed" },
+      { sessionNumber: 4, title: "AI Image & Video Creation", embedUrl: "https://www.canva.com/design/DAHME1HUZp8/view?embed" },
+      { sessionNumber: 5, title: "AI Audio Generation", embedUrl: "https://www.canva.com/design/DAHME8Kj_dw/view?embed" },
+      { sessionNumber: 6, title: "AI for Task Organisation", embedUrl: "https://www.canva.com/design/DAHME6_r4ts/view?embed" },
+      { sessionNumber: 7, title: "AI without Internet", embedUrl: "https://www.canva.com/design/DAHMEyqi7oo/view?embed" },
+      { sessionNumber: 8, title: "AI Presentations & Showcase", embedUrl: "https://www.canva.com/design/DAHME0t1q0E/view?embed" },
     ],
   },
   {
@@ -60,10 +60,6 @@ const moduleDecks: ModuleDeck[] = [
 
 function moduleTitleFromData(moduleNumber: number, modules: CourseModule[]) {
   return modules.find((item) => item.orderIndex === moduleNumber)?.title;
-}
-
-function canvaEmbedUrl(url: string) {
-  return url.includes("?") ? `${url}&embed` : `${url}?embed`;
 }
 
 function ComingSoonPanel({ moduleNumber, title }: { moduleNumber: number; title: string }) {
@@ -112,12 +108,12 @@ function CanvaFrame({
     >
       <iframe
         title={`Module 1 Session ${session.sessionNumber}: ${session.title}`}
-        src={canvaEmbedUrl(session.url)}
+        src={session.embedUrl}
         className="h-full w-full border-0"
         loading="lazy"
         referrerPolicy="strict-origin-when-cross-origin"
-        sandbox="allow-same-origin allow-scripts allow-presentation"
-        allow="fullscreen"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+        allow="fullscreen; clipboard-read; clipboard-write"
         allowFullScreen
       />
     </div>
