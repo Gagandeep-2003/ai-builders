@@ -5,7 +5,7 @@ with john as (
   select s.id as student_id, s.batch_id
   from public.students s
   join public.profiles p on p.id = s.user_id
-  where lower(p.email) = 'john.kurian@student.placeholder.com'
+  where lower(p.email) = 'john.kurian@student.com'
   limit 1
 ),
 session_one as (
@@ -27,7 +27,7 @@ with john as (
   select s.id as student_id
   from public.students s
   join public.profiles p on p.id = s.user_id
-  where lower(p.email) = 'john.kurian@student.placeholder.com'
+  where lower(p.email) = 'john.kurian@student.com'
   limit 1
 ),
 session_one as (

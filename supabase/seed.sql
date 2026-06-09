@@ -107,15 +107,15 @@ where lower(email) = 'gagandeepsingh220903@gmail.com'
 union all
 select id, email, 'John Kurian', 'student'::public.app_role
 from auth.users
-where lower(email) = 'john.kurian@student.placeholder.com'
+where lower(email) = 'john.kurian@student.com'
 union all
 select id, email, 'Ayan Khadka', 'student'::public.app_role
 from auth.users
-where lower(email) = 'ayan.khadka@student.placeholder.com'
+where lower(email) = 'ayan.khadka@student.com'
 union all
 select id, email, 'Venu', 'student'::public.app_role
 from auth.users
-where lower(email) = 'venu@student.placeholder.com'
+where lower(email) = 'venu@student.com'
 on conflict (id) do update set
   email = excluded.email,
   full_name = excluded.full_name,
@@ -155,7 +155,7 @@ select
   '20000000-0000-4000-8000-000000000010'::uuid,
   '2026-06-08T00:00:00Z'::timestamptz
 from auth.users
-where lower(email) = 'john.kurian@student.placeholder.com'
+where lower(email) = 'john.kurian@student.com'
 union all
 select
   '11111111-1111-4111-8111-111111111121'::uuid,
@@ -168,7 +168,7 @@ select
   '20000000-0000-4000-8000-000000000011'::uuid,
   '2026-06-08T00:00:00Z'::timestamptz
 from auth.users
-where lower(email) = 'ayan.khadka@student.placeholder.com'
+where lower(email) = 'ayan.khadka@student.com'
 union all
 select
   '11111111-1111-4111-8111-111111111122'::uuid,
@@ -181,7 +181,7 @@ select
   '20000000-0000-4000-8000-000000000012'::uuid,
   '2026-06-08T00:00:00Z'::timestamptz
 from auth.users
-where lower(email) = 'venu@student.placeholder.com'
+where lower(email) = 'venu@student.com'
 on conflict (id) do update set
   user_id = excluded.user_id,
   full_name = excluded.full_name,

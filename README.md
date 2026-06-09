@@ -62,9 +62,9 @@ Then it creates the matching `public.profiles` and demo `public.students` rows.
 For the current fresh batches, first create these Auth users manually in Supabase Authentication:
 
 ```txt
-john.kurian@student.placeholder.com / john@123
-ayan.khadka@student.placeholder.com / ayan@123
-venu@student.placeholder.com / venu@123
+john.kurian@student.com / john@123
+ayan.khadka@student.com / ayan@123
+venu@student.com / venu@123
 ```
 
 Then run these SQL files in order:

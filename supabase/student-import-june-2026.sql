@@ -1,8 +1,8 @@
 -- Hosted Supabase import for the June 2026 fresh international batches.
 -- Create these Auth users first in Supabase Authentication:
---   john.kurian@student.placeholder.com / john@123
---   ayan.khadka@student.placeholder.com / ayan@123
---   venu@student.placeholder.com / venu@123
+--   john.kurian@student.com / john@123
+--   ayan.khadka@student.com / ayan@123
+--   venu@student.com / venu@123
 -- This file does not insert into auth.users.
 
 insert into public.batches (id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id) values
@@ -38,15 +38,15 @@ on conflict (id) do update set
 insert into public.profiles (id, email, full_name, role)
 select id, email, 'John Kurian', 'student'::public.app_role
 from auth.users
-where lower(email) = 'john.kurian@student.placeholder.com'
+where lower(email) = 'john.kurian@student.com'
 union all
 select id, email, 'Ayan Khadka', 'student'::public.app_role
 from auth.users
-where lower(email) = 'ayan.khadka@student.placeholder.com'
+where lower(email) = 'ayan.khadka@student.com'
 union all
 select id, email, 'Venu', 'student'::public.app_role
 from auth.users
-where lower(email) = 'venu@student.placeholder.com'
+where lower(email) = 'venu@student.com'
 on conflict (id) do update set
   email = excluded.email,
   full_name = excluded.full_name,
@@ -64,7 +64,7 @@ select
   '20000000-0000-4000-8000-000000000010'::uuid,
   '2026-06-08T00:00:00Z'::timestamptz
 from auth.users
-where lower(email) = 'john.kurian@student.placeholder.com'
+where lower(email) = 'john.kurian@student.com'
 union all
 select
   '11111111-1111-4111-8111-111111111121'::uuid,
@@ -77,7 +77,7 @@ select
   '20000000-0000-4000-8000-000000000011'::uuid,
   '2026-06-08T00:00:00Z'::timestamptz
 from auth.users
-where lower(email) = 'ayan.khadka@student.placeholder.com'
+where lower(email) = 'ayan.khadka@student.com'
 union all
 select
   '11111111-1111-4111-8111-111111111122'::uuid,
@@ -90,7 +90,7 @@ select
   '20000000-0000-4000-8000-000000000012'::uuid,
   '2026-06-08T00:00:00Z'::timestamptz
 from auth.users
-where lower(email) = 'venu@student.placeholder.com'
+where lower(email) = 'venu@student.com'
 on conflict (id) do update set
   user_id = excluded.user_id,
   full_name = excluded.full_name,
@@ -103,9 +103,9 @@ on conflict (id) do update set
 select email as missing_auth_user
 from (
   values
-    ('john.kurian@student.placeholder.com'),
-    ('ayan.khadka@student.placeholder.com'),
-    ('venu@student.placeholder.com')
+    ('john.kurian@student.com'),
+    ('ayan.khadka@student.com'),
+    ('venu@student.com')
 ) expected(email)
 where not exists (
   select 1
