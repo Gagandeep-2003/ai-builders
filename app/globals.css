@@ -239,6 +239,171 @@ textarea:focus-visible {
   background: var(--bg-card);
 }
 
+.journey-profile-shell {
+  --profile-x: 50%;
+  --profile-y: 38%;
+  --profile-rotate-x: 0deg;
+  --profile-rotate-y: 0deg;
+  position: relative;
+  min-height: 28rem;
+  perspective: 900px;
+  touch-action: pan-y;
+}
+
+.journey-profile-shell::before {
+  pointer-events: none;
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  content: "";
+  background: radial-gradient(
+    circle at var(--profile-x) var(--profile-y),
+    rgba(125, 249, 255, 0.28),
+    transparent 38%
+  );
+  filter: blur(32px);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.journey-profile-shell:hover::before {
+  opacity: 1;
+}
+
+.journey-profile-card {
+  position: relative;
+  display: flex;
+  min-height: 28rem;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  border-radius: 1.15rem;
+  background:
+    radial-gradient(circle at var(--profile-x) var(--profile-y), rgba(255, 255, 255, 0.18), transparent 18%),
+    linear-gradient(145deg, rgba(96, 73, 110, 0.55), rgba(113, 196, 255, 0.22)),
+    #0d111a;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.36);
+  transform: rotateX(var(--profile-rotate-x)) rotateY(var(--profile-rotate-y));
+  transform-style: preserve-3d;
+  transition:
+    transform 160ms ease,
+    box-shadow 180ms ease;
+}
+
+.journey-profile-shell:hover .journey-profile-card {
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.44),
+    0 0 42px rgba(125, 249, 255, 0.1);
+}
+
+.journey-profile-shine {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: 0.34;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 115, 115, 0.42) 0 6%,
+      rgba(255, 234, 113, 0.36) 6% 12%,
+      rgba(110, 231, 183, 0.36) 12% 18%,
+      rgba(125, 249, 255, 0.42) 18% 24%,
+      rgba(147, 197, 253, 0.36) 24% 30%,
+      rgba(216, 180, 254, 0.36) 30% 36%
+    ),
+    radial-gradient(circle at var(--profile-x) var(--profile-y), rgba(255, 255, 255, 0.32), transparent 26%);
+  background-size: 260% 260%;
+  mix-blend-mode: color-dodge;
+  transform: translateZ(32px);
+  transition: opacity 180ms ease;
+}
+
+.journey-profile-shell:hover .journey-profile-shine {
+  opacity: 0.52;
+}
+
+.journey-profile-pattern {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+  background-position: var(--profile-x) var(--profile-y);
+  background-size: 24px 24px;
+}
+
+.journey-profile-heading {
+  position: relative;
+  z-index: 5;
+  padding: 1.4rem 1.4rem 0;
+  transform: translateZ(42px);
+}
+
+.journey-profile-heading h2 {
+  margin-top: 0.65rem;
+  max-width: 16rem;
+  font-family: var(--font-plus-jakarta), system-ui, sans-serif;
+  font-size: clamp(1.85rem, 4vw, 2.65rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.journey-profile-heading p:last-child {
+  margin-top: 0.45rem;
+  font-size: 0.95rem;
+  color: rgba(240, 240, 245, 0.72);
+}
+
+.journey-profile-avatar-wrap {
+  pointer-events: none;
+  position: absolute;
+  inset: auto 0 4.9rem;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  transform: translateZ(30px);
+}
+
+.journey-profile-avatar {
+  height: 12rem;
+  width: 12rem;
+  border-radius: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background-size: cover;
+  background-position: center;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: translateZ(0) scale(1);
+  transition: transform 140ms ease;
+}
+
+.journey-profile-shell:hover .journey-profile-avatar {
+  transform: translateZ(0) scale(1.035);
+}
+
+.journey-profile-userbar {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin: 0 1rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+  backdrop-filter: blur(22px);
+  transform: translateZ(54px);
+}
+
 .journey-poster-stage {
   position: relative;
   min-height: 27rem;

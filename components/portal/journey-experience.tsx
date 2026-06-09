@@ -1,8 +1,8 @@
 "use client";
 
-import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, BadgeCheck, BookOpen, Orbit, Sparkles, Trophy } from "lucide-react";
+import { ArrowRight, BookOpen, Orbit, Sparkles, Trophy } from "lucide-react";
 import type { CourseModule, CourseSession, StudentProfile } from "@/lib/course-data";
 import type { CurriculumSession } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -144,6 +144,97 @@ function ElectricBorder({
   );
 }
 
+function JourneyProfileCard({ student }: { student: StudentProfile }) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const handle = student.email.split("@")[0] || student.fullName.toLowerCase().replace(/\s+/g, ".");
+
+  const setPointerVars = useCallback((clientX: number, clientY: number) => {
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    const rect = shell.getBoundingClientRect();
+    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+    const y = Math.min(Math.max(clientY - rect.top, 0), rect.height);
+    const percentX = (x / rect.width) * 100;
+    const percentY = (y / rect.height) * 100;
+    const rotateX = ((percentY - 50) / -7).toFixed(2);
+    const rotateY = ((percentX - 50) / 7).toFixed(2);
+
+    shell.style.setProperty("--profile-x", `${percentX}%`);
+    shell.style.setProperty("--profile-y", `${percentY}%`);
+    shell.style.setProperty("--profile-rotate-x", `${rotateX}deg`);
+    shell.style.setProperty("--profile-rotate-y", `${rotateY}deg`);
+  }, []);
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      setPointerVars(event.clientX, event.clientY);
+    },
+    [setPointerVars],
+  );
+
+  const handlePointerLeave = useCallback(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    shell.style.setProperty("--profile-x", "50%");
+    shell.style.setProperty("--profile-y", "38%");
+    shell.style.setProperty("--profile-rotate-x", "0deg");
+    shell.style.setProperty("--profile-rotate-y", "0deg");
+  }, []);
+
+  return (
+    <ElectricBorder color="#7df9ff" speed={1.15} chaos={0.08} borderRadius={24}>
+      <div
+        ref={shellRef}
+        className="journey-profile-shell"
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
+      >
+        <section className="journey-profile-card">
+          <div className="journey-profile-shine" />
+          <div className="journey-profile-pattern" />
+          <div className="journey-profile-avatar-wrap">
+            <div
+              aria-hidden="true"
+              className="journey-profile-avatar"
+              style={{ backgroundImage: `url("data:image/svg+xml,${avatarSvg}")` }}
+            />
+          </div>
+
+          <div className="journey-profile-heading">
+            <p className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-cyan-100/80">
+              Journey passport
+            </p>
+            <h2>{student.fullName}</h2>
+            <p>AI Builder</p>
+          </div>
+
+          <div className="journey-profile-userbar">
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                aria-hidden="true"
+                className="h-10 w-10 shrink-0 rounded-full border border-white/15 bg-cover bg-center"
+                style={{ backgroundImage: `url("data:image/svg+xml,${avatarSvg}")` }}
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-text-primary">@{handle}</p>
+                <p className="truncate text-xs text-cyan-100/70">Online in course journey</p>
+              </div>
+            </div>
+            <a
+              href="/progress"
+              className="button-motion rounded-full border border-white/15 bg-white/12 px-3 py-2 text-xs font-bold text-text-primary hover:border-cyan-200/50"
+            >
+              Progress
+            </a>
+          </div>
+        </section>
+      </div>
+    </ElectricBorder>
+  );
+}
+
 export function JourneyExperience({
   student,
   modules,
@@ -205,42 +296,7 @@ export function JourneyExperience({
           </div>
         </div>
 
-        <ElectricBorder color="#7df9ff" speed={1.15} chaos={0.08} borderRadius={18}>
-          <motion.aside
-            className="relative overflow-hidden rounded-xl bg-bg-card p-5"
-            whileHover={{ y: -3 }}
-            transition={{ duration: 0.18 }}
-          >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(125,249,255,0.16),transparent_38%),linear-gradient(145deg,rgba(110,231,183,0.1),transparent)]" />
-            <div className="relative">
-              <div className="flex items-center gap-4">
-                <div
-                  aria-hidden="true"
-                  className="h-20 w-20 rounded-2xl border border-cyan-200/25 bg-cover bg-center shadow-2xl"
-                  style={{ backgroundImage: `url("data:image/svg+xml,${avatarSvg}")` }}
-                />
-                <div className="min-w-0">
-                  <p className="truncate font-heading text-xl font-black">{student.fullName}</p>
-                  <p className="mt-1 truncate text-sm text-text-secondary">{student.email}</p>
-                  <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 font-mono text-[0.65rem] uppercase text-cyan-100">
-                    <BadgeCheck className="h-3.5 w-3.5" />
-                    Builder profile
-                  </span>
-                </div>
-              </div>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                  <p className="font-mono text-[0.65rem] uppercase text-text-muted">Timezone</p>
-                  <p className="mt-1 text-sm font-bold">{student.timeZone}</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                  <p className="font-mono text-[0.65rem] uppercase text-text-muted">Country</p>
-                  <p className="mt-1 text-sm font-bold">{student.country || "Student"}</p>
-                </div>
-              </div>
-            </div>
-          </motion.aside>
-        </ElectricBorder>
+        <JourneyProfileCard student={student} />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
