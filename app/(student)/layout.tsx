@@ -6,6 +6,7 @@ import { SidebarNav, type NavLink } from "@/components/ui/sidebar-nav";
 
 const links: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/journey", label: "Journey", icon: "journey" },
   { href: "/curriculum", label: "Curriculum", icon: "book" },
   { href: "/homework", label: "Homework", icon: "check" },
   { href: "/resources", label: "Resources", icon: "folder" },

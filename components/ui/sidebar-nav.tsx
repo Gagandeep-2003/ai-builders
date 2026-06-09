@@ -11,6 +11,7 @@ import {
   ChartNoAxesCombined,
   Clock3,
   ClipboardCheck,
+  Compass,
   Files,
   FolderOpen,
   Home,
@@ -42,6 +43,7 @@ const navIcons = {
   students: UsersRound,
   attendance: CalendarCheck,
   homework: BookOpenCheck,
+  journey: Compass,
   slots: Clock3,
 };
 
