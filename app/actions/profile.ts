@@ -55,6 +55,44 @@ export async function requestPasswordChangeAction(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function updateStudentContactAction(formData: FormData) {
+  const context = await getCurrentStudentId();
+  if (!context) {
+    revalidatePath("/profile");
+    return;
+  }
+
+  const parentName = String(formData.get("parentName") ?? "").trim();
+  const parentEmail = String(formData.get("parentEmail") ?? "").trim().toLowerCase();
+  const country = String(formData.get("country") ?? "").trim();
+
+  if (!parentName || !parentEmail || !country || !parentEmail.includes("@")) {
+    revalidatePath("/profile");
+    return;
+  }
+
+  const { error } = await context.supabase.rpc("update_own_student_contact", {
+    parent_name_input: parentName,
+    parent_email_input: parentEmail,
+    country_input: country,
+  });
+
+  if (error) {
+    await context.supabase
+      .from("students")
+      .update({
+        parent_name: parentName,
+        parent_email: parentEmail,
+        country,
+      })
+      .eq("id", context.studentId);
+  }
+
+  revalidatePath("/profile");
+  revalidatePath("/admin/students");
+  revalidatePath("/admin");
+}
+
 export async function changeApprovedPasswordAction(formData: FormData) {
   const context = await getCurrentStudentId();
   if (!context) {

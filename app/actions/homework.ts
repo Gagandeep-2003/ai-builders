@@ -114,6 +114,16 @@ export async function markHomeworkSubmittedWithEvidence(
   homeworkId: string,
   screenImage?: string,
   cameraImage?: string,
+  clientInfo?: {
+    userAgent?: string;
+    browserName?: string;
+    browserVersion?: string;
+    osName?: string;
+    deviceType?: string;
+    viewportWidth?: number;
+    viewportHeight?: number;
+    language?: string;
+  },
 ) {
   if (!homeworkId || !isSupabaseConfigured()) {
     revalidatePath("/homework");
@@ -151,17 +161,75 @@ export async function markHomeworkSubmittedWithEvidence(
   }
 
   if (screenImage || cameraImage) {
-    await context.supabase.from("submission_evidence").upsert(
-      {
-        homework_id: homeworkId,
-        student_id: context.studentId,
-        screen_image: screenImage || null,
-        camera_image: cameraImage || null,
-        captured_at: now,
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
-      },
+    const evidencePayload = {
+      homework_id: homeworkId,
+      student_id: context.studentId,
+      screen_image: screenImage || null,
+      camera_image: cameraImage || null,
+      captured_at: now,
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
+      user_agent: clientInfo?.userAgent || null,
+      browser_name: clientInfo?.browserName || null,
+      browser_version: clientInfo?.browserVersion || null,
+      os_name: clientInfo?.osName || null,
+      device_type: clientInfo?.deviceType || null,
+      viewport_width: clientInfo?.viewportWidth || null,
+      viewport_height: clientInfo?.viewportHeight || null,
+      language: clientInfo?.language || null,
+    };
+
+    const { error } = await context.supabase.from("submission_evidence").upsert(
+      evidencePayload,
       { onConflict: "homework_id,student_id" },
     );
+
+    if (error) {
+      await context.supabase.from("submission_evidence").upsert(
+        {
+          homework_id: homeworkId,
+          student_id: context.studentId,
+          screen_image: screenImage || null,
+          camera_image: cameraImage || null,
+          captured_at: now,
+          expires_at: evidencePayload.expires_at,
+        },
+        { onConflict: "homework_id,student_id" },
+      );
+    }
+  } else if (clientInfo) {
+    const evidencePayload = {
+      homework_id: homeworkId,
+      student_id: context.studentId,
+      screen_image: null,
+      camera_image: null,
+      captured_at: now,
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
+      user_agent: clientInfo.userAgent || null,
+      browser_name: clientInfo.browserName || null,
+      browser_version: clientInfo.browserVersion || null,
+      os_name: clientInfo.osName || null,
+      device_type: clientInfo.deviceType || null,
+      viewport_width: clientInfo.viewportWidth || null,
+      viewport_height: clientInfo.viewportHeight || null,
+      language: clientInfo.language || null,
+    };
+    const { error } = await context.supabase.from("submission_evidence").upsert(
+      evidencePayload,
+      { onConflict: "homework_id,student_id" },
+    );
+    if (error) {
+      await context.supabase.from("submission_evidence").upsert(
+        {
+          homework_id: homeworkId,
+          student_id: context.studentId,
+          screen_image: null,
+          camera_image: null,
+          captured_at: now,
+          expires_at: evidencePayload.expires_at,
+        },
+        { onConflict: "homework_id,student_id" },
+      );
+    }
   }
 
   revalidatePath("/dashboard");

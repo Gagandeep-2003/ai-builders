@@ -116,6 +116,14 @@ export type HomeworkSubmissionSummary = {
   cameraImage?: string;
   proofCapturedAt?: string;
   proofExpiresAt?: string;
+  browserName?: string;
+  browserVersion?: string;
+  osName?: string;
+  deviceType?: string;
+  userAgent?: string;
+  viewportWidth?: number;
+  viewportHeight?: number;
+  language?: string;
 };
 
 export type ResourceItem = {

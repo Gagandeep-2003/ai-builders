@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from "react";
-import { ChevronDown, UserRound } from "lucide-react";
+import { ChevronDown, MonitorSmartphone, UserRound } from "lucide-react";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { Batch, CourseSession, HomeworkItem, StudentProfile } from "@/lib/course-data";
@@ -16,6 +16,21 @@ function getStudentSubmission(homework: HomeworkItem, studentId: string) {
 
 function isHomeworkAssignedToStudent(homework: HomeworkItem, student: StudentProfile) {
   return (!homework.batchId && !homework.assignedStudentId) || homework.batchId === student.batchId || homework.assignedStudentId === student.id;
+}
+
+function getDeviceFields(submission: NonNullable<HomeworkItem["submissions"]>[number]) {
+  return [
+    ["Browser", [submission.browserName, submission.browserVersion].filter(Boolean).join(" ") || "Not captured"],
+    ["Device", submission.deviceType || "Not captured"],
+    ["OS", submission.osName || "Not captured"],
+    [
+      "Viewport",
+      submission.viewportWidth && submission.viewportHeight
+        ? `${submission.viewportWidth} × ${submission.viewportHeight}`
+        : "Not captured",
+    ],
+    ["Language", submission.language || "Not captured"],
+  ];
 }
 
 export function AdminHomeworkWorkbook({
@@ -194,35 +209,60 @@ export function AdminHomeworkWorkbook({
                                     <span>Completed {submission?.submittedAt ? formatDate(submission.submittedAt) : "not yet"}</span>
                                     <span>Time {formatDuration(submission?.timeSpentSeconds)}</span>
                                   </div>
-                                  {submission?.screenImage || submission?.cameraImage ? (
+                                  {submission && ["submitted", "reviewed"].includes(submission.status) ? (
                                     <div className="mt-4 rounded-xl border border-accent/20 bg-accent/5 p-3">
                                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                        <p className="font-mono text-xs uppercase text-accent">Submission proof</p>
+                                        <div className="flex items-center gap-2">
+                                          <MonitorSmartphone className="h-4 w-4 text-accent" />
+                                          <p className="font-mono text-xs uppercase text-accent">Submission proof</p>
+                                        </div>
                                         <p className="font-mono text-[11px] text-text-muted">
                                           {submission.proofCapturedAt ? `Captured ${formatDate(submission.proofCapturedAt)}` : "Captured"}
                                           {submission.proofExpiresAt ? ` · Deletes ${formatDate(submission.proofExpiresAt)}` : ""}
                                         </p>
                                       </div>
-                                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                        {submission.screenImage ? (
-                                          <a href={submission.screenImage} target="_blank" rel="noreferrer" className="group block">
-                                            <p className="mb-2 font-mono text-[11px] uppercase text-text-muted">Screen</p>
-                                            <img
-                                              src={submission.screenImage}
-                                              alt="Student screen submission proof"
-                                              className="aspect-video w-full rounded-lg border border-border object-cover transition group-hover:border-accent/50"
-                                            />
-                                          </a>
-                                        ) : null}
-                                        {submission.cameraImage ? (
-                                          <a href={submission.cameraImage} target="_blank" rel="noreferrer" className="group block">
-                                            <p className="mb-2 font-mono text-[11px] uppercase text-text-muted">Camera</p>
-                                            <img
-                                              src={submission.cameraImage}
-                                              alt="Student camera submission proof"
-                                              className="aspect-video w-full rounded-lg border border-border object-cover transition group-hover:border-accent/50"
-                                            />
-                                          </a>
+                                      {submission.screenImage || submission.cameraImage ? (
+                                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                          {submission.screenImage ? (
+                                            <a href={submission.screenImage} target="_blank" rel="noreferrer" className="group block">
+                                              <p className="mb-2 font-mono text-[11px] uppercase text-text-muted">Screen</p>
+                                              <img
+                                                src={submission.screenImage}
+                                                alt="Student screen submission proof"
+                                                className="aspect-video w-full rounded-lg border border-border object-cover transition group-hover:border-accent/50"
+                                              />
+                                            </a>
+                                          ) : null}
+                                          {submission.cameraImage ? (
+                                            <a href={submission.cameraImage} target="_blank" rel="noreferrer" className="group block">
+                                              <p className="mb-2 font-mono text-[11px] uppercase text-text-muted">Camera</p>
+                                              <img
+                                                src={submission.cameraImage}
+                                                alt="Student camera submission proof"
+                                                className="aspect-video w-full rounded-lg border border-border object-cover transition group-hover:border-accent/50"
+                                              />
+                                            </a>
+                                          ) : null}
+                                        </div>
+                                      ) : (
+                                        <div className="mt-3 rounded-lg border border-border/70 bg-bg-card/60 p-3 text-sm text-text-secondary">
+                                          No proof image was attached. The student may have submitted after capture was blocked or skipped.
+                                        </div>
+                                      )}
+                                      <div className="mt-3 grid gap-2 rounded-lg border border-border/70 bg-bg-base/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                                        {getDeviceFields(submission).map(([label, value]) => (
+                                          <div key={label}>
+                                            <p className="font-mono text-[10px] uppercase text-text-muted">{label}</p>
+                                            <p className="mt-1 truncate text-xs font-semibold text-text-primary">{value}</p>
+                                          </div>
+                                        ))}
+                                        {submission.userAgent ? (
+                                          <div className="sm:col-span-2 lg:col-span-3">
+                                            <p className="font-mono text-[10px] uppercase text-text-muted">User agent</p>
+                                            <p className="mt-1 line-clamp-2 break-all text-[11px] leading-5 text-text-secondary">
+                                              {submission.userAgent}
+                                            </p>
+                                          </div>
                                         ) : null}
                                       </div>
                                     </div>

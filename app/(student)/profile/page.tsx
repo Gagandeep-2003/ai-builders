@@ -1,4 +1,8 @@
-import { changeApprovedPasswordAction, requestPasswordChangeAction } from "@/app/actions/profile";
+import {
+  changeApprovedPasswordAction,
+  requestPasswordChangeAction,
+  updateStudentContactAction,
+} from "@/app/actions/profile";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -8,14 +12,11 @@ import { formatDate } from "@/lib/utils";
 export default async function ProfilePage() {
   const data = await getStudentDashboardData();
 
-  const rows = [
+  const lockedRows = [
     ["Name", data.student.fullName],
     ["Email", data.student.email],
     ["Batch", data.batch.name],
     ["Schedule", `${data.batch.days} · ${data.batch.timeSlot}`],
-    ["Parent", data.student.parentName],
-    ["Parent Email", data.student.parentEmail],
-    ["Country", data.student.country || "Not set"],
     ["Timezone", data.student.timeZone],
     ["Enrolled", formatDate(data.student.enrolledAt)],
   ];
@@ -31,17 +32,73 @@ export default async function ProfilePage() {
     <AnimatedPage>
       <PageHeader
         title="Student Profile"
-        subtitle="Profile details are view-only for students. Admins manage enrollment and parent contact information."
+        subtitle="Manage your contact details, review enrollment info, and keep account access secure."
       />
-      <section className="premium-card rounded-xl p-6">
-        <div className="grid gap-4 md:grid-cols-2">
-          {rows.map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
-              <p className="font-mono text-xs uppercase text-text-muted">{label}</p>
-              <p className="mt-2 font-heading text-lg font-bold">{value}</p>
-            </div>
-          ))}
+
+      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="premium-card rounded-xl p-6">
+          <p className="font-mono text-xs uppercase text-accent">Student identity</p>
+          <h2 className="mt-2 font-heading text-3xl font-black">{data.student.fullName}</h2>
+          <p className="mt-2 text-sm text-text-secondary">{data.student.email}</p>
+          <div className="mt-6 grid gap-3">
+            {lockedRows.slice(2).map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
+                <p className="font-mono text-xs uppercase text-text-muted">{label}</p>
+                <p className="mt-2 font-heading text-lg font-bold">{value}</p>
+              </div>
+            ))}
+          </div>
         </div>
+
+        <form action={updateStudentContactAction} className="premium-card rounded-xl p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-mono text-xs uppercase text-accent">Editable contact</p>
+              <h2 className="mt-2 font-heading text-2xl font-bold">Parent and country details</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
+                You can update these fields yourself. Enrollment, batch, email, and timezone remain managed by admin.
+              </p>
+            </div>
+            <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 font-mono text-[11px] uppercase text-accent">
+              3 editable fields
+            </span>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <label className="md:col-span-2">
+              <span className="font-mono text-xs uppercase text-text-muted">Parent</span>
+              <input
+                name="parentName"
+                defaultValue={data.student.parentName}
+                required
+                className="mt-2 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm outline-none transition focus:border-accent/60"
+              />
+            </label>
+            <label>
+              <span className="font-mono text-xs uppercase text-text-muted">Parent Email</span>
+              <input
+                name="parentEmail"
+                type="email"
+                defaultValue={data.student.parentEmail}
+                required
+                className="mt-2 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm outline-none transition focus:border-accent/60"
+              />
+            </label>
+            <label>
+              <span className="font-mono text-xs uppercase text-text-muted">Country</span>
+              <input
+                name="country"
+                defaultValue={data.student.country || ""}
+                required
+                className="mt-2 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm outline-none transition focus:border-accent/60"
+              />
+            </label>
+          </div>
+
+          <button className="button-motion mt-6 rounded-xl bg-accent px-5 py-3 font-bold text-bg-base">
+            Save Profile Details
+          </button>
+        </form>
       </section>
 
       <section className="premium-card rounded-xl p-6">

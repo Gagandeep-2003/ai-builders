@@ -277,6 +277,25 @@ function mapHomework(row: DbRow): HomeworkItem {
   };
 }
 
+async function getSubmissionEvidenceRows(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
+  if (!supabase) return [];
+
+  const expiresAt = new Date().toISOString();
+  const withClientInfo = await supabase
+    .from("submission_evidence")
+    .select("homework_id, student_id, screen_image, camera_image, captured_at, expires_at, user_agent, browser_name, browser_version, os_name, device_type, viewport_width, viewport_height, language")
+    .gt("expires_at", expiresAt);
+
+  if (!withClientInfo.error) return withClientInfo.data ?? [];
+
+  const fallback = await supabase
+    .from("submission_evidence")
+    .select("homework_id, student_id, screen_image, camera_image, captured_at, expires_at")
+    .gt("expires_at", expiresAt);
+
+  return fallback.data ?? [];
+}
+
 function mapResource(row: DbRow): ResourceItem {
   const session = relation(row, "sessions");
 
@@ -521,7 +540,6 @@ export async function getAdminData(): Promise<AdminData> {
     { data: feedbackRows },
     { data: classJoinEventRows },
     { data: passwordRequestRows },
-    { data: evidenceRows },
   ] = await Promise.all([
     supabase
       .from("students")
@@ -568,13 +586,10 @@ export async function getAdminData(): Promise<AdminData> {
       .select("id, student_id, status, reason, admin_note, requested_at, reviewed_at, used_at, students(full_name)")
       .order("requested_at", { ascending: false })
       .limit(20),
-    supabase
-      .from("submission_evidence")
-      .select("homework_id, student_id, screen_image, camera_image, captured_at, expires_at")
-      .gt("expires_at", new Date().toISOString()),
   ]);
 
   if (!moduleRows || !sessionRows) return fallbackAdminData();
+  const evidenceRows = await getSubmissionEvidenceRows(supabase);
 
   const mappedModules = moduleRows.map((row) => mapModule(row));
   const mappedSessions = sessionRows
@@ -609,6 +624,14 @@ export async function getAdminData(): Promise<AdminData> {
             cameraImage: text(evidence, "camera_image") || undefined,
             proofCapturedAt: text(evidence, "captured_at") || undefined,
             proofExpiresAt: text(evidence, "expires_at") || undefined,
+            userAgent: text(evidence, "user_agent") || undefined,
+            browserName: text(evidence, "browser_name") || undefined,
+            browserVersion: text(evidence, "browser_version") || undefined,
+            osName: text(evidence, "os_name") || undefined,
+            deviceType: text(evidence, "device_type") || undefined,
+            viewportWidth: num(evidence, "viewport_width") || undefined,
+            viewportHeight: num(evidence, "viewport_height") || undefined,
+            language: text(evidence, "language") || undefined,
           };
         });
         return {

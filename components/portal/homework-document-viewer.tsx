@@ -10,6 +10,52 @@ import { formatDuration, isTrustedTaskDuration } from "@/lib/homework-utils";
 
 type CelebrationState = "started" | "completed" | null;
 
+function getBrowserInfo(userAgent: string) {
+  const browserPatterns = [
+    { name: "Microsoft Edge", regex: /Edg\/([\d.]+)/ },
+    { name: "Chrome", regex: /Chrome\/([\d.]+)/ },
+    { name: "Safari", regex: /Version\/([\d.]+).*Safari/ },
+    { name: "Firefox", regex: /Firefox\/([\d.]+)/ },
+  ];
+  const match = browserPatterns
+    .map((item) => ({ name: item.name, version: userAgent.match(item.regex)?.[1] }))
+    .find((item) => item.version);
+
+  return {
+    browserName: match?.name ?? "Unknown browser",
+    browserVersion: match?.version ?? "",
+  };
+}
+
+function getOsName(userAgent: string) {
+  if (/Windows NT/i.test(userAgent)) return "Windows";
+  if (/Mac OS X/i.test(userAgent) && !/Mobile/i.test(userAgent)) return "macOS";
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return "iOS";
+  if (/Android/i.test(userAgent)) return "Android";
+  if (/Linux/i.test(userAgent)) return "Linux";
+  return "Unknown OS";
+}
+
+function getDeviceType(userAgent: string) {
+  if (/iPad|Tablet|Android(?!.*Mobile)/i.test(userAgent)) return "Tablet";
+  if (/Mobi|iPhone|Android/i.test(userAgent)) return "Mobile";
+  return "Desktop";
+}
+
+function getClientInfo() {
+  const userAgent = navigator.userAgent;
+  const browser = getBrowserInfo(userAgent);
+  return {
+    userAgent,
+    ...browser,
+    osName: getOsName(userAgent),
+    deviceType: getDeviceType(userAgent),
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    language: navigator.language,
+  };
+}
+
 async function captureStreamFrame(stream: MediaStream) {
   const video = document.createElement("video");
   video.srcObject = stream;
@@ -21,7 +67,7 @@ async function captureStreamFrame(stream: MediaStream) {
 
   const sourceWidth = video.videoWidth || 1280;
   const sourceHeight = video.videoHeight || 720;
-  const targetWidth = 960;
+  const targetWidth = 640;
   const targetHeight = Math.round((sourceHeight / sourceWidth) * targetWidth);
   const canvas = document.createElement("canvas");
   canvas.width = targetWidth;
@@ -30,7 +76,7 @@ async function captureStreamFrame(stream: MediaStream) {
   if (!context) throw new Error("Unable to prepare capture.");
   context.drawImage(video, 0, 0, targetWidth, targetHeight);
   stream.getTracks().forEach((track) => track.stop());
-  return canvas.toDataURL("image/jpeg", 0.62);
+  return canvas.toDataURL("image/jpeg", 0.48);
 }
 
 function TaskCelebration({
@@ -233,8 +279,9 @@ export function HomeworkDocumentViewer({
     setCompletedSeconds(elapsedSeconds);
     setCelebration("completed");
     setProofOpen(false);
+    const clientInfo = getClientInfo();
     startTransition(async () => {
-      await markHomeworkSubmittedWithEvidence(homeworkId, screenImage, cameraImage);
+      await markHomeworkSubmittedWithEvidence(homeworkId, screenImage, cameraImage, clientInfo);
     });
   }
 

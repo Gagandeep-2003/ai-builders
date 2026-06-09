@@ -116,6 +116,14 @@ create table public.submission_evidence (
   camera_image text,
   captured_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '30 days'),
+  user_agent text,
+  browser_name text,
+  browser_version text,
+  os_name text,
+  device_type text,
+  viewport_width integer,
+  viewport_height integer,
+  language text,
   created_at timestamptz not null default now(),
   unique (homework_id, student_id)
 );
@@ -236,6 +244,50 @@ as $$
   from public.students
   where user_id = auth.uid()
   limit 1;
+$$;
+
+create or replace function public.update_own_student_contact(
+  parent_name_input text,
+  parent_email_input text,
+  country_input text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, private
+as $$
+declare
+  cleaned_parent_name text := nullif(trim(parent_name_input), '');
+  cleaned_parent_email text := lower(nullif(trim(parent_email_input), ''));
+  cleaned_country text := nullif(trim(country_input), '');
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if cleaned_parent_name is null then
+    raise exception 'Parent name is required';
+  end if;
+
+  if cleaned_parent_email is null or cleaned_parent_email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$' then
+    raise exception 'Valid parent email is required';
+  end if;
+
+  if cleaned_country is null then
+    raise exception 'Country is required';
+  end if;
+
+  update public.students
+  set
+    parent_name = cleaned_parent_name,
+    parent_email = cleaned_parent_email,
+    country = cleaned_country
+  where user_id = auth.uid();
+
+  if not found then
+    raise exception 'Student profile not found';
+  end if;
+end;
 $$;
 
 create or replace function public.mark_password_request_used(request_id uuid)
@@ -494,4 +546,5 @@ grant select, insert, update, delete on public.announcements to authenticated;
 grant execute on function private.is_admin() to authenticated;
 grant execute on function private.current_student_id() to authenticated;
 grant execute on function private.current_student_batch_id() to authenticated;
+grant execute on function public.update_own_student_contact(text, text, text) to authenticated;
 grant execute on function public.mark_password_request_used(uuid) to authenticated;
