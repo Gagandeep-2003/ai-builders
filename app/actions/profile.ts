@@ -149,6 +149,13 @@ export async function updateStudentContactAction(
   const savedParentEmail = String(savedStudent?.parent_email ?? "").trim().toLowerCase();
   const savedCountry = String(savedStudent?.country ?? "").trim();
 
+  const studentTableSaved =
+    !readError &&
+    Boolean(savedStudent) &&
+    savedParentName === parentName &&
+    savedParentEmail === parentEmail &&
+    savedCountry === country;
+
   if (
     readError ||
     !savedStudent ||
@@ -156,12 +163,23 @@ export async function updateStudentContactAction(
     savedParentEmail !== parentEmail ||
     savedCountry !== country
   ) {
-    revalidatePath("/profile");
-    return {
-      ok: false,
-      message:
-        "Profile details were not saved in the database. Run the profile metadata migration or add SUPABASE_SERVICE_ROLE_KEY in Vercel.",
-    };
+    const { error: metadataError } = await context.supabase.auth.updateUser({
+      data: {
+        student_contact: {
+          parentName,
+          parentEmail,
+          country,
+        },
+      },
+    });
+
+    if (metadataError) {
+      revalidatePath("/profile");
+      return {
+        ok: false,
+        message: "Could not save profile details. Please sign out, sign back in, and try once more.",
+      };
+    }
   }
 
   revalidatePath("/profile");
@@ -171,9 +189,9 @@ export async function updateStudentContactAction(
     ok: true,
     message: "Profile details updated.",
     values: {
-      parentName: savedParentName,
-      parentEmail: savedParentEmail,
-      country: savedCountry,
+      parentName: studentTableSaved ? savedParentName : parentName,
+      parentEmail: studentTableSaved ? savedParentEmail : parentEmail,
+      country: studentTableSaved ? savedCountry : country,
     },
   };
 }

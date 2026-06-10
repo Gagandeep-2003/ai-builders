@@ -232,6 +232,37 @@ function mapStudent(row: DbRow): StudentProfile {
   };
 }
 
+function studentContactFromUserMetadata(metadata: unknown) {
+  if (!isDbRow(metadata)) return null;
+  const contact = isDbRow(metadata.student_contact) ? metadata.student_contact : metadata;
+  const parentName = text(contact, "parentName").trim();
+  const parentEmail = text(contact, "parentEmail").trim().toLowerCase();
+  const country = text(contact, "country").trim();
+
+  if (!parentName && !parentEmail && !country) return null;
+
+  return {
+    parentName,
+    parentEmail,
+    country,
+  };
+}
+
+function applyStudentContactOverride(
+  student: StudentProfile,
+  metadata: unknown,
+): StudentProfile {
+  const contact = studentContactFromUserMetadata(metadata);
+  if (!contact) return student;
+
+  return {
+    ...student,
+    parentName: contact.parentName || student.parentName,
+    parentEmail: contact.parentEmail || student.parentEmail,
+    country: contact.country || student.country,
+  };
+}
+
 function mapHomework(row: DbRow): HomeworkItem {
   const session = relation(row, "sessions");
   const submission = relation(row, "submissions");
@@ -484,7 +515,7 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
 
   if (!studentRow) return fallbackDashboardData();
 
-  const effectiveStudent = mapStudent(studentRow);
+  const effectiveStudent = applyStudentContactOverride(mapStudent(studentRow), user.user_metadata);
 
   const batchRow = relation(studentRow, "batches");
   const effectiveBatch = batchRow ? mapBatch(batchRow) : fallbackDashboardData().batch;
