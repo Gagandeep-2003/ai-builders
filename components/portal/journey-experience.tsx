@@ -42,21 +42,21 @@ const moduleVisuals = [
     glow: "rgba(110,231,183,0.28)",
     mood: "Prompt craft, study systems, creative AI, and a confident showcase.",
     image:
-      "radial-gradient(circle at 22% 20%, rgba(110,231,183,0.95), transparent 18%), linear-gradient(145deg, #132f2a, #12121b 62%, #2b1d48)",
+      "linear-gradient(115deg, rgba(110,231,183,0.28), transparent 34%), repeating-linear-gradient(90deg, rgba(110,231,183,0.14) 0 1px, transparent 1px 34px), repeating-linear-gradient(0deg, rgba(96,165,250,0.08) 0 1px, transparent 1px 28px), radial-gradient(circle at 18% 20%, rgba(110,231,183,0.7), transparent 18%), radial-gradient(circle at 82% 78%, rgba(139,92,246,0.42), transparent 24%), linear-gradient(145deg, #102822, #101018 58%, #25183d)",
   },
   {
     accent: "#60a5fa",
     glow: "rgba(96,165,250,0.26)",
     mood: "Design screens, vibe-code apps, test AI features, and ship a capstone.",
     image:
-      "radial-gradient(circle at 76% 22%, rgba(96,165,250,0.92), transparent 20%), linear-gradient(145deg, #101d3f, #12121b 58%, #3b2340)",
+      "linear-gradient(125deg, rgba(96,165,250,0.25), transparent 36%), repeating-linear-gradient(135deg, rgba(96,165,250,0.12) 0 1px, transparent 1px 26px), repeating-linear-gradient(45deg, rgba(110,231,183,0.08) 0 1px, transparent 1px 32px), radial-gradient(circle at 76% 22%, rgba(96,165,250,0.72), transparent 20%), radial-gradient(circle at 22% 84%, rgba(244,114,182,0.32), transparent 28%), linear-gradient(145deg, #0c1b3b, #101018 58%, #34203a)",
   },
   {
     accent: "#f59e0b",
     glow: "rgba(245,158,11,0.25)",
     mood: "Agents, workflows, Zapier, n8n, ClawBot, and smart automation demos.",
     image:
-      "radial-gradient(circle at 25% 74%, rgba(245,158,11,0.9), transparent 18%), linear-gradient(145deg, #33220e, #12121b 56%, #14372e)",
+      "linear-gradient(120deg, rgba(245,158,11,0.24), transparent 35%), repeating-linear-gradient(90deg, rgba(245,158,11,0.12) 0 1px, transparent 1px 30px), repeating-linear-gradient(0deg, rgba(110,231,183,0.08) 0 1px, transparent 1px 36px), radial-gradient(circle at 25% 74%, rgba(245,158,11,0.68), transparent 20%), radial-gradient(circle at 78% 22%, rgba(110,231,183,0.34), transparent 26%), linear-gradient(145deg, #2d1f0c, #101018 56%, #12352e)",
   },
 ];
 
@@ -674,7 +674,7 @@ export function JourneyExperience({
                   style={{ left: `${x}%`, top: `${y}%` }}
                 >
                   <span
-                    className="mb-3 block h-16 rounded-lg border border-white/10"
+                    className="journey-world-preview mb-3 block h-16 rounded-lg border border-white/10"
                     style={{ background: visual.image, boxShadow: selected ? `0 0 34px ${visual.glow}` : undefined }}
                   />
                   <span className="font-mono text-[0.65rem] uppercase text-accent">Module {module.orderIndex}</span>
@@ -705,7 +705,12 @@ export function JourneyExperience({
                     session.status === "completed" && "journey-poster-complete",
                     session.status === "current" && "journey-poster-current",
                   )}
-                  style={{ background: activeVisual?.image }}
+                  style={
+                    {
+                      "--poster-accent": activeVisual?.accent,
+                      background: activeVisual?.image,
+                    } as CSSProperties
+                  }
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-bg-base via-bg-base/45 to-transparent" />
                   <div className="relative mt-auto">

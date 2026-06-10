@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "./config";
+import {
+  isSupabaseConfigured,
+  supabaseAnonKey,
+  supabaseServiceRoleKey,
+  supabaseUrl,
+} from "./config";
 import { authCookieOptions } from "./cookies";
 
 export async function createServerSupabaseClient() {
@@ -25,6 +31,19 @@ export async function createServerSupabaseClient() {
           // Server components cannot set cookies. Middleware and actions can.
         }
       },
+    },
+  });
+}
+
+export function createServiceRoleSupabaseClient() {
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
     },
   });
 }
