@@ -10,6 +10,11 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 type ProfileActionState = {
   ok: boolean;
   message: string;
+  values?: {
+    parentName: string;
+    parentEmail: string;
+    country: string;
+  };
 };
 
 async function getCurrentStudentId() {
@@ -102,8 +107,9 @@ export async function updateStudentContactAction(
     country_input: country,
   });
 
+  const serviceSupabase = createServiceRoleSupabaseClient();
+
   if (error) {
-    const serviceSupabase = createServiceRoleSupabaseClient();
     const { error: fallbackError } = serviceSupabase
       ? await serviceSupabase
           .from("students")
@@ -132,10 +138,44 @@ export async function updateStudentContactAction(
     }
   }
 
+  const readSupabase = serviceSupabase ?? context.supabase;
+  const { data: savedStudent, error: readError } = await readSupabase
+    .from("students")
+    .select("parent_name, parent_email, country")
+    .eq("id", context.studentId)
+    .maybeSingle();
+
+  const savedParentName = String(savedStudent?.parent_name ?? "").trim();
+  const savedParentEmail = String(savedStudent?.parent_email ?? "").trim().toLowerCase();
+  const savedCountry = String(savedStudent?.country ?? "").trim();
+
+  if (
+    readError ||
+    !savedStudent ||
+    savedParentName !== parentName ||
+    savedParentEmail !== parentEmail ||
+    savedCountry !== country
+  ) {
+    revalidatePath("/profile");
+    return {
+      ok: false,
+      message:
+        "Profile details were not saved in the database. Run the profile metadata migration or add SUPABASE_SERVICE_ROLE_KEY in Vercel.",
+    };
+  }
+
   revalidatePath("/profile");
   revalidatePath("/admin/students");
   revalidatePath("/admin");
-  return { ok: true, message: "Profile details updated." };
+  return {
+    ok: true,
+    message: "Profile details updated.",
+    values: {
+      parentName: savedParentName,
+      parentEmail: savedParentEmail,
+      country: savedCountry,
+    },
+  };
 }
 
 export async function changeApprovedPasswordAction(

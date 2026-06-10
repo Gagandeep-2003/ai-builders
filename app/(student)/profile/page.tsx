@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getStudentDashboardData } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProfilePage() {
   const data = await getStudentDashboardData();
 

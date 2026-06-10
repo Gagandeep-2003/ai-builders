@@ -18,9 +18,21 @@ export function ProfileContactForm({
     updateStudentContactAction,
     { ok: false, message: "" },
   );
+  const displayValues =
+    state.ok && state.values
+      ? state.values
+      : {
+          parentName,
+          parentEmail,
+          country,
+        };
 
   return (
-    <form action={formAction} className="premium-card rounded-xl p-6">
+    <form
+      key={`${displayValues.parentName}-${displayValues.parentEmail}-${displayValues.country}`}
+      action={formAction}
+      className="premium-card rounded-xl p-6"
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-mono text-xs uppercase text-accent">Editable contact</p>
@@ -51,7 +63,7 @@ export function ProfileContactForm({
           <span className="font-mono text-xs uppercase text-text-muted">Parent</span>
           <input
             name="parentName"
-            defaultValue={parentName}
+            defaultValue={displayValues.parentName}
             required
             className="mt-2 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm outline-none transition focus:border-accent/60"
           />
@@ -61,7 +73,7 @@ export function ProfileContactForm({
           <input
             name="parentEmail"
             type="email"
-            defaultValue={parentEmail}
+            defaultValue={displayValues.parentEmail}
             required
             className="mt-2 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm outline-none transition focus:border-accent/60"
           />
@@ -70,7 +82,7 @@ export function ProfileContactForm({
           <span className="font-mono text-xs uppercase text-text-muted">Country</span>
           <input
             name="country"
-            defaultValue={country}
+            defaultValue={displayValues.country}
             required
             className="mt-2 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm outline-none transition focus:border-accent/60"
           />
