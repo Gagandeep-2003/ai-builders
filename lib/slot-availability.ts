@@ -66,7 +66,7 @@ export const availabilityBucket: AvailabilityDay[] = [
   {
     dayIndex: 6,
     label: "Saturday",
-    slots: ["00:30", "07:30"],
+    slots: ["00:30", "02:30", "07:30"],
   },
   {
     dayIndex: 1,
