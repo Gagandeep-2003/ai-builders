@@ -356,17 +356,39 @@ function GridScanBackground() {
 function JourneyProfileCard({ student }: { student: StudentProfile }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const storageKey = `journey-profile-avatar:${student.id || student.email}`;
+  const storageKeys = useMemo(
+    () => ({
+      primary: `journey-profile-avatar:${student.email.toLowerCase()}`,
+      legacy: `journey-profile-avatar:${student.id || student.email}`,
+    }),
+    [student.email, student.id],
+  );
   const handle = student.email.split("@")[0] || student.fullName.toLowerCase().replace(/\s+/g, ".");
-  const [avatarUrl, setAvatarUrl] = useState(() => {
-    const fallbackAvatar = `data:image/svg+xml,${avatarSvg}`;
-    if (typeof window === "undefined") return fallbackAvatar;
-    try {
-      return window.localStorage.getItem(storageKey) || fallbackAvatar;
-    } catch {
-      return fallbackAvatar;
-    }
-  });
+  const fallbackAvatar = `data:image/svg+xml,${avatarSvg}`;
+  const [avatarUrl, setAvatarUrl] = useState(fallbackAvatar);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      try {
+        const savedAvatar =
+          window.localStorage.getItem(storageKeys.primary) || window.localStorage.getItem(storageKeys.legacy);
+        if (!savedAvatar || cancelled) return;
+        setAvatarUrl(savedAvatar);
+        if (storageKeys.legacy !== storageKeys.primary) {
+          window.localStorage.setItem(storageKeys.primary, savedAvatar);
+          window.localStorage.removeItem(storageKeys.legacy);
+        }
+      } catch {
+        // Keep the generated placeholder when browser storage is unavailable.
+      }
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [storageKeys]);
 
   const processAvatarFile = useCallback(
     (file: File) => {
@@ -376,7 +398,7 @@ function JourneyProfileCard({ student }: { student: StudentProfile }) {
       reader.onload = () => {
         const image = new Image();
         image.onload = () => {
-          const size = 720;
+          const size = 520;
           const canvas = document.createElement("canvas");
           canvas.width = size;
           canvas.height = size;
@@ -406,10 +428,11 @@ function JourneyProfileCard({ student }: { student: StudentProfile }) {
           ctx.fillStyle = vignette;
           ctx.fillRect(0, 0, size, size);
 
-          const processedAvatar = canvas.toDataURL("image/jpeg", 0.86);
+          const processedAvatar = canvas.toDataURL("image/jpeg", 0.74);
           setAvatarUrl(processedAvatar);
           try {
-            window.localStorage.setItem(storageKey, processedAvatar);
+            window.localStorage.setItem(storageKeys.primary, processedAvatar);
+            if (storageKeys.legacy !== storageKeys.primary) window.localStorage.removeItem(storageKeys.legacy);
           } catch {
             // The preview still updates even if browser storage is unavailable.
           }
@@ -418,7 +441,7 @@ function JourneyProfileCard({ student }: { student: StudentProfile }) {
       };
       reader.readAsDataURL(file);
     },
-    [storageKey],
+    [storageKeys],
   );
 
   const handleAvatarChange = useCallback(
@@ -433,11 +456,12 @@ function JourneyProfileCard({ student }: { student: StudentProfile }) {
   const resetAvatar = useCallback(() => {
     setAvatarUrl(`data:image/svg+xml,${avatarSvg}`);
     try {
-      window.localStorage.removeItem(storageKey);
+      window.localStorage.removeItem(storageKeys.primary);
+      window.localStorage.removeItem(storageKeys.legacy);
     } catch {
       // no-op
     }
-  }, [storageKey]);
+  }, [storageKeys]);
 
   const setPointerVars = useCallback((clientX: number, clientY: number) => {
     const shell = shellRef.current;
