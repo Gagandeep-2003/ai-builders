@@ -33,16 +33,48 @@ const moduleDecks: ModuleDeck[] = [
     moduleNumber: 1,
     title: "Agentic AI Essentials: Prompts to Projects",
     status: "live",
-    sessions: [
-      { sessionNumber: 1, title: "Welcome to the AI Era", embedUrl: "https://www.canva.com/design/DAHKOZzhemU/view?embed" },
-      { sessionNumber: 2, title: "AI for School: Study Smarter", embedUrl: "https://www.canva.com/design/DAHME3sC8F0/view?embed" },
-      { sessionNumber: 3, title: "AI for Creative Writing", embedUrl: "https://www.canva.com/design/DAHME5kXegM/view?embed" },
-      { sessionNumber: 4, title: "AI Image & Video Creation", embedUrl: "https://www.canva.com/design/DAHME1HUZp8/view?embed" },
-      { sessionNumber: 5, title: "AI Audio Generation", embedUrl: "https://www.canva.com/design/DAHME8Kj_dw/view?embed" },
-      { sessionNumber: 6, title: "AI for Task Organisation", embedUrl: "https://www.canva.com/design/DAHME6_r4ts/view?embed" },
-      { sessionNumber: 7, title: "AI without Internet", embedUrl: "https://www.canva.com/design/DAHMEyqi7oo/view?embed" },
-      { sessionNumber: 8, title: "AI Presentations & Showcase", embedUrl: "https://www.canva.com/design/DAHME0t1q0E/view?embed" },
-    ],
+   sessions: [
+  {
+    sessionNumber: 1,
+    title: "Welcome to the AI Era",
+    embedUrl: "https://www.canva.com/design/DAHKOZzhemU/u2CMoLuJYl8uLPWW_RLirg/view?embed"
+  },
+  {
+    sessionNumber: 2,
+    title: "AI for School: Study Smarter",
+    embedUrl: "https://www.canva.com/design/DAHME3sC8F0/qzAFF6HXASMn_StpqjGTfA/view?embed"
+  },
+  {
+    sessionNumber: 3,
+    title: "AI for Creative Writing",
+    embedUrl: "https://www.canva.com/design/DAHME5kXegM/ru3b8QeoiGMUlIZqonaAtQ/view?embed"
+  },
+  {
+    sessionNumber: 4,
+    title: "AI Image & Video Creation",
+    embedUrl: "https://www.canva.com/design/DAHME1HUZp8/aTGTPLm82J0z1-F13fvJmw/view?embed"
+  },
+  {
+    sessionNumber: 5,
+    title: "AI Audio Generation",
+    embedUrl: "https://www.canva.com/design/DAHME8Kj_dw/BuGK7IWNm4EVPC63YNV18Q/view?embed"
+  },
+  {
+    sessionNumber: 6,
+    title: "AI for Task Organisation",
+    embedUrl: "https://www.canva.com/design/DAHME6_r4ts/NU7M4h97Q0cttIKHg2Y5Zg/view?embed"
+  },
+  {
+    sessionNumber: 7,
+    title: "AI without Internet",
+    embedUrl: "https://www.canva.com/design/DAHMEyqi7oo/soalrBkmL84Xj_S1lDxWeQ/view?embed"
+  },
+  {
+    sessionNumber: 8,
+    title: "AI Presentations & Showcase",
+    embedUrl: "https://www.canva.com/design/DAHME0t1q0E/IL1tOJOz0RkWDLphJ9BYmA/view?embed"
+  },
+],
   },
   {
     moduleNumber: 2,
