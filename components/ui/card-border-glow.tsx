@@ -44,7 +44,7 @@ function ensureEdgeLight(card: HTMLElement) {
 export function CardBorderGlow() {
   useEffect(() => {
     const getCard = (target: EventTarget | null) =>
-      target instanceof Element ? target.closest<HTMLElement>(".premium-card") : null;
+      target instanceof Element ? target.closest<HTMLElement>(".premium-card:not(.no-border-glow)") : null;
 
     const handlePointerEnter = (event: PointerEvent) => {
       const card = getCard(event.target);
@@ -73,7 +73,7 @@ export function CardBorderGlow() {
       card.style.setProperty("--edge-proximity", "0");
     };
 
-    document.querySelectorAll<HTMLElement>(".premium-card").forEach(ensureEdgeLight);
+    document.querySelectorAll<HTMLElement>(".premium-card:not(.no-border-glow)").forEach(ensureEdgeLight);
     document.addEventListener("pointerenter", handlePointerEnter, true);
     document.addEventListener("pointermove", handlePointerMove, { passive: true });
     document.addEventListener("pointerleave", handlePointerLeave, true);

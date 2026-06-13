@@ -55,12 +55,27 @@ export type NavLink = {
   icon: NavIconName;
 };
 
+export type NavBadge = {
+  count: number;
+  tone?: "accent" | "info" | "warm" | "danger";
+  label?: string;
+};
+
+const badgeTones = {
+  accent: "border-accent/35 bg-accent/12 text-accent",
+  info: "border-info/35 bg-info/12 text-blue-200",
+  warm: "border-accent-warm/35 bg-accent-warm/12 text-amber-100",
+  danger: "border-danger/35 bg-danger/12 text-rose-100",
+};
+
 export function SidebarNav({
   links,
   footer,
+  badges = {},
 }: {
   links: NavLink[];
   footer?: React.ReactNode;
+  badges?: Partial<Record<string, NavBadge>>;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -90,6 +105,7 @@ export function SidebarNav({
             pathname === link.href ||
             (link.href !== "/admin" && pathname.startsWith(`${link.href}/`));
           const Icon = navIcons[link.icon];
+          const badge = badges[link.href];
 
           return (
             <Link
@@ -107,7 +123,18 @@ export function SidebarNav({
               )}
             >
               <Icon className="h-4 w-4" />
-              {link.label}
+              <span className="min-w-0 flex-1 truncate">{link.label}</span>
+              {badge && badge.count > 0 ? (
+                <span
+                  className={cn(
+                    "ml-auto inline-flex min-w-6 items-center justify-center rounded-full border px-1.5 py-0.5 font-mono text-[0.65rem] font-bold leading-none",
+                    badgeTones[badge.tone ?? "accent"],
+                  )}
+                  aria-label={badge.label ?? `${badge.count} notifications`}
+                >
+                  {badge.count > 9 ? "9+" : badge.count}
+                </span>
+              ) : null}
             </Link>
           );
         })}
