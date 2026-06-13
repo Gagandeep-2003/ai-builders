@@ -14,9 +14,9 @@ export function AnimatedPage({
   return (
     <motion.main
       className={cn("space-y-8", className)}
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      transition={{ duration: 0.14, ease: "easeOut" }}
     >
       {children}
     </motion.main>
@@ -39,7 +39,7 @@ export function Stagger({
         hidden: {},
         show: {
           transition: {
-            staggerChildren: 0.07,
+            staggerChildren: 0.025,
           },
         },
       }}
@@ -62,12 +62,12 @@ export function FadeIn({
     <motion.div
       className={className}
       variants={{
-        hidden: { opacity: 0, y: 12 },
+        hidden: { opacity: 0, y: 5 },
         show: { opacity: 1, y: 0 },
       }}
       initial="hidden"
       animate="show"
-      transition={{ duration: 0.3, ease: "easeOut", delay }}
+      transition={{ duration: 0.14, ease: "easeOut", delay: Math.min(delay, 0.04) }}
     >
       {children}
     </motion.div>

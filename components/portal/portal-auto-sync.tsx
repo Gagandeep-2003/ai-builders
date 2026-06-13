@@ -14,7 +14,7 @@ export type ClassAlert = {
 
 export function PortalAutoSync({
   alerts = [],
-  refreshMs = 20_000,
+  refreshMs = 120_000,
 }: {
   alerts?: ClassAlert[];
   refreshMs?: number;
@@ -41,19 +41,25 @@ export function PortalAutoSync({
   }, []);
 
   useEffect(() => {
-    const refresh = () => router.refresh();
+    let lastRefresh = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastRefresh < 45_000) return;
+      lastRefresh = now;
+      router.refresh();
+    };
+
     const timer = window.setInterval(refresh, refreshMs);
     const onVisibility = () => {
       if (document.visibilityState === "visible") refresh();
     };
 
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("focus", refresh);
 
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("focus", refresh);
     };
   }, [refreshMs, router]);
 
@@ -72,16 +78,13 @@ export function PortalAutoSync({
     touchPresence();
     const timer = window.setInterval(touchPresence, 60_000);
     const onVisibility = () => touchPresence();
-    const onFocus = () => touchPresence();
 
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("focus", onFocus);
 
     return () => {
       stopped = true;
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
