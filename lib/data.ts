@@ -15,6 +15,7 @@ import {
   type Batch,
   type BatchClassSlot,
   type ClassJoinEvent,
+  type ClassRescheduleRequest,
   type CourseModule,
   type CourseSession,
   type FeedbackItem,
@@ -22,12 +23,14 @@ import {
   type HomeworkKind,
   type PasswordChangeRequest,
   type PasswordRequestStatus,
+  type RescheduleRequestStatus,
   type ResourceItem,
   type AttendanceStatus,
   type ResourceType,
   type SubmissionStatus,
   type StudentProfile,
 } from "@/lib/course-data";
+import { cache } from "react";
 import { getCourseworkDetail } from "@/lib/coursework-details";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -47,6 +50,7 @@ export type DashboardData = {
   announcements: Announcement[];
   attendance: AttendanceItem[];
   feedback: FeedbackItem[];
+  rescheduleRequests: ClassRescheduleRequest[];
   passwordRequests: PasswordChangeRequest[];
 };
 
@@ -61,6 +65,7 @@ export type AdminData = {
   attendance: AttendanceItem[];
   feedback: FeedbackItem[];
   classJoinEvents: ClassJoinEvent[];
+  rescheduleRequests: ClassRescheduleRequest[];
   passwordRequests: PasswordChangeRequest[];
 };
 
@@ -79,6 +84,7 @@ function fallbackDashboardData(): DashboardData {
     announcements: demoAnnouncements,
     attendance: demoAttendance,
     feedback: demoFeedback,
+    rescheduleRequests: [],
     passwordRequests: demoPasswordChangeRequests,
   };
 }
@@ -95,6 +101,7 @@ function fallbackAdminData(): AdminData {
     attendance: demoAttendance,
     feedback: demoFeedback,
     classJoinEvents: demoClassJoinEvents,
+    rescheduleRequests: [],
     passwordRequests: demoPasswordChangeRequests,
   };
 }
@@ -339,7 +346,7 @@ async function getSubmissionEvidenceRows(supabase: Awaited<ReturnType<typeof cre
   const expiresAt = new Date().toISOString();
   const withClientInfo = await supabase
     .from("submission_evidence")
-    .select("homework_id, student_id, screen_image, camera_image, captured_at, expires_at, user_agent, browser_name, browser_version, os_name, device_type, viewport_width, viewport_height, language")
+    .select("homework_id, student_id, screen_image, camera_image, proof_text, attachment_name, attachment_mime, attachment_data, captured_at, expires_at, user_agent, browser_name, browser_version, os_name, device_type, viewport_width, viewport_height, language")
     .gt("expires_at", expiresAt);
 
   if (!withClientInfo.error) return withClientInfo.data ?? [];
@@ -422,6 +429,28 @@ function mapClassJoinEvent(row: DbRow): ClassJoinEvent {
   };
 }
 
+function mapRescheduleRequest(row: DbRow): ClassRescheduleRequest {
+  const student = relation(row, "students");
+
+  return {
+    id: text(row, "id"),
+    studentId: text(row, "student_id"),
+    studentName: student ? text(student, "full_name", "Student") : "Student",
+    batchId: text(row, "batch_id"),
+    originalDate: text(row, "original_date") || undefined,
+    requestedDate: text(row, "requested_date"),
+    requestedStartTime: text(row, "requested_start_time"),
+    requestedEndTime: text(row, "requested_end_time"),
+    requestedTimeZone: text(row, "requested_time_zone"),
+    reason: text(row, "reason"),
+    status: text(row, "status", "pending") as RescheduleRequestStatus,
+    adminNote: text(row, "admin_note"),
+    meetLink: text(row, "meet_link"),
+    requestedAt: text(row, "requested_at"),
+    reviewedAt: text(row, "reviewed_at"),
+  };
+}
+
 function mapPasswordChangeRequest(row: DbRow): PasswordChangeRequest {
   const student = relation(row, "students");
 
@@ -483,7 +512,7 @@ export async function getCurriculum(batch = demoBatch): Promise<{
   return { modules: mappedModules, sessions: applySessionStatuses(sortedSessions, batch) };
 }
 
-export async function getStudentDashboardData(): Promise<DashboardData> {
+async function getStudentDashboardDataImpl(): Promise<DashboardData> {
   if (!isSupabaseConfigured()) return fallbackDashboardData();
 
   const supabase = await createServerSupabaseClient();
@@ -527,6 +556,7 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
     { data: announcementRows },
     { data: attendanceRows },
     { data: feedbackRows },
+    { data: rescheduleRequestRows },
     { data: passwordRequestRows },
   ] =
     await Promise.all([
@@ -556,6 +586,12 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
         .order("created_at", { ascending: false })
         .limit(10),
       supabase
+        .from("class_reschedule_requests")
+        .select("id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)")
+        .eq("student_id", effectiveStudent.id)
+        .order("requested_at", { ascending: false })
+        .limit(10),
+      supabase
         .from("password_change_requests")
         .select("id, student_id, status, reason, admin_note, requested_at, reviewed_at, used_at, students(full_name)")
         .eq("student_id", effectiveStudent.id)
@@ -578,11 +614,14 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,
     attendance,
     feedback,
+    rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
   };
 }
 
-export async function getAdminData(): Promise<AdminData> {
+export const getStudentDashboardData = cache(getStudentDashboardDataImpl);
+
+async function getAdminDataImpl(): Promise<AdminData> {
   if (!isSupabaseConfigured()) return fallbackAdminData();
 
   const supabase = await createServerSupabaseClient();
@@ -601,6 +640,7 @@ export async function getAdminData(): Promise<AdminData> {
     { data: attendanceRows },
     { data: feedbackRows },
     { data: classJoinEventRows },
+    { data: rescheduleRequestRows },
     { data: passwordRequestRows },
   ] = await Promise.all([
     supabase
@@ -644,6 +684,11 @@ export async function getAdminData(): Promise<AdminData> {
       .order("joined_at", { ascending: false })
       .limit(20),
     supabase
+      .from("class_reschedule_requests")
+      .select("id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)")
+      .order("requested_at", { ascending: false })
+      .limit(30),
+    supabase
       .from("password_change_requests")
       .select("id, student_id, status, reason, admin_note, requested_at, reviewed_at, used_at, students(full_name)")
       .order("requested_at", { ascending: false })
@@ -684,6 +729,10 @@ export async function getAdminData(): Promise<AdminData> {
             ...submission,
             screenImage: text(evidence, "screen_image") || undefined,
             cameraImage: text(evidence, "camera_image") || undefined,
+            proofText: text(evidence, "proof_text") || undefined,
+            attachmentName: text(evidence, "attachment_name") || undefined,
+            attachmentMime: text(evidence, "attachment_mime") || undefined,
+            attachmentData: text(evidence, "attachment_data") || undefined,
             proofCapturedAt: text(evidence, "captured_at") || undefined,
             proofExpiresAt: text(evidence, "expires_at") || undefined,
             userAgent: text(evidence, "user_agent") || undefined,
@@ -709,6 +758,9 @@ export async function getAdminData(): Promise<AdminData> {
     attendance: attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance,
     feedback: feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback,
     classJoinEvents: classJoinEventRows?.map((row) => mapClassJoinEvent(row)) ?? demoClassJoinEvents,
+    rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
   };
 }
+
+export const getAdminData = cache(getAdminDataImpl);

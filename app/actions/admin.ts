@@ -387,3 +387,42 @@ export async function reviewPasswordRequestAction(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/profile");
 }
+
+export async function reviewRescheduleRequestAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) {
+    revalidatePath("/admin/attendance");
+    return;
+  }
+
+  const requestId = String(formData.get("requestId") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (!requestId || !["approved", "rejected"].includes(status)) return;
+
+  const { data: request } = await supabase
+    .from("class_reschedule_requests")
+    .select("batch_id, batches(meet_link)")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  const batch = request?.batches;
+  const batchMeetLink =
+    Array.isArray(batch)
+      ? String((batch[0] as { meet_link?: unknown } | undefined)?.meet_link ?? "")
+      : String((batch as { meet_link?: unknown } | null | undefined)?.meet_link ?? "");
+  const meetLink = String(formData.get("meetLink") ?? "").trim() || batchMeetLink;
+
+  await supabase
+    .from("class_reschedule_requests")
+    .update({
+      status,
+      admin_note: String(formData.get("adminNote") ?? ""),
+      meet_link: status === "approved" ? meetLink : null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", requestId);
+
+  revalidatePath("/admin/attendance");
+  revalidatePath("/class");
+  revalidatePath("/dashboard");
+}

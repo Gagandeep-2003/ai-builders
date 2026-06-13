@@ -8,6 +8,7 @@ create type public.homework_kind as enum ('class_challenge', 'home_task');
 create type public.resource_type as enum ('pdf', 'link', 'video', 'note');
 create type public.attendance_status as enum ('present', 'absent', 'rescheduled');
 create type public.password_request_status as enum ('pending', 'approved', 'rejected', 'used');
+create type public.reschedule_request_status as enum ('pending', 'approved', 'rejected');
 
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -114,8 +115,12 @@ create table public.submission_evidence (
   student_id uuid not null references public.students(id) on delete cascade,
   screen_image text,
   camera_image text,
+  proof_text text,
+  attachment_name text,
+  attachment_mime text,
+  attachment_data text,
   captured_at timestamptz not null default now(),
-  expires_at timestamptz not null default (now() + interval '30 days'),
+  expires_at timestamptz not null default (now() + interval '14 days'),
   user_agent text,
   browser_name text,
   browser_version text,
@@ -156,6 +161,24 @@ create table public.class_join_events (
   joined_at timestamptz not null default now(),
   class_date date not null,
   meet_link text not null,
+  created_at timestamptz not null default now()
+);
+
+create table public.class_reschedule_requests (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.students(id) on delete cascade,
+  batch_id uuid references public.batches(id) on delete set null,
+  original_date date,
+  requested_date date not null,
+  requested_start_time time not null,
+  requested_end_time time not null,
+  requested_time_zone text not null,
+  reason text,
+  status public.reschedule_request_status not null default 'pending',
+  admin_note text,
+  meet_link text,
+  requested_at timestamptz not null default now(),
+  reviewed_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -200,6 +223,8 @@ create index resources_module_id_idx on public.resources (module_id);
 create index attendance_student_id_idx on public.attendance (student_id);
 create index class_join_events_student_id_idx on public.class_join_events (student_id);
 create index class_join_events_session_id_idx on public.class_join_events (session_id);
+create index class_reschedule_requests_student_id_idx on public.class_reschedule_requests (student_id);
+create index class_reschedule_requests_status_idx on public.class_reschedule_requests (status);
 create index feedback_student_id_idx on public.feedback (student_id);
 create index password_change_requests_student_id_idx on public.password_change_requests (student_id);
 create index password_change_requests_status_idx on public.password_change_requests (status);
@@ -320,6 +345,7 @@ alter table public.submission_evidence enable row level security;
 alter table public.resources enable row level security;
 alter table public.attendance enable row level security;
 alter table public.class_join_events enable row level security;
+alter table public.class_reschedule_requests enable row level security;
 alter table public.feedback enable row level security;
 alter table public.password_change_requests enable row level security;
 alter table public.announcements enable row level security;
@@ -485,6 +511,23 @@ create policy "class_join_events_delete_admin"
 on public.class_join_events for delete
 using (private.is_admin());
 
+create policy "class_reschedule_requests_select_self_or_admin"
+on public.class_reschedule_requests for select
+using (student_id = private.current_student_id() or private.is_admin());
+
+create policy "class_reschedule_requests_insert_self_or_admin"
+on public.class_reschedule_requests for insert
+with check (student_id = private.current_student_id() or private.is_admin());
+
+create policy "class_reschedule_requests_update_admin"
+on public.class_reschedule_requests for update
+using (private.is_admin())
+with check (private.is_admin());
+
+create policy "class_reschedule_requests_delete_admin"
+on public.class_reschedule_requests for delete
+using (private.is_admin());
+
 create policy "feedback_select_self_or_admin"
 on public.feedback for select
 using (student_id = private.current_student_id() or private.is_admin());
@@ -539,6 +582,7 @@ grant select, insert, update, delete on public.submission_evidence to authentica
 grant select, insert, update, delete on public.resources to authenticated;
 grant select, insert, update, delete on public.attendance to authenticated;
 grant select, insert, update, delete on public.class_join_events to authenticated;
+grant select, insert, update, delete on public.class_reschedule_requests to authenticated;
 grant select, insert, update, delete on public.feedback to authenticated;
 grant select, insert, update, delete on public.password_change_requests to authenticated;
 grant select, insert, update, delete on public.announcements to authenticated;

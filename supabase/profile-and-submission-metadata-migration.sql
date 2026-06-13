@@ -53,16 +53,24 @@ create table if not exists public.submission_evidence (
   student_id uuid not null references public.students(id) on delete cascade,
   screen_image text,
   camera_image text,
+  proof_text text,
+  attachment_name text,
+  attachment_mime text,
+  attachment_data text,
   captured_at timestamptz not null default now(),
-  expires_at timestamptz not null default (now() + interval '30 days'),
+  expires_at timestamptz not null default (now() + interval '14 days'),
   created_at timestamptz not null default now(),
   unique (homework_id, student_id)
 );
 
 alter table public.submission_evidence
-  add column if not exists expires_at timestamptz not null default (now() + interval '30 days');
+  add column if not exists expires_at timestamptz not null default (now() + interval '14 days');
 
 alter table public.submission_evidence
+  add column if not exists proof_text text,
+  add column if not exists attachment_name text,
+  add column if not exists attachment_mime text,
+  add column if not exists attachment_data text,
   add column if not exists user_agent text,
   add column if not exists browser_name text,
   add column if not exists browser_version text,
@@ -73,7 +81,7 @@ alter table public.submission_evidence
   add column if not exists language text;
 
 update public.submission_evidence
-set expires_at = captured_at + interval '30 days'
+set expires_at = captured_at + interval '14 days'
 where expires_at is null;
 
 create index if not exists submission_evidence_student_id_idx

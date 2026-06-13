@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardList, Flag, Sparkles } from "lucide-react";
 import { HomeworkDocumentViewer } from "@/components/portal/homework-document-viewer";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
@@ -23,6 +23,25 @@ function DetailList({ title, items }: { title: string; items?: string[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function InstructionSteps({ items }: { items?: string[] }) {
+  if (!items?.length) return null;
+
+  return (
+    <div className="space-y-3">
+      {items.map((item, index) => (
+        <div key={item} className="group flex gap-3 rounded-xl border border-border/70 bg-white/[0.025] p-4">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-accent/25 bg-accent/10 font-mono text-xs text-accent">
+            {index + 1}
+          </span>
+          <p className="pt-1 text-sm leading-6 text-text-secondary transition group-hover:text-text-primary">
+            {item}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -118,33 +137,68 @@ export default async function HomeworkDetailPage({
       </section>
 
       {homework.details ? (
-        <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <div className="space-y-4">
-            {homework.details.mission ? (
-              <div className="premium-card rounded-xl p-5">
-                <p className="font-mono text-xs uppercase text-accent">Mission</p>
-                <p className="mt-3 text-sm leading-6 text-text-secondary">{homework.details.mission}</p>
+        <section className="premium-card overflow-hidden rounded-xl p-0">
+          <div className="border-b border-border/70 bg-white/[0.025] p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase text-accent">Task roadmap</p>
+                <h2 className="mt-2 font-heading text-2xl font-bold">Follow this path</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">
+                  Start with the mission, complete the steps in order, then use the checklist before submitting.
+                </p>
               </div>
-            ) : null}
-            {homework.details.scenario ? (
-              <div className="premium-card rounded-xl p-5">
-                <p className="font-mono text-xs uppercase text-accent">Scenario</p>
-                <p className="mt-3 text-sm leading-6 text-text-secondary">{homework.details.scenario}</p>
-              </div>
-            ) : null}
-            {homework.details.prompt ? (
-              <div className="premium-card rounded-xl p-5">
-                <p className="font-mono text-xs uppercase text-accent">Suggested prompt</p>
-                <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap rounded-xl border border-border bg-bg-elevated p-4 font-mono text-xs leading-6 text-text-secondary scrollbar-soft">
-                  {homework.details.prompt}
-                </pre>
-              </div>
-            ) : null}
+              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 font-mono text-[11px] uppercase text-accent">
+                <Sparkles className="h-3.5 w-3.5" />
+                {homework.details.aiType}
+              </span>
+            </div>
           </div>
-          <div className="space-y-4">
-            <DetailList title="Instructions" items={homework.details.instructions} />
-            <DetailList title="Deliverables" items={homework.details.deliverables} />
-            <DetailList title="Checklist" items={homework.details.checklist} />
+
+          <div className="grid gap-0 xl:grid-cols-[0.86fr_1.14fr]">
+            <div className="space-y-4 border-b border-border/70 p-5 xl:border-b-0 xl:border-r">
+              {homework.details.mission ? (
+                <div className="rounded-xl border border-accent/20 bg-accent/5 p-4">
+                  <div className="flex items-center gap-2">
+                    <Flag className="h-4 w-4 text-accent" />
+                    <p className="font-mono text-xs uppercase text-accent">Mission</p>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-text-secondary">{homework.details.mission}</p>
+                </div>
+              ) : null}
+              {homework.details.scenario ? (
+                <div className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-accent" />
+                    <p className="font-mono text-xs uppercase text-accent">Scenario</p>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-text-secondary">{homework.details.scenario}</p>
+                </div>
+              ) : null}
+              {homework.details.prompt ? (
+                <details className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
+                  <summary className="cursor-pointer list-none font-mono text-xs uppercase text-accent">
+                    Suggested prompt
+                  </summary>
+                  <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-border bg-bg-elevated p-4 font-mono text-xs leading-6 text-text-secondary scrollbar-soft">
+                    {homework.details.prompt}
+                  </pre>
+                </details>
+              ) : null}
+            </div>
+
+            <div className="space-y-5 p-5">
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-accent" />
+                  <p className="font-mono text-xs uppercase text-accent">Instructions</p>
+                </div>
+                <InstructionSteps items={homework.details.instructions} />
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <DetailList title="Deliverables" items={homework.details.deliverables} />
+                <DetailList title="Checklist" items={homework.details.checklist} />
+              </div>
+            </div>
           </div>
         </section>
       ) : null}

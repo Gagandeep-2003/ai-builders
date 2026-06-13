@@ -68,3 +68,49 @@ export async function joinClassAction(formData: FormData) {
 
   redirect(meetLink);
 }
+
+export async function requestClassRescheduleAction(formData: FormData) {
+  const slot = String(formData.get("slot") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  const originalDate = String(formData.get("originalDate") ?? "") || null;
+  const [requestedDate, requestedStartTime, requestedEndTime, requestedTimeZone] = slot.split("|");
+
+  if (!requestedDate || !requestedStartTime || !requestedEndTime || !requestedTimeZone || !isSupabaseConfigured()) {
+    redirect("/class?reschedule=invalid");
+  }
+
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) redirect("/class?reschedule=invalid");
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const data = await getStudentDashboardData();
+  const hasPending = data.rescheduleRequests.some((request) => request.status === "pending");
+  if (hasPending) redirect("/class?reschedule=pending");
+
+  const { error } = await supabase.from("class_reschedule_requests").insert({
+    student_id: data.student.id,
+    batch_id: data.batch.id,
+    original_date: originalDate,
+    requested_date: requestedDate,
+    requested_start_time: requestedStartTime,
+    requested_end_time: requestedEndTime,
+    requested_time_zone: requestedTimeZone,
+    reason,
+    status: "pending",
+  });
+
+  revalidatePath("/class");
+  revalidatePath("/admin/attendance");
+
+  if (error) {
+    console.error("Unable to request class reschedule", error);
+    redirect("/class?reschedule=error");
+  }
+
+  redirect("/class?reschedule=requested");
+}

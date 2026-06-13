@@ -3,6 +3,7 @@ export type SubmissionStatus = "pending" | "submitted" | "reviewed";
 export type AttendanceStatus = "present" | "absent" | "rescheduled";
 export type ResourceType = "pdf" | "link" | "video" | "note";
 export type PasswordRequestStatus = "pending" | "approved" | "rejected" | "used";
+export type RescheduleRequestStatus = "pending" | "approved" | "rejected";
 export type HomeworkKind = "class_challenge" | "home_task";
 
 export type HomeworkDetails = {
@@ -114,6 +115,10 @@ export type HomeworkSubmissionSummary = {
   timeSpentSeconds?: number;
   screenImage?: string;
   cameraImage?: string;
+  proofText?: string;
+  attachmentName?: string;
+  attachmentMime?: string;
+  attachmentData?: string;
   proofCapturedAt?: string;
   proofExpiresAt?: string;
   browserName?: string;
@@ -171,6 +176,24 @@ export type ClassJoinEvent = {
   meetLink: string;
   studentName: string;
   sessionName: string;
+};
+
+export type ClassRescheduleRequest = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  batchId: string;
+  originalDate?: string;
+  requestedDate: string;
+  requestedStartTime: string;
+  requestedEndTime: string;
+  requestedTimeZone: string;
+  reason: string;
+  status: RescheduleRequestStatus;
+  adminNote: string;
+  meetLink: string;
+  requestedAt: string;
+  reviewedAt: string;
 };
 
 export type PasswordChangeRequest = {

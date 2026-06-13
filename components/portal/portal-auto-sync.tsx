@@ -20,10 +20,8 @@ export function PortalAutoSync({
   refreshMs?: number;
 }) {
   const router = useRouter();
-  const [notificationState, setNotificationState] = useState<NotificationPermission | "unsupported">(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
-    return Notification.permission;
-  });
+  const [promptReady, setPromptReady] = useState(false);
+  const [notificationState, setNotificationState] = useState<NotificationPermission | "unsupported">("unsupported");
 
   const upcomingAlerts = useMemo(
     () =>
@@ -32,6 +30,15 @@ export function PortalAutoSync({
         .filter((alert) => Number.isFinite(alert.startsAtMs)),
     [alerts],
   );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setNotificationState("Notification" in window ? Notification.permission : "unsupported");
+      setPromptReady(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const refresh = () => router.refresh();
@@ -113,7 +120,7 @@ export function PortalAutoSync({
     setNotificationState(permission);
   }
 
-  if (notificationState === "granted" || notificationState === "unsupported" || alerts.length === 0) {
+  if (!promptReady || notificationState === "granted" || notificationState === "unsupported" || alerts.length === 0) {
     return null;
   }
 

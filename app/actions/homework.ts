@@ -23,6 +23,12 @@ type HomeworkSubmitResult = {
   error?: string;
 };
 
+type HomeworkAttachment = {
+  name: string;
+  mime: string;
+  data: string;
+};
+
 const CLIENT_INFO_NOTE_PREFIX = "__client_info__:";
 
 async function getStudentContext() {
@@ -75,6 +81,8 @@ async function saveSubmissionEvidence({
   studentId,
   screenImage,
   cameraImage,
+  proofText,
+  attachment,
   clientInfo,
   now,
 }: {
@@ -83,14 +91,17 @@ async function saveSubmissionEvidence({
   studentId: string;
   screenImage?: string;
   cameraImage?: string;
+  proofText?: string;
+  attachment?: HomeworkAttachment;
   clientInfo?: SubmissionClientInfo;
   now: string;
 }) {
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString();
+  const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60_000).toISOString();
   const hasImages = Boolean(screenImage || cameraImage);
+  const hasWorkEvidence = Boolean(proofText || attachment?.data);
   const hasMetadata = Boolean(clientInfo);
 
-  if (!hasImages && !hasMetadata) {
+  if (!hasImages && !hasWorkEvidence && !hasMetadata) {
     return {
       saved: false,
       imagesSaved: false,
@@ -103,6 +114,10 @@ async function saveSubmissionEvidence({
     student_id: studentId,
     screen_image: screenImage || null,
     camera_image: cameraImage || null,
+    proof_text: proofText || null,
+    attachment_name: attachment?.name || null,
+    attachment_mime: attachment?.mime || null,
+    attachment_data: attachment?.data || null,
     captured_at: now,
     expires_at: expiresAt,
     user_agent: clientInfo?.userAgent || null,
@@ -125,6 +140,15 @@ async function saveSubmissionEvidence({
       saved: true,
       imagesSaved: hasImages,
       metadataSaved: hasMetadata,
+    };
+  }
+
+  if (hasWorkEvidence) {
+    return {
+      saved: false,
+      imagesSaved: false,
+      metadataSaved: false,
+      error: `Proof text or file attachments need the latest submission evidence migration. ${error.message}`,
     };
   }
 
@@ -274,6 +298,8 @@ export async function markHomeworkSubmittedWithEvidence(
   screenImage?: string,
   cameraImage?: string,
   clientInfo?: SubmissionClientInfo,
+  proofText?: string,
+  attachment?: HomeworkAttachment,
 ): Promise<HomeworkSubmitResult> {
   if (!homeworkId || !isSupabaseConfigured()) {
     revalidatePath("/homework");
@@ -298,13 +324,23 @@ export async function markHomeworkSubmittedWithEvidence(
   }
 
   const now = new Date().toISOString();
-  const hasCapturedProof = Boolean(screenImage || cameraImage);
+  const cleanProofText = proofText?.trim().slice(0, 8000) || "";
+  const cleanAttachment = attachment?.data
+    ? {
+        name: attachment.name.slice(0, 160),
+        mime: attachment.mime.slice(0, 120),
+        data: attachment.data,
+      }
+    : undefined;
+  const hasCapturedProof = Boolean(screenImage || cameraImage || cleanProofText || cleanAttachment);
   const evidence = await saveSubmissionEvidence({
     supabase: context.supabase,
     homeworkId,
     studentId: context.studentId,
     screenImage,
     cameraImage,
+    proofText: cleanProofText,
+    attachment: cleanAttachment,
     clientInfo,
     now,
   });

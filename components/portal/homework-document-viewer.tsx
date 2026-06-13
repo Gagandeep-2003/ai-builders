@@ -4,11 +4,16 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, CheckCircle2, MonitorUp, Play, ShieldCheck, Timer, X } from "lucide-react";
+import { Camera, CheckCircle2, FileText, MonitorUp, Paperclip, Play, ShieldCheck, Timer, X } from "lucide-react";
 import { markHomeworkStarted, markHomeworkSubmittedWithEvidence, resetHomeworkProgress } from "@/app/actions/homework";
 import { formatDuration, isTrustedTaskDuration } from "@/lib/homework-utils";
 
 type CelebrationState = "started" | "completed" | null;
+type AttachmentState = {
+  name: string;
+  mime: string;
+  data: string;
+};
 
 function getBrowserInfo(userAgent: string) {
   const browserPatterns = [
@@ -205,6 +210,8 @@ export function HomeworkDocumentViewer({
   const [proofOpen, setProofOpen] = useState(false);
   const [screenImage, setScreenImage] = useState("");
   const [cameraImage, setCameraImage] = useState("");
+  const [proofText, setProofText] = useState("");
+  const [attachment, setAttachment] = useState<AttachmentState | undefined>();
   const [captureError, setCaptureError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
   const [now, setNow] = useState(() => Date.now());
@@ -279,12 +286,46 @@ export function HomeworkDocumentViewer({
     }
   }
 
+  async function handleAttachment(file?: File) {
+    setCaptureError("");
+    setSaveNotice("");
+    if (!file) {
+      setAttachment(undefined);
+      return;
+    }
+
+    if (file.size > 750_000) {
+      setCaptureError("Please upload a file smaller than 750 KB for now.");
+      return;
+    }
+
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Could not read this file."));
+      reader.readAsDataURL(file);
+    });
+
+    setAttachment({
+      name: file.name,
+      mime: file.type || "application/octet-stream",
+      data,
+    });
+  }
+
   function completeTask() {
     setCaptureError("");
     setSaveNotice("");
     const clientInfo = getClientInfo();
     startTransition(async () => {
-      const result = await markHomeworkSubmittedWithEvidence(homeworkId, screenImage, cameraImage, clientInfo);
+      const result = await markHomeworkSubmittedWithEvidence(
+        homeworkId,
+        screenImage,
+        cameraImage,
+        clientInfo,
+        proofText,
+        attachment,
+      );
       if (!result.submitted) {
         setProofOpen(true);
         setCaptureError(result.error ?? "Submission proof could not be saved. Please try again.");
@@ -302,6 +343,8 @@ export function HomeworkDocumentViewer({
             ? "Submission proof and device details were saved for admin review."
             : "Submission proof was saved. Device details need the metadata migration to appear.",
         );
+      } else if (result.evidenceSaved) {
+        setSaveNotice("Submission notes or attachment were saved for admin review.");
       } else if (!screenImage && !cameraImage) {
         setSaveNotice("Activity submitted without proof images. Admin will see that capture was skipped.");
       }
@@ -433,6 +476,47 @@ export function HomeworkDocumentViewer({
                       <p className="px-4 text-center text-sm text-text-muted">No camera proof captured yet.</p>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="rounded-xl border border-border bg-white/[0.025] p-4">
+                  <div className="flex items-start gap-3">
+                    <FileText className="mt-0.5 h-4 w-4 text-accent" />
+                    <div>
+                      <p className="font-mono text-xs uppercase text-text-muted">Text evidence</p>
+                      <p className="mt-1 text-sm text-text-secondary">Paste a short answer, link, reflection, or note.</p>
+                    </div>
+                  </div>
+                  <textarea
+                    value={proofText}
+                    onChange={(event) => setProofText(event.target.value)}
+                    maxLength={8000}
+                    placeholder="Paste your final answer, project link, or submission note here..."
+                    className="mt-4 min-h-32 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm outline-none transition focus:border-accent/60"
+                  />
+                </label>
+
+                <div className="rounded-xl border border-border bg-white/[0.025] p-4">
+                  <div className="flex items-start gap-3">
+                    <Paperclip className="mt-0.5 h-4 w-4 text-accent" />
+                    <div>
+                      <p className="font-mono text-xs uppercase text-text-muted">File attachment</p>
+                      <p className="mt-1 text-sm text-text-secondary">Attach one small screenshot, PDF, doc, or text file.</p>
+                    </div>
+                  </div>
+                  <input
+                    type="file"
+                    onChange={(event) => void handleAttachment(event.target.files?.[0])}
+                    className="mt-4 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+                  />
+                  {attachment ? (
+                    <div className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-3 text-sm text-accent">
+                      {attachment.name}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-text-muted">Maximum file size: 750 KB.</p>
+                  )}
                 </div>
               </div>
 

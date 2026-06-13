@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from "react";
-import { ChevronDown, MonitorSmartphone, UserRound } from "lucide-react";
+import { ChevronDown, FileText, MonitorSmartphone, Paperclip, UserRound } from "lucide-react";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { Batch, CourseSession, HomeworkItem, StudentProfile } from "@/lib/course-data";
@@ -252,6 +252,34 @@ export function AdminHomeworkWorkbook({
                                             : "No evidence row was found for this submitted task. Ask the student to submit again after the evidence migration is applied."}
                                         </div>
                                       )}
+                                      {submission.proofText ? (
+                                        <div className="mt-3 rounded-lg border border-border/70 bg-bg-base/40 p-3">
+                                          <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-accent" />
+                                            <p className="font-mono text-[10px] uppercase text-text-muted">Text evidence</p>
+                                          </div>
+                                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
+                                            {submission.proofText}
+                                          </p>
+                                        </div>
+                                      ) : null}
+                                      {submission.attachmentData ? (
+                                        <a
+                                          href={submission.attachmentData}
+                                          download={submission.attachmentName || "student-attachment"}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent/5 p-3 text-sm text-accent transition hover:border-accent/45"
+                                        >
+                                          <span className="flex min-w-0 items-center gap-2">
+                                            <Paperclip className="h-4 w-4 shrink-0" />
+                                            <span className="truncate">{submission.attachmentName || "Student attachment"}</span>
+                                          </span>
+                                          <span className="shrink-0 font-mono text-[10px] uppercase text-text-muted">
+                                            {submission.attachmentMime || "file"}
+                                          </span>
+                                        </a>
+                                      ) : null}
                                       {deviceFields.length || submission.userAgent ? (
                                         <div className="mt-3 grid gap-2 rounded-lg border border-border/70 bg-bg-base/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
                                           {deviceFields.map(([label, value]) => (
