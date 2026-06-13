@@ -16,7 +16,8 @@ export default async function AdminAttendancePage({
   const selectedSession =
     data.sessions.find((session) => session.id === params?.sessionId) ?? data.sessions[0];
   const pendingReschedules = data.rescheduleRequests.filter((request) => request.status === "pending");
-  const recentReschedules = data.rescheduleRequests.filter((request) => request.status !== "pending").slice(0, 6);
+  const approvedReschedules = data.rescheduleRequests.filter((request) => request.status === "approved");
+  const rejectedReschedules = data.rescheduleRequests.filter((request) => request.status === "rejected").slice(0, 4);
 
   return (
     <AnimatedPage>
@@ -80,20 +81,86 @@ export default async function AdminAttendancePage({
           )}
         </div>
 
-        {recentReschedules.length > 0 ? (
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {recentReschedules.map((request) => (
-              <article key={request.id} className="rounded-xl border border-border/70 bg-white/[0.02] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-heading font-bold">{request.studentName}</p>
-                  <StatusBadge status={request.status} />
-                </div>
-                <p className="mt-2 text-sm text-text-secondary">
-                  {request.requestedDate} · {request.requestedStartTime.slice(0, 5)} {request.requestedTimeZone}
-                </p>
-              </article>
-            ))}
+        {approvedReschedules.length > 0 ? (
+          <div className="mt-6">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase text-accent">Approved make-up classes</p>
+                <h3 className="mt-1 font-heading text-xl font-bold">Visible to students now</h3>
+              </div>
+              <p className="text-sm text-text-secondary">{approvedReschedules.length} approved</p>
+            </div>
+
+            <div className="mt-4 grid gap-3 xl:grid-cols-2">
+              {approvedReschedules.map((request) => (
+                <article key={request.id} className="rounded-xl border border-accent/25 bg-accent/5 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-heading text-lg font-bold">{request.studentName}</p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {request.requestedDate} · {request.requestedStartTime.slice(0, 5)} -{" "}
+                        {request.requestedEndTime.slice(0, 5)} {request.requestedTimeZone}
+                      </p>
+                    </div>
+                    <StatusBadge status={request.status} />
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-border/70 bg-bg-card/70 p-3">
+                      <p className="font-mono text-[11px] uppercase text-text-muted">Meet link</p>
+                      {request.meetLink ? (
+                        <a
+                          href={request.meetLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 block truncate text-sm font-bold text-accent hover:text-text-primary"
+                        >
+                          {request.meetLink}
+                        </a>
+                      ) : (
+                        <p className="mt-1 text-sm text-text-secondary">Batch link will be used.</p>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-border/70 bg-bg-card/70 p-3">
+                      <p className="font-mono text-[11px] uppercase text-text-muted">Reviewed</p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {request.reviewedAt ? new Date(request.reviewedAt).toLocaleString() : "Just approved"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {request.adminNote || request.reason ? (
+                    <div className="mt-3 rounded-lg border border-border/70 bg-bg-card/70 p-3 text-sm text-text-secondary">
+                      {request.adminNote ? <p><span className="text-text-primary">Admin note:</span> {request.adminNote}</p> : null}
+                      {request.reason ? <p className={request.adminNote ? "mt-2" : ""}><span className="text-text-primary">Student reason:</span> {request.reason}</p> : null}
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
           </div>
+        ) : null}
+
+        {rejectedReschedules.length > 0 ? (
+          <details className="mt-5 rounded-xl border border-border/70 bg-white/[0.02] p-4">
+            <summary className="cursor-pointer font-heading font-bold text-text-primary">
+              Recently rejected requests
+            </summary>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {rejectedReschedules.map((request) => (
+                <article key={request.id} className="rounded-lg border border-border/70 bg-bg-card/70 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-heading font-bold">{request.studentName}</p>
+                    <StatusBadge status={request.status} />
+                  </div>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    {request.requestedDate} · {request.requestedStartTime.slice(0, 5)} {request.requestedTimeZone}
+                  </p>
+                  {request.adminNote ? <p className="mt-2 text-sm text-text-muted">{request.adminNote}</p> : null}
+                </article>
+              ))}
+            </div>
+          </details>
         ) : null}
       </section>
 

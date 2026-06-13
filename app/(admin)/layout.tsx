@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
+import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavLink } from "@/components/ui/sidebar-nav";
 
 const links: NavLink[] = [
@@ -20,6 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen">
+      <CardBorderGlow />
       <PortalAutoSync />
       <SidebarNav
         links={links}

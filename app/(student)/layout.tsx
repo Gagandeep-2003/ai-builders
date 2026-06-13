@@ -1,5 +1,6 @@
 import { requireStudentAccess } from "@/lib/auth";
 import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
+import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavLink } from "@/components/ui/sidebar-nav";
 
 const links: NavLink[] = [
@@ -18,6 +19,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
 
   return (
     <div className="min-h-screen">
+      <CardBorderGlow />
       <PortalAutoSync />
       <SidebarNav links={links} />
       <div className="px-4 py-20 sm:px-6 lg:ml-72 lg:px-10 lg:py-10">
