@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Lock, Video } from "lucide-react";
 import { joinClassAction } from "@/app/actions/class";
 import type { Batch, CourseSession } from "@/lib/course-data";
-import { formatSessionTime, getSessionJoinWindow } from "@/lib/time";
+import { formatInTimeZone, formatSessionTime, getSessionJoinWindow } from "@/lib/time";
 
 export function ClassLiveCard({
   batch,
@@ -18,7 +18,7 @@ export function ClassLiveCard({
   const [nearClass, setNearClass] = useState(false);
   const [canJoin, setCanJoin] = useState(false);
   const { opensAt } = getSessionJoinWindow(nextSession, batch);
-  const disabledMessage = `Join activates 15 minutes before class, at ${opensAt.toLocaleString([], {
+  const disabledMessage = `Join activates 15 minutes before class, at ${formatInTimeZone(opensAt, viewerTimeZone, {
     dateStyle: "medium",
     timeStyle: "short",
   })}.`;

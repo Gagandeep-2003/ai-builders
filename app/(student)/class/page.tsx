@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDot } from "lucide-react";
+import { CalendarPlus, CheckCircle2, CircleDot } from "lucide-react";
 import { requestClassRescheduleAction } from "@/app/actions/class";
 import { ClassLiveCard } from "@/components/portal/class-live-card";
 import { AnimatedPage } from "@/components/ui/animated";
@@ -55,35 +55,27 @@ export default async function ClassPage({
           {requestMessage}
         </div>
       ) : null}
-      <ClassLiveCard batch={data.batch} nextSession={nextSession} viewerTimeZone={data.student.timeZone} />
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="premium-card rounded-xl p-5">
-          <p className="font-mono text-xs uppercase text-text-muted">Your local time</p>
-          <p className="mt-2 font-heading text-xl font-bold">
-            {formatBatchSchedule(data.batch, data.student.timeZone)}
-          </p>
-          <p className="mt-2 text-sm text-text-secondary">{data.student.timeZone}</p>
-        </div>
-        <div className="premium-card rounded-xl p-5">
-          <p className="font-mono text-xs uppercase text-text-muted">Bootcamp time</p>
-          <p className="mt-2 font-heading text-xl font-bold">
-            {formatBatchSchedule(data.batch, data.batch.timeZone)}
-          </p>
-          <p className="mt-2 text-sm text-text-secondary">{data.batch.timeZone}</p>
-        </div>
-      </section>
+      <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+        <ClassLiveCard batch={data.batch} nextSession={nextSession} viewerTimeZone={data.student.timeZone} />
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_1.1fr]">
         <div className="premium-card rounded-xl p-5">
-          <p className="font-mono text-xs uppercase text-accent">Reschedule request</p>
-          <h2 className="mt-2 font-heading text-2xl font-bold">Ask for a make-up class</h2>
-          <p className="mt-2 text-sm leading-6 text-text-secondary">
-            Choose one preferred slot from the tutor availability list. Admin will approve it and attach the class link.
-          </p>
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
+              <CalendarPlus className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-mono text-xs uppercase text-accent">Reschedule</p>
+              <h2 className="mt-1 font-heading text-2xl font-bold">Request a make-up class</h2>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                Pick a tutor slot in your local time. Admin approval will add the final class link here.
+              </p>
+            </div>
+          </div>
+
           {pendingRequest ? (
             <div className="mt-5 rounded-xl border border-accent-warm/30 bg-accent-warm/10 p-4 text-sm text-amber-100">
-              Pending request for {formatRequestRange(
+              Pending for {formatRequestRange(
                 pendingRequest.requestedDate,
                 pendingRequest.requestedStartTime,
                 pendingRequest.requestedEndTime,
@@ -106,16 +98,35 @@ export default async function ClassPage({
               </select>
               <textarea
                 name="reason"
-                placeholder="Short reason, for example: missed class / travel / school event"
-                className="min-h-24 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+                placeholder="Reason, for example: missed class / travel / school event"
+                className="min-h-20 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
               />
-              <button className="button-motion rounded-xl bg-accent px-5 py-3 font-bold text-bg-base">
-                Send Request
+              <button className="button-motion w-full rounded-xl bg-accent px-5 py-3 font-bold text-bg-base">
+                Send Reschedule Request
               </button>
             </form>
           )}
         </div>
+      </section>
 
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="premium-card rounded-xl p-5">
+          <p className="font-mono text-xs uppercase text-text-muted">Your local time</p>
+          <p className="mt-2 font-heading text-xl font-bold">
+            {formatBatchSchedule(data.batch, data.student.timeZone)}
+          </p>
+          <p className="mt-2 text-sm text-text-secondary">{data.student.timeZone}</p>
+        </div>
+        <div className="premium-card rounded-xl p-5">
+          <p className="font-mono text-xs uppercase text-text-muted">Bootcamp time</p>
+          <p className="mt-2 font-heading text-xl font-bold">
+            {formatBatchSchedule(data.batch, data.batch.timeZone)}
+          </p>
+          <p className="mt-2 text-sm text-text-secondary">{data.batch.timeZone}</p>
+        </div>
+      </section>
+
+      <section>
         <div className="premium-card rounded-xl p-5">
           <p className="font-mono text-xs uppercase text-accent">Approved make-up classes</p>
           <h2 className="mt-2 font-heading text-2xl font-bold">One-off schedule changes</h2>

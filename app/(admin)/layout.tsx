@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { getAdminData } from "@/lib/data";
-import { ADMIN_TIME_ZONE, formatSessionTime, getSessionDateTimes } from "@/lib/time";
-import { PortalAutoSync, type ClassAlert } from "@/components/portal/portal-auto-sync";
+import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
 import { SidebarNav, type NavLink } from "@/components/ui/sidebar-nav";
 
 const links: NavLink[] = [
@@ -19,27 +17,10 @@ const links: NavLink[] = [
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
-  const data = await getAdminData();
-  const now = new Date();
-  const alerts: ClassAlert[] = data.batches
-    .flatMap((batch) =>
-      data.sessions.map((session) => {
-        const { startsAt } = getSessionDateTimes(session, batch);
-        return {
-          id: `${batch.id}-${session.id}`,
-          title: "Bootcamp class starting soon",
-          body: `${batch.name}: ${session.title} at ${formatSessionTime(session, batch, ADMIN_TIME_ZONE)}`,
-          startsAt: startsAt.toISOString(),
-        };
-      }),
-    )
-    .filter((alert) => new Date(alert.startsAt).getTime() >= now.getTime())
-    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
-    .slice(0, 12);
 
   return (
     <div className="min-h-screen">
-      <PortalAutoSync alerts={alerts} />
+      <PortalAutoSync />
       <SidebarNav
         links={links}
         footer={

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   BookOpenCheck,
@@ -63,7 +63,14 @@ export function SidebarNav({
   footer?: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    for (const link of links) {
+      router.prefetch(link.href);
+    }
+  }, [links, router]);
 
   const nav = (
     <aside className="flex h-full w-72 flex-col border-r border-border/70 bg-bg-base/90 px-4 py-5 backdrop-blur-xl">
@@ -88,6 +95,9 @@ export function SidebarNav({
             <Link
               key={link.href}
               href={link.href}
+              prefetch
+              onMouseEnter={() => router.prefetch(link.href)}
+              onFocus={() => router.prefetch(link.href)}
               onClick={() => setOpen(false)}
               className={cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary transition",
