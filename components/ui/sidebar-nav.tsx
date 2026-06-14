@@ -94,10 +94,11 @@ export function SidebarNav({
         <span className="grid h-10 w-10 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
           <Sparkles className="h-5 w-5" />
         </span>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="font-heading text-sm font-bold">AI Builders</p>
           <p className="font-mono text-[11px] uppercase text-text-muted">Summer Bootcamp</p>
         </div>
+        <AnimatedThemeToggler compact variant="circle" />
       </div>
 
       <nav className="mt-8 space-y-1">
@@ -143,7 +144,6 @@ export function SidebarNav({
 
       <div className="mt-auto space-y-3 pt-6">
         {footer}
-        <AnimatedThemeToggler variant="circle" />
         <form action={logoutAction}>
           <button className="button-motion flex w-full items-center gap-3 rounded-xl border border-border bg-bg-card px-3 py-2.5 text-sm text-text-secondary hover:text-text-primary">
             <LogOut className="h-4 w-4" />

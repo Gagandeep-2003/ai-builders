@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Command, Search, Sparkles, X } from "lucide-react";
+import { ArrowRight, Command, Palette, Search, Sparkles, X } from "lucide-react";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { RippleGrid } from "@/components/ui/ripple-grid";
 import { Strands } from "@/components/ui/strands";
+import { useTheme } from "@/components/ui/theme-provider";
 
 export type StudentSearchItem = {
   title: string;
@@ -88,8 +90,18 @@ export function StudentStrandsSearch({
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const { theme } = useTheme();
   const firstName = studentName.split(" ")[0] || "Builder";
-  const isHelp = searched && ["/help", "help", "?"].includes(normalize(submittedQuery));
+  const normalizedSubmittedQuery = normalize(submittedQuery);
+  const isHelp = searched && ["/help", "help", "?"].includes(normalizedSubmittedQuery);
+  const isThemeCommand =
+    searched &&
+    (normalizedSubmittedQuery === "toggle theme" ||
+      normalizedSubmittedQuery === "theme" ||
+      normalizedSubmittedQuery.includes("dark mode") ||
+      normalizedSubmittedQuery.includes("light mode") ||
+      (normalizedSubmittedQuery.includes("toggle") && normalizedSubmittedQuery.includes("theme")));
+  const nextTheme = theme === "dark" ? "light" : "dark";
   const helpItems = [
     {
       title: "Find lessons and modules",
@@ -103,17 +115,21 @@ export function StudentStrandsSearch({
       title: "Find live class info",
       description: "Try: next class, makeup class, schedule, resources, profile.",
     },
+    {
+      title: "Control appearance",
+      description: "Try: toggle theme, light mode, or dark mode to switch the portal theme.",
+    },
   ];
 
   const results = useMemo(() => {
-    if (!searched || !submittedQuery.trim() || isHelp) return [];
+    if (!searched || !submittedQuery.trim() || isHelp || isThemeCommand) return [];
     return items
       .map((item) => ({ item, score: scoreItem(item, submittedQuery) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
       .map(({ item }) => item);
-  }, [isHelp, items, searched, submittedQuery]);
+  }, [isHelp, isThemeCommand, items, searched, submittedQuery]);
 
   const ensureAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -165,12 +181,12 @@ export function StudentStrandsSearch({
   }, [open, speakGreeting]);
 
   useEffect(() => {
-    if (!searched || (results.length === 0 && !isHelp)) return;
-    const count = isHelp ? helpItems.length : Math.min(results.length, 4);
+    if (!searched || (results.length === 0 && !isHelp && !isThemeCommand)) return;
+    const count = isHelp ? helpItems.length : isThemeCommand ? 1 : Math.min(results.length, 4);
     Array.from({ length: count }).forEach((_, index) => {
       window.setTimeout(() => playResultTone(audioContextRef.current, index), index * 95);
     });
-  }, [helpItems.length, isHelp, results.length, searched]);
+  }, [helpItems.length, isHelp, isThemeCommand, results.length, searched]);
 
   function close() {
     setOpen(false);
@@ -274,8 +290,8 @@ export function StudentStrandsSearch({
 
               <div className="mx-auto mt-8 w-full max-w-3xl">
                 {!searched ? (
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {["/help", "module 1 homework", "next class", "canva resources"].map((suggestion) => (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {["/help", "toggle theme", "next class", "module 1 homework"].map((suggestion) => (
                       <button
                         key={suggestion}
                         onClick={() => runQuery(suggestion)}
@@ -312,6 +328,42 @@ export function StudentStrandsSearch({
                       Use natural words, exact session names, tools, module numbers, or portal areas.
                     </p>
                   </div>
+                ) : isThemeCommand ? (
+                  <motion.div
+                    className="overflow-hidden rounded-3xl border border-accent/25 bg-bg-base/80 shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
+                    initial={{ opacity: 0, y: 18, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                  >
+                    <div className="relative p-5 sm:p-6">
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(249,115,22,0.14),transparent_34%),radial-gradient(circle_at_84%_30%,rgba(6,182,212,0.12),transparent_30%)]" />
+                      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-4">
+                          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-accent/25 bg-accent/10 text-accent">
+                            <Palette className="h-5 w-5" />
+                          </span>
+                          <div>
+                            <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+                              Appearance command
+                            </p>
+                            <h3 className="mt-2 font-heading text-2xl font-bold">
+                              Switch to {nextTheme} mode
+                            </h3>
+                            <p className="mt-2 max-w-xl text-sm leading-6 text-text-secondary">
+                              Use the same circle reveal animation here, launched from the command center.
+                            </p>
+                          </div>
+                        </div>
+                        <AnimatedThemeToggler
+                          variant="circle"
+                          fromCenter
+                          duration={680}
+                          label={`Switch to ${nextTheme} mode`}
+                          className="w-full shrink-0 sm:w-auto sm:min-w-60"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
                 ) : results.length > 0 ? (
                   <div>
                     <motion.p
