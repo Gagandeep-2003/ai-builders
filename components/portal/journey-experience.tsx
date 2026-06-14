@@ -593,7 +593,7 @@ export function JourneyExperience({
       <GridScanBackground />
       <div className="relative z-10 space-y-8">
       <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
-        <div className="premium-card no-border-glow rounded-xl p-6">
+        <div className="premium-card min-w-0 rounded-xl p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="font-mono text-xs uppercase text-accent">Student journey</p>
@@ -636,8 +636,8 @@ export function JourneyExperience({
         <JourneyProfileCard student={student} />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="premium-card no-border-glow rounded-xl p-6">
+      <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(25rem,0.95fr)_minmax(0,1.05fr)]">
+        <div className="premium-card min-w-0 rounded-xl p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="font-mono text-xs uppercase text-accent">Infinite menu</p>
@@ -690,7 +690,7 @@ export function JourneyExperience({
           </div>
         </div>
 
-        <div className="premium-card rounded-xl p-6">
+        <div className="premium-card min-w-0 rounded-xl p-6">
           <p className="font-mono text-xs uppercase text-accent">Flying posters</p>
           <h2 className="mt-2 font-heading text-2xl font-bold">{activeModule?.title}</h2>
           <p className="mt-3 text-text-secondary">{activeVisual?.mood}</p>
@@ -728,7 +728,7 @@ export function JourneyExperience({
         </div>
       </section>
 
-      <section className="premium-card no-border-glow rounded-xl p-6">
+      <section className="premium-card min-w-0 rounded-xl p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-xs uppercase text-accent">Experience timeline</p>

@@ -590,6 +590,8 @@ textarea:focus-visible {
 
 .journey-poster-stage {
   position: relative;
+  min-width: 0;
+  max-width: 100%;
   min-height: 27rem;
   overflow: hidden;
   border-radius: 0.75rem;

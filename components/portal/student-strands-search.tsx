@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Command, Search, Sparkles, X } from "lucide-react";
+import { RippleGrid } from "@/components/ui/ripple-grid";
 import { Strands } from "@/components/ui/strands";
 
 export type StudentSearchItem = {
@@ -44,24 +45,28 @@ function scoreItem(item: StudentSearchItem, query: string) {
   return score;
 }
 
-function playResultTone(index: number) {
+function createAudioContext() {
   if (typeof window === "undefined") return;
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextCtor) return;
 
-  const context = new AudioContextCtor();
+  return new AudioContextCtor();
+}
+
+function playResultTone(context: AudioContext | null, index: number, variant: "result" | "ready" = "result") {
+  if (!context) return;
+  void context.resume().catch(() => undefined);
   const oscillator = context.createOscillator();
   const gain = context.createGain();
-  oscillator.type = "sine";
-  oscillator.frequency.value = 520 + index * 38;
+  oscillator.type = variant === "ready" ? "triangle" : "sine";
+  oscillator.frequency.value = variant === "ready" ? 660 : 520 + index * 42;
   gain.gain.setValueAtTime(0.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.025, context.currentTime + 0.015);
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.14);
+  gain.gain.exponentialRampToValueAtTime(variant === "ready" ? 0.045 : 0.034, context.currentTime + 0.018);
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.15);
   oscillator.connect(gain);
   gain.connect(context.destination);
   oscillator.start();
-  oscillator.stop(context.currentTime + 0.16);
-  window.setTimeout(() => void context.close().catch(() => undefined), 220);
+  oscillator.stop(context.currentTime + 0.17);
 }
 
 declare global {
@@ -82,42 +87,90 @@ export function StudentStrandsSearch({
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const firstName = studentName.split(" ")[0] || "Builder";
+  const isHelp = searched && ["/help", "help", "?"].includes(normalize(submittedQuery));
+  const helpItems = [
+    {
+      title: "Find lessons and modules",
+      description: "Try: module 1, session 4, ChatGPT, Canva, ethics, automation.",
+    },
+    {
+      title: "Jump to work",
+      description: "Try: homework, class challenge, home task, submitted, progress.",
+    },
+    {
+      title: "Find live class info",
+      description: "Try: next class, makeup class, schedule, resources, profile.",
+    },
+  ];
 
   const results = useMemo(() => {
-    if (!searched || !submittedQuery.trim()) return [];
+    if (!searched || !submittedQuery.trim() || isHelp) return [];
     return items
       .map((item) => ({ item, score: scoreItem(item, submittedQuery) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
       .map(({ item }) => item);
-  }, [items, searched, submittedQuery]);
+  }, [isHelp, items, searched, submittedQuery]);
+
+  const ensureAudioContext = useCallback(() => {
+    if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+      audioContextRef.current = createAudioContext() ?? null;
+    }
+    if (audioContextRef.current?.state === "suspended") {
+      void audioContextRef.current.resume().catch(() => undefined);
+    }
+    return audioContextRef.current;
+  }, []);
+
+  const speakGreeting = useCallback(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(`Hi ${firstName}. What should we find today?`);
+    utterance.rate = 1.03;
+    utterance.pitch = 1.04;
+    utterance.volume = 0.55;
+    window.speechSynthesis.speak(utterance);
+  }, [firstName]);
+
+  const runQuery = useCallback((nextQuery: string) => {
+    ensureAudioContext();
+    playResultTone(audioContextRef.current, 0, "ready");
+    setQuery(nextQuery);
+    setSubmittedQuery(nextQuery);
+    setSearched(false);
+    window.setTimeout(() => setSearched(true), 520);
+  }, [ensureAudioContext]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const shortcut = event.code === "Space" && (event.altKey || event.ctrlKey);
       if (!shortcut) return;
       event.preventDefault();
+      ensureAudioContext();
       setOpen((value) => !value);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [ensureAudioContext]);
 
   useEffect(() => {
     if (!open) return;
+    speakGreeting();
     const timer = window.setTimeout(() => inputRef.current?.focus(), 160);
     return () => window.clearTimeout(timer);
-  }, [open]);
+  }, [open, speakGreeting]);
 
   useEffect(() => {
-    if (!searched || results.length === 0) return;
-    results.slice(0, 4).forEach((_, index) => {
-      window.setTimeout(() => playResultTone(index), index * 90);
+    if (!searched || (results.length === 0 && !isHelp)) return;
+    const count = isHelp ? helpItems.length : Math.min(results.length, 4);
+    Array.from({ length: count }).forEach((_, index) => {
+      window.setTimeout(() => playResultTone(audioContextRef.current, index), index * 95);
     });
-  }, [results, searched]);
+  }, [helpItems.length, isHelp, results.length, searched]);
 
   function close() {
     setOpen(false);
@@ -130,9 +183,7 @@ export function StudentStrandsSearch({
     event.preventDefault();
     const nextQuery = query.trim();
     if (!nextQuery) return;
-    setSubmittedQuery(nextQuery);
-    setSearched(false);
-    window.setTimeout(() => setSearched(true), 520);
+    runQuery(nextQuery);
   }
 
   return (
@@ -152,9 +203,25 @@ export function StudentStrandsSearch({
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ duration: 0.24, ease: "easeOut" }}
           >
+            <div className="pointer-events-none absolute inset-0 opacity-45">
+              <RippleGrid
+                gridColor="#7C3AED"
+                rippleIntensity={searched ? 0.07 : 0.045}
+                gridSize={10}
+                gridThickness={16}
+                fadeDistance={1.55}
+                vignetteStrength={2.35}
+                glowIntensity={0.16}
+                opacity={0.82}
+                gridRotation={0}
+                mouseInteraction
+                mouseInteractionRadius={0.82}
+              />
+            </div>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(249,115,22,0.13),transparent_34%),radial-gradient(circle_at_50%_36%,rgba(6,182,212,0.10),transparent_38%),linear-gradient(180deg,rgba(12,10,18,0.12),rgba(12,10,18,0.78))]" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-72 opacity-90">
               <Strands
-                colors={["#6ee7b7", "#38bdf8", "#a78bfa"]}
+                colors={["#F97316", "#7C3AED", "#06B6D4"]}
                 count={3}
                 speed={searched ? 0.92 : 0.48}
                 amplitude={searched ? 1.25 : 0.8}
@@ -164,7 +231,7 @@ export function StudentStrandsSearch({
                 taper={3.2}
                 spread={1}
                 intensity={searched ? 0.86 : 0.58}
-                saturation={1.8}
+                saturation={2}
                 opacity={0.95}
                 scale={1.45}
               />
@@ -208,20 +275,42 @@ export function StudentStrandsSearch({
               <div className="mx-auto mt-8 w-full max-w-3xl">
                 {!searched ? (
                   <div className="grid gap-3 sm:grid-cols-3">
-                    {["module 1 homework", "next class", "canva resources"].map((suggestion) => (
+                    {["/help", "module 1 homework", "next class", "canva resources"].map((suggestion) => (
                       <button
                         key={suggestion}
-                        onClick={() => {
-                          setQuery(suggestion);
-                          setSubmittedQuery(suggestion);
-                          setSearched(false);
-                          window.setTimeout(() => setSearched(true), 520);
-                        }}
+                        onClick={() => runQuery(suggestion)}
                         className="rounded-xl border border-border bg-white/[0.025] px-4 py-3 text-left text-sm text-text-secondary transition hover:border-accent/35 hover:text-text-primary"
                       >
                         {suggestion}
                       </button>
                     ))}
+                  </div>
+                ) : isHelp ? (
+                  <div>
+                    <motion.p
+                      className="mb-4 font-mono text-xs uppercase tracking-[0.18em] text-accent"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      Search powers
+                    </motion.p>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {helpItems.map((item, index) => (
+                        <motion.div
+                          key={item.title}
+                          className="rounded-2xl border border-border bg-white/[0.025] p-4"
+                          initial={{ opacity: 0, y: 18, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          transition={{ delay: index * 0.07, type: "spring", stiffness: 260, damping: 22 }}
+                        >
+                          <p className="font-heading font-bold">{item.title}</p>
+                          <p className="mt-2 text-sm leading-6 text-text-secondary">{item.description}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                    <p className="mt-4 text-sm text-text-muted">
+                      Use natural words, exact session names, tools, module numbers, or portal areas.
+                    </p>
                   </div>
                 ) : results.length > 0 ? (
                   <div>
@@ -273,10 +362,7 @@ export function StudentStrandsSearch({
                         <button
                           key={suggestion}
                           onClick={() => {
-                            setQuery(suggestion);
-                            setSubmittedQuery(suggestion);
-                            setSearched(false);
-                            window.setTimeout(() => setSearched(true), 520);
+                            runQuery(suggestion);
                           }}
                           className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 text-xs text-accent"
                         >
