@@ -190,14 +190,14 @@ export function StudentStrandsSearch({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-[70] bg-bg-base/88 px-4 py-8 backdrop-blur-2xl"
+          className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-bg-base/88 px-4 py-4 backdrop-blur-2xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
           <button className="absolute inset-0 cursor-default" aria-label="Close search" onClick={close} />
           <motion.section
-            className="relative mx-auto flex min-h-[min(780px,calc(100vh-4rem))] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-accent/20 bg-bg-card/90 shadow-[0_30px_120px_rgba(0,0,0,0.48)]"
+            className="relative mx-auto flex max-h-[calc(100dvh-2rem)] min-h-[min(720px,calc(100dvh-2rem))] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-accent/20 bg-bg-card/90 shadow-[0_30px_120px_rgba(0,0,0,0.48)]"
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -236,7 +236,7 @@ export function StudentStrandsSearch({
                 scale={1.45}
               />
             </div>
-            <div className="relative z-10 flex items-center justify-between gap-4 border-b border-border/70 px-5 py-4">
+            <div className="relative z-10 flex shrink-0 items-center justify-between gap-4 border-b border-border/70 px-5 py-4">
               <div className="flex items-center gap-3">
                 <span className="grid h-10 w-10 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
                   <Sparkles className="h-5 w-5" />
@@ -255,8 +255,8 @@ export function StudentStrandsSearch({
               </button>
             </div>
 
-            <div className="relative z-10 flex flex-1 flex-col px-5 py-6 md:px-8">
-              <form onSubmit={submitSearch} className="mx-auto mt-24 w-full max-w-3xl">
+            <div className="scrollbar-soft relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-6 md:px-8">
+              <form onSubmit={submitSearch} className="mx-auto mt-20 w-full max-w-3xl">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-accent" />
                   <input
@@ -375,7 +375,7 @@ export function StudentStrandsSearch({
               </div>
             </div>
 
-            <div className="relative z-10 flex items-center justify-between border-t border-border/70 px-5 py-3 text-xs text-text-muted">
+            <div className="relative z-10 flex shrink-0 items-center justify-between border-t border-border/70 px-5 py-3 text-xs text-text-muted">
               <span className="inline-flex items-center gap-2">
                 <Command className="h-3.5 w-3.5" />
                 Student search

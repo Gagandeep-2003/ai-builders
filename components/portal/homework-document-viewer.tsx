@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, CheckCircle2, FileText, MonitorUp, Paperclip, Play, ShieldCheck, Timer, X } from "lucide-react";
+import { Camera, CheckCircle2, CircleHelp, FileText, MonitorUp, Paperclip, Play, ShieldCheck, Timer, X } from "lucide-react";
 import { markHomeworkStarted, markHomeworkSubmittedWithEvidence, resetHomeworkProgress } from "@/app/actions/homework";
 import { formatDuration, isTrustedTaskDuration } from "@/lib/homework-utils";
 
@@ -384,19 +384,19 @@ export function HomeworkDocumentViewer({
       <AnimatePresence>
         {proofOpen ? (
           <motion.div
-            className="fixed inset-0 z-40 grid place-items-center bg-bg-base/78 px-4 backdrop-blur-xl"
+            className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-bg-base/78 p-4 backdrop-blur-xl"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="w-full max-w-4xl rounded-2xl border border-border bg-bg-card p-6 shadow-[0_28px_90px_rgba(0,0,0,0.35)]"
+              className="flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border bg-bg-card shadow-[0_28px_90px_rgba(0,0,0,0.35)]"
               initial={{ y: 18, scale: 0.97, opacity: 0 }}
               animate={{ y: 0, scale: 1, opacity: 1 }}
               exit={{ y: 14, scale: 0.98, opacity: 0 }}
               transition={{ type: "spring", stiffness: 180, damping: 20 }}
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border/70 px-6 py-5">
                 <div className="flex items-start gap-3">
                   <span className="grid h-11 w-11 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
                     <ShieldCheck className="h-5 w-5" />
@@ -418,16 +418,34 @@ export function HomeworkDocumentViewer({
                 </button>
               </div>
 
-              {captureError ? (
-                <div className="mt-5 rounded-xl border border-danger/30 bg-danger/10 p-3 text-sm text-rose-200">
-                  {captureError}
+              <div className="scrollbar-soft min-h-0 overflow-y-auto px-6 py-5">
+                {captureError ? (
+                  <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-sm text-rose-200">
+                    {captureError}
+                  </div>
+                ) : null}
+                {saveNotice ? (
+                  <div className="rounded-xl border border-accent/25 bg-accent/10 p-3 text-sm text-accent">
+                    {saveNotice}
+                  </div>
+                ) : null}
+
+                <div className="mt-4 rounded-xl border border-accent/20 bg-accent/5 p-4">
+                  <div className="flex gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-accent/20 bg-accent/10 text-accent">
+                      <CircleHelp className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="font-heading text-sm font-bold text-text-primary">Need help?</p>
+                      <p className="mt-1 text-sm leading-6 text-text-secondary">
+                        Capture your final workspace if possible. Camera, text notes, and file upload are optional, so submit only the proof that fits this task.
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-text-muted">
+                        If the browser blocks capture, add a short note or file and submit. Admin will still see the activity.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              ) : null}
-              {saveNotice ? (
-                <div className="mt-5 rounded-xl border border-accent/25 bg-accent/10 p-3 text-sm text-accent">
-                  {saveNotice}
-                </div>
-              ) : null}
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <div className="rounded-xl border border-border bg-white/[0.025] p-4">
@@ -519,8 +537,9 @@ export function HomeworkDocumentViewer({
                   )}
                 </div>
               </div>
+              </div>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex shrink-0 flex-col gap-3 border-t border-border/70 bg-bg-card/96 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs leading-5 text-text-muted">
                   If your browser blocks capture, you can still submit. Admin will see that no proof was attached.
                 </p>

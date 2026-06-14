@@ -275,9 +275,9 @@ export function ResourceLibrary({
       ) : null}
 
       {expandedSession ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/78 p-3 backdrop-blur-md sm:p-6">
-          <div className="w-full max-w-7xl">
-            <div className="mb-3 flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-bg-card/95 px-4 py-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/78 p-3 backdrop-blur-md sm:p-6">
+          <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-7xl flex-col overflow-hidden rounded-xl border border-white/10 bg-bg-card/95 shadow-[0_28px_90px_rgba(0,0,0,0.42)]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 px-4 py-3">
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
                   Expanded resource · Session {expandedSession.sessionNumber}
@@ -292,7 +292,9 @@ export function ResourceLibrary({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <CanvaFrame session={expandedSession} expanded />
+            <div className="scrollbar-soft min-h-0 overflow-y-auto p-3">
+              <CanvaFrame session={expandedSession} expanded />
+            </div>
           </div>
         </div>
       ) : null}

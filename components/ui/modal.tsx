@@ -19,19 +19,19 @@ export function Modal({
     <AnimatePresence>
       {isOpen ? (
         <motion.div
-          className="fixed inset-0 z-50 grid place-items-center bg-bg-base/80 p-4 backdrop-blur-xl"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-bg-base/80 p-4 backdrop-blur-xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
           <motion.div
-            className="premium-card w-full max-w-xl rounded-xl p-6"
+            className="premium-card flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-xl"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.18 }}
           >
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border/70 px-6 py-5">
               <h2 className="font-heading text-xl font-bold">{title}</h2>
               <button
                 onClick={onClose}
@@ -41,7 +41,7 @@ export function Modal({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-6">{children}</div>
+            <div className="scrollbar-soft min-h-0 overflow-y-auto px-6 py-5">{children}</div>
           </motion.div>
         </motion.div>
       ) : null}

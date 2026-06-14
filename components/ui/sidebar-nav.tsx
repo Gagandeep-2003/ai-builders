@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { cn } from "@/lib/utils";
 
 const navIcons = {
@@ -142,6 +143,7 @@ export function SidebarNav({
 
       <div className="mt-auto space-y-3 pt-6">
         {footer}
+        <AnimatedThemeToggler variant="circle" />
         <form action={logoutAction}>
           <button className="button-motion flex w-full items-center gap-3 rounded-xl border border-border bg-bg-card px-3 py-2.5 text-sm text-text-secondary hover:text-text-primary">
             <LogOut className="h-4 w-4" />
