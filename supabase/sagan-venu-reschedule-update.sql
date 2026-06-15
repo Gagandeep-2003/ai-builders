@@ -3,7 +3,7 @@
 --
 -- Timezone conversions:
 --   Sagan: Thu/Fri 11:00 AM CDT = Thu/Fri 9:30 PM IST.
---   Venu: Tue 12:00 PM - 2:00 PM EDT = Tue 9:30 PM - 11:30 PM IST.
+--   Venu: Tue 2:00 PM - 3:00 PM EDT = Tue 11:30 PM - Wed 12:30 AM IST.
 
 with sagan_batch as (
   select b.id
@@ -61,7 +61,7 @@ on conflict (id) do update set
   sort_order = excluded.sort_order;
 
 -- Venu missed Thu Jun 11, 2026 at 3:00 PM EDT. This creates a visible approved
--- one-off reschedule for Tue Jun 16, 2026 at 12:00 PM - 2:00 PM EDT.
+-- one-off reschedule for Tue Jun 16, 2026 at 2:00 PM - 3:00 PM EDT.
 -- The app migration creates class_reschedule_requests; run that migration before this insert.
 insert into public.class_reschedule_requests (
   id,
@@ -84,12 +84,12 @@ select
   students.batch_id,
   '2026-06-11'::date,
   '2026-06-16'::date,
-  '12:00',
   '14:00',
+  '15:00',
   'America/New_York',
   'Make-up class for missed Thursday 3:00 PM EDT session.',
   'approved'::public.reschedule_request_status,
-  'Approved one-off make-up class for today, 12:00 PM - 2:00 PM EDT.',
+  'Approved one-off make-up class for today, 2:00 PM - 3:00 PM EDT.',
   'https://meet.google.com/qfv-jaud-svt',
   now()
 from public.students

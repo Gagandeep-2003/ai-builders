@@ -1,14 +1,14 @@
 -- Venu current make-up class time update.
--- Tue Jun 16, 2026, 12:00 PM - 2:00 PM America/New_York
--- = Tue Jun 16, 2026, 9:30 PM - 11:30 PM Asia/Kolkata.
+-- Tue Jun 16, 2026, 2:00 PM - 3:00 PM America/New_York
+-- = Tue Jun 16, 2026, 11:30 PM - Wed Jun 17, 2026, 12:30 AM Asia/Kolkata.
 
 update public.class_reschedule_requests request
 set
   requested_date = '2026-06-16'::date,
-  requested_start_time = '12:00',
-  requested_end_time = '14:00',
+  requested_start_time = '14:00',
+  requested_end_time = '15:00',
   requested_time_zone = 'America/New_York',
-  admin_note = 'Approved one-off make-up class for today, 12:00 PM - 2:00 PM EDT.',
+  admin_note = 'Approved one-off make-up class for today, 2:00 PM - 3:00 PM EDT.',
   reviewed_at = now()
 from public.students student
 left join public.profiles profile on profile.id = student.user_id
