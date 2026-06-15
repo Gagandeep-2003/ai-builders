@@ -10,15 +10,30 @@ import { HomeworkCard } from "@/components/ui/homework-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatCard } from "@/components/ui/stat-card";
+import {
+  daysUntilClassEvent,
+  formatClassEventTime,
+  getNextClassEvent,
+  getStudentClassEvents,
+} from "@/lib/class-events";
 import { getStudentDashboardData } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
-import { daysUntilSession, formatSessionTime, getNextSession } from "@/lib/time";
+import { formatSessionTime, getNextSession } from "@/lib/time";
 
 export default async function DashboardPage() {
   const data = await getStudentDashboardData();
+  const now = new Date();
   const completed = data.sessions.filter((session) => session.status === "completed").length;
   const pendingHomework = data.homework.filter((item) => item.status === "pending");
-  const nextSession = getNextSession(data.sessions) ?? data.sessions[0];
+  const classEvents = getStudentClassEvents({
+    student: data.student,
+    batch: data.batch,
+    sessions: data.sessions,
+    requests: data.rescheduleRequests,
+    now,
+  });
+  const nextClassEvent = getNextClassEvent(classEvents, now);
+  const nextSession = nextClassEvent?.session ?? getNextSession(data.sessions) ?? data.sessions[0];
   const currentModule = data.modules.find((module) => module.id === nextSession.moduleId) ?? data.modules[0];
   const moduleCompleted = data.sessions.filter(
     (session) => session.moduleId === currentModule.id && session.status === "completed",
@@ -28,7 +43,7 @@ export default async function DashboardPage() {
     <AnimatedPage>
       <PageHeader
         title={`Welcome back, ${data.student.fullName.split(" ")[0]} 👋`}
-        subtitle={`Today is ${formatDate(new Date(), { weekday: "long" })}. Your next focused build session is ${nextSession.title} at ${formatSessionTime(nextSession, data.batch, data.student.timeZone)}.`}
+        subtitle={`Today is ${formatDate(new Date(), { weekday: "long" })}. Your next class is ${nextClassEvent?.kind === "makeup" ? "a make-up class" : nextSession.title} at ${nextClassEvent ? formatClassEventTime(nextClassEvent, data.student.timeZone) : formatSessionTime(nextSession, data.batch, data.student.timeZone)}.`}
       />
 
       <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -45,7 +60,7 @@ export default async function DashboardPage() {
           <StatCard
             icon="calendar"
             label="Days to Next Class"
-            value={Math.max(daysUntilSession(nextSession, data.batch), 0)}
+            value={nextClassEvent ? Math.max(daysUntilClassEvent(nextClassEvent), 0) : 0}
           />
         </FadeIn>
       </Stagger>
@@ -69,11 +84,24 @@ export default async function DashboardPage() {
             label="Module progress"
           />
           <div className="mt-6 rounded-xl border border-border/70 bg-white/[0.025] p-4">
-            <p className="font-mono text-xs uppercase text-text-muted">Next session</p>
-            <h3 className="mt-2 font-heading text-xl font-bold">{nextSession.title}</h3>
-            <p className="mt-2 text-text-secondary">{nextSession.focus}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-mono text-xs uppercase text-text-muted">Next class</p>
+              {nextClassEvent?.kind === "makeup" ? (
+                <span className="rounded-full border border-info/30 bg-info/10 px-2.5 py-1 font-mono text-[11px] uppercase text-blue-100">
+                  Make-up class
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-2 font-heading text-xl font-bold">
+              {nextClassEvent?.kind === "makeup" ? "Make-up class" : nextSession.title}
+            </h3>
+            <p className="mt-2 text-text-secondary">
+              {nextClassEvent?.kind === "makeup" ? nextClassEvent.detail : nextSession.focus}
+            </p>
             <p className="mt-3 font-mono text-xs text-accent">
-              {formatSessionTime(nextSession, data.batch, data.student.timeZone)}
+              {nextClassEvent
+                ? formatClassEventTime(nextClassEvent, data.student.timeZone)
+                : formatSessionTime(nextSession, data.batch, data.student.timeZone)}
             </p>
           </div>
         </section>

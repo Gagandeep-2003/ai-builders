@@ -13,8 +13,9 @@ import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatClassEventTime, getAdminClassEvents } from "@/lib/class-events";
 import { getAdminData } from "@/lib/data";
-import { ADMIN_TIME_ZONE, formatInTimeZone, formatSessionTime, getSessionDateTimes } from "@/lib/time";
+import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 import { formatDate } from "@/lib/utils";
 
 function getPresenceState(lastSeenAt: string | undefined, now: Date) {
@@ -95,33 +96,19 @@ export default async function AdminDashboardPage() {
     day: "2-digit",
   });
   const homeworkToday = data.homework.filter((item) => item.createdAt?.startsWith(today)).length;
-  const classRows = data.students
-    .flatMap((student) => {
-      const batch = data.batches.find((item) => item.id === student.batchId);
-      if (!batch) return [];
-
-      return data.sessions.map((session) => {
-        const schedule = getSessionDateTimes(session, batch);
-        const attendance = data.attendance.find(
-          (item) => item.studentId === student.id && item.sessionId === session.id,
-        );
-
-        return {
-          student,
-          batch,
-          session,
-          moduleNumber: Math.ceil(session.globalNumber / 8),
-          startsAt: schedule.startsAt,
-          meetLink: schedule.meetLink,
-          attendanceStatus: attendance?.status ?? "current",
-        };
-      });
-    });
-  const upcomingClasses = classRows
+  const classEvents = getAdminClassEvents({
+    students: data.students,
+    batches: data.batches,
+    sessions: data.sessions,
+    requests: data.rescheduleRequests,
+    attendance: data.attendance,
+    now,
+  });
+  const upcomingClasses = classEvents
     .filter((item) => item.startsAt.getTime() >= now.getTime())
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
     .slice(0, 6);
-  const todayClasses = classRows
+  const todayClasses = classEvents
     .filter((item) => {
       const key = formatInTimeZone(item.startsAt, ADMIN_TIME_ZONE, {
         year: "numeric",
@@ -229,32 +216,36 @@ export default async function AdminDashboardPage() {
           <p className="font-mono text-xs text-text-muted">{ADMIN_TIME_ZONE}</p>
         </div>
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
-          {todayClasses.length > 0 ? todayClasses.map(({ student, batch, session, moduleNumber, meetLink, attendanceStatus }) => (
-            <article key={`today-${student.id}-${batch.id}-${session.id}`} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
+          {todayClasses.length > 0 ? todayClasses.map((event) => {
+            const moduleNumber = event.session ? Math.ceil(event.session.globalNumber / 8) : undefined;
+            return (
+            <article key={`today-${event.id}`} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <UserRound className="h-4 w-4 text-accent" />
-                    <p className="font-heading font-bold">{student.fullName}</p>
+                    <p className="font-heading font-bold">{event.student?.fullName}</p>
                   </div>
                   <p className="mt-2 text-sm text-text-secondary">
-                    Module {moduleNumber} · Session {session.sessionNumber} · {session.title}
+                    {event.kind === "makeup"
+                      ? event.detail
+                      : `Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
                   </p>
-                  <p className="mt-1 text-xs text-text-muted">{batch.name}</p>
+                  <p className="mt-1 text-xs text-text-muted">{event.batch.name}</p>
                   <p className="mt-3 font-mono text-xs text-accent">
-                    {formatSessionTime(session, batch, ADMIN_TIME_ZONE)}
+                    {formatClassEventTime(event, ADMIN_TIME_ZONE)}
                   </p>
                   <p className="mt-2 text-xs text-text-muted">
-                    Batch timezone: {formatSessionTime(session, batch, batch.timeZone)}
+                    Student time: {formatClassEventTime(event, event.student?.timeZone ?? event.batch.timeZone)}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <StatusBadge
-                    status={attendanceStatus}
-                    label={attendanceStatus === "current" ? `M${moduleNumber} S${session.sessionNumber}` : attendanceStatus}
+                    status={event.kind === "makeup" ? "rescheduled" : event.status}
+                    label={event.kind === "makeup" ? "Make-up" : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
                   />
                   <a
-                    href={meetLink}
+                    href={event.meetLink}
                     target="_blank"
                     rel="noreferrer"
                     className="button-motion rounded-xl bg-accent px-4 py-2 text-sm font-bold text-bg-base"
@@ -264,7 +255,7 @@ export default async function AdminDashboardPage() {
                 </div>
               </div>
             </article>
-          )) : (
+          )}) : (
             <div className="rounded-xl border border-border/70 bg-white/[0.025] p-4 text-sm text-text-secondary">
               No classes scheduled today in IST.
             </div>
@@ -281,29 +272,33 @@ export default async function AdminDashboardPage() {
           <p className="font-mono text-xs text-text-muted">{ADMIN_TIME_ZONE}</p>
         </div>
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
-          {upcomingClasses.map(({ student, batch, session, moduleNumber, meetLink, attendanceStatus }) => (
+          {upcomingClasses.map((event) => {
+            const moduleNumber = event.session ? Math.ceil(event.session.globalNumber / 8) : undefined;
+            return (
             <article
-              key={`${student.id}-${batch.id}-${session.id}`}
+              key={event.id}
               className="rounded-xl border border-border/70 bg-white/[0.025] p-4"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <UserRound className="h-4 w-4 text-accent" />
-                    <p className="font-heading font-bold">{student.fullName}</p>
+                    <p className="font-heading font-bold">{event.student?.fullName}</p>
                   </div>
                   <p className="mt-2 text-sm text-text-secondary">
-                    Module {moduleNumber} · Session {session.sessionNumber} · {session.title}
+                    {event.kind === "makeup"
+                      ? event.detail
+                      : `Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
                   </p>
-                  <p className="mt-1 text-xs text-text-muted">{batch.name}</p>
+                  <p className="mt-1 text-xs text-text-muted">{event.batch.name}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <StatusBadge
-                    status={attendanceStatus}
-                    label={attendanceStatus === "current" ? `M${moduleNumber} S${session.sessionNumber}` : attendanceStatus}
+                    status={event.kind === "makeup" ? "rescheduled" : event.status}
+                    label={event.kind === "makeup" ? "Make-up" : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
                   />
                   <a
-                    href={meetLink}
+                    href={event.meetLink}
                     target="_blank"
                     rel="noreferrer"
                     className="button-motion inline-flex items-center gap-2 rounded-xl border border-border bg-bg-card px-3 py-2 text-sm text-text-secondary hover:text-text-primary"
@@ -314,13 +309,13 @@ export default async function AdminDashboardPage() {
                 </div>
               </div>
               <p className="mt-4 font-mono text-xs text-accent">
-                {formatSessionTime(session, batch, ADMIN_TIME_ZONE)}
+                {formatClassEventTime(event, ADMIN_TIME_ZONE)}
               </p>
               <p className="mt-2 text-xs text-text-muted">
-                Batch timezone: {formatSessionTime(session, batch, batch.timeZone)}
+                Student time: {formatClassEventTime(event, event.student?.timeZone ?? event.batch.timeZone)}
               </p>
             </article>
-          ))}
+          )})}
         </div>
       </section>
 

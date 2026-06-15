@@ -1,10 +1,11 @@
 import { AttendanceStatusForm } from "@/components/admin/attendance-status-form";
-import { reviewRescheduleRequestAction } from "@/app/actions/admin";
+import { createAdminRescheduleAction, reviewRescheduleRequestAction } from "@/app/actions/admin";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatRescheduleRequestTime } from "@/lib/class-events";
 import { getAdminData } from "@/lib/data";
-import { ADMIN_TIME_ZONE, formatSessionTime, getSessionScheduleDate } from "@/lib/time";
+import { ADMIN_TIME_ZONE, commonTimeZones, formatSessionTime, getSessionScheduleDate } from "@/lib/time";
 
 export default async function AdminAttendancePage({
   searchParams,
@@ -18,10 +19,90 @@ export default async function AdminAttendancePage({
   const pendingReschedules = data.rescheduleRequests.filter((request) => request.status === "pending");
   const approvedReschedules = data.rescheduleRequests.filter((request) => request.status === "approved");
   const rejectedReschedules = data.rescheduleRequests.filter((request) => request.status === "rejected").slice(0, 4);
+  const studentLookup = new Map(data.students.map((student) => [student.id, student]));
 
   return (
     <AnimatedPage>
       <PageHeader title="Attendance" subtitle="Select a session and mark each student as present, absent, or rescheduled." />
+
+      <section className="premium-card rounded-xl p-6">
+        <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr] xl:items-start">
+          <div>
+            <p className="font-mono text-xs uppercase text-accent">Admin scheduler</p>
+            <h2 className="mt-2 font-heading text-2xl font-bold">Create a one-off class</h2>
+            <p className="mt-3 text-sm leading-6 text-text-secondary">
+              Add a make-up or rescheduled class directly. It appears on the student dashboard, class page, and admin dashboard with a Make-up tag.
+            </p>
+          </div>
+          <form action={createAdminRescheduleAction} className="grid gap-3 md:grid-cols-2">
+            <select
+              name="studentId"
+              required
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+            >
+              <option value="">Select student</option>
+              {data.students.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {student.fullName}
+                </option>
+              ))}
+            </select>
+            <select
+              name="requestedTimeZone"
+              defaultValue={ADMIN_TIME_ZONE}
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+            >
+              {commonTimeZones.map((timeZone) => (
+                <option key={timeZone} value={timeZone}>
+                  {timeZone}
+                </option>
+              ))}
+            </select>
+            <input
+              name="requestedDate"
+              type="date"
+              required
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+            />
+            <input
+              name="originalDate"
+              type="date"
+              title="Original missed class date, optional"
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+            />
+            <input
+              name="requestedStartTime"
+              type="time"
+              required
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+            />
+            <input
+              name="requestedEndTime"
+              type="time"
+              required
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+            />
+            <input
+              name="meetLink"
+              placeholder="Meet link, blank reuses batch link"
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm md:col-span-2"
+            />
+            <input
+              name="reason"
+              placeholder="Reason, for example: make-up class for missed Thursday"
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm md:col-span-2"
+            />
+            <textarea
+              name="adminNote"
+              placeholder="Student-visible note"
+              className="min-h-20 rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm md:col-span-2"
+            />
+            <button className="button-motion rounded-xl bg-accent px-5 py-3 font-bold text-bg-base md:col-span-2">
+              Add make-up class
+            </button>
+          </form>
+        </div>
+      </section>
 
       <section className="premium-card rounded-xl p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -40,7 +121,10 @@ export default async function AdminAttendancePage({
                   <div>
                     <h3 className="font-heading text-lg font-bold">{request.studentName}</h3>
                     <p className="mt-1 text-sm text-text-secondary">
-                      Requested {request.requestedDate} · {request.requestedStartTime.slice(0, 5)} - {request.requestedEndTime.slice(0, 5)} {request.requestedTimeZone}
+                      Requested {formatRescheduleRequestTime(request, ADMIN_TIME_ZONE)}
+                    </p>
+                    <p className="mt-1 font-mono text-xs text-text-muted">
+                      Student time: {formatRescheduleRequestTime(request, studentLookup.get(request.studentId)?.timeZone ?? request.requestedTimeZone)}
                     </p>
                     {request.reason ? <p className="mt-2 text-sm text-text-muted">{request.reason}</p> : null}
                   </div>
@@ -98,11 +182,13 @@ export default async function AdminAttendancePage({
                     <div>
                       <p className="font-heading text-lg font-bold">{request.studentName}</p>
                       <p className="mt-1 text-sm text-text-secondary">
-                        {request.requestedDate} · {request.requestedStartTime.slice(0, 5)} -{" "}
-                        {request.requestedEndTime.slice(0, 5)} {request.requestedTimeZone}
+                        {formatRescheduleRequestTime(request, ADMIN_TIME_ZONE)}
+                      </p>
+                      <p className="mt-1 font-mono text-xs text-text-muted">
+                        Student time: {formatRescheduleRequestTime(request, studentLookup.get(request.studentId)?.timeZone ?? request.requestedTimeZone)}
                       </p>
                     </div>
-                    <StatusBadge status={request.status} />
+                    <StatusBadge status="rescheduled" label="Make-up" />
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -154,7 +240,7 @@ export default async function AdminAttendancePage({
                     <StatusBadge status={request.status} />
                   </div>
                   <p className="mt-2 text-sm text-text-secondary">
-                    {request.requestedDate} · {request.requestedStartTime.slice(0, 5)} {request.requestedTimeZone}
+                    {formatRescheduleRequestTime(request, ADMIN_TIME_ZONE)}
                   </p>
                   {request.adminNote ? <p className="mt-2 text-sm text-text-muted">{request.adminNote}</p> : null}
                 </article>

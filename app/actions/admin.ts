@@ -423,6 +423,68 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
     .eq("id", requestId);
 
   revalidatePath("/admin/attendance");
+  revalidatePath("/admin");
+  revalidatePath("/class");
+  revalidatePath("/dashboard");
+}
+
+export async function createAdminRescheduleAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) {
+    revalidatePath("/admin/attendance");
+    return;
+  }
+
+  const studentId = String(formData.get("studentId") ?? "");
+  const requestedDate = String(formData.get("requestedDate") ?? "");
+  const requestedStartTime = String(formData.get("requestedStartTime") ?? "");
+  const requestedEndTime = String(formData.get("requestedEndTime") ?? "");
+  const requestedTimeZone = String(formData.get("requestedTimeZone") ?? "Asia/Kolkata");
+  const meetLink = String(formData.get("meetLink") ?? "").trim();
+  const adminNote = String(formData.get("adminNote") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim() || "Scheduled by admin";
+  const originalDate = String(formData.get("originalDate") ?? "").trim() || null;
+
+  if (!studentId || !requestedDate || !requestedStartTime || !requestedEndTime) {
+    revalidatePath("/admin/attendance");
+    return;
+  }
+
+  const { data: student } = await supabase
+    .from("students")
+    .select("batch_id, batches(meet_link)")
+    .eq("id", studentId)
+    .maybeSingle();
+
+  const batchId = String(student?.batch_id ?? "");
+  if (!batchId) {
+    revalidatePath("/admin/attendance");
+    return;
+  }
+
+  const batch = student?.batches;
+  const batchMeetLink =
+    Array.isArray(batch)
+      ? String((batch[0] as { meet_link?: unknown } | undefined)?.meet_link ?? "")
+      : String((batch as { meet_link?: unknown } | null | undefined)?.meet_link ?? "");
+
+  await supabase.from("class_reschedule_requests").insert({
+    student_id: studentId,
+    batch_id: batchId,
+    original_date: originalDate,
+    requested_date: requestedDate,
+    requested_start_time: requestedStartTime,
+    requested_end_time: requestedEndTime,
+    requested_time_zone: requestedTimeZone,
+    reason,
+    status: "approved",
+    admin_note: adminNote,
+    meet_link: meetLink || batchMeetLink,
+    reviewed_at: new Date().toISOString(),
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/attendance");
   revalidatePath("/class");
   revalidatePath("/dashboard");
 }

@@ -4,8 +4,9 @@ import { AdminCommandCenter, type AdminCommandAction } from "@/components/admin/
 import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar-nav";
+import { getAdminClassEvents } from "@/lib/class-events";
 import { getAdminData } from "@/lib/data";
-import { ADMIN_TIME_ZONE, formatInTimeZone, getSessionDateTimes } from "@/lib/time";
+import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 
 const links: NavLink[] = [
   { href: "/admin", label: "Dashboard", icon: "dashboard" },
@@ -28,17 +29,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     month: "2-digit",
     day: "2-digit",
   });
-  const todayClasses = data.students.flatMap((student) => {
-    const batch = data.batches.find((item) => item.id === student.batchId);
-    if (!batch) return [];
-    return data.sessions.filter((session) => {
-      const schedule = getSessionDateTimes(session, batch);
-      return formatInTimeZone(schedule.startsAt, ADMIN_TIME_ZONE, {
+  const todayClasses = getAdminClassEvents({
+    students: data.students,
+    batches: data.batches,
+    sessions: data.sessions,
+    requests: data.rescheduleRequests,
+    attendance: data.attendance,
+    now,
+  }).filter((event) => {
+      return formatInTimeZone(event.startsAt, ADMIN_TIME_ZONE, {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
       }) === todayKey;
-    });
   }).length;
   const pendingHomework = data.homework.filter((item) => item.status === "submitted").length;
   const pendingReschedules = data.rescheduleRequests.filter((request) => request.status === "pending").length;

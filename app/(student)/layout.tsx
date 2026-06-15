@@ -3,8 +3,8 @@ import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
 import { StudentStrandsSearch, type StudentSearchItem } from "@/components/portal/student-strands-search";
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar-nav";
+import { getNextClassEvent, getStudentClassEvents } from "@/lib/class-events";
 import { getStudentDashboardData } from "@/lib/data";
-import { getActiveOrNextJoinSession } from "@/lib/time";
 
 const links: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -21,10 +21,17 @@ export default async function StudentLayout({ children }: { children: React.Reac
   await requireStudentAccess();
   const data = await getStudentDashboardData();
   const pendingHomework = data.homework.filter((item) => item.status === "pending").length;
-  const nextJoinSession = getActiveOrNextJoinSession(data.sessions, data.batch);
+  const nextClassEvent = getNextClassEvent(
+    getStudentClassEvents({
+      student: data.student,
+      batch: data.batch,
+      sessions: data.sessions,
+      requests: data.rescheduleRequests,
+    }),
+  );
   const badges: Partial<Record<string, NavBadge>> = {
     "/homework": pendingHomework ? { count: pendingHomework, tone: "warm", label: "Homework pending" } : undefined,
-    "/class": nextJoinSession ? { count: 1, tone: "info", label: "Class link status available" } : undefined,
+    "/class": nextClassEvent ? { count: 1, tone: nextClassEvent.kind === "makeup" ? "accent" : "info", label: nextClassEvent.kind === "makeup" ? "Make-up class scheduled" : "Class link status available" } : undefined,
   };
   const searchItems: StudentSearchItem[] = [
     ...data.modules.map((module) => ({
@@ -78,7 +85,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
       description: "Join class, see your batch schedule, and request make-up classes.",
       href: "/class",
       keywords: ["class", "join", "meet", "reschedule", "makeup", "schedule"],
-      priority: nextJoinSession ? 12 : 4,
+      priority: nextClassEvent ? 12 : 4,
     },
     {
       title: "Progress",

@@ -1,17 +1,19 @@
 import { CalendarPlus, CheckCircle2, CircleDot } from "lucide-react";
 import { requestClassRescheduleAction } from "@/app/actions/class";
 import { ClassLiveCard } from "@/components/portal/class-live-card";
+import { MakeupClassCard } from "@/components/portal/makeup-class-card";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  formatClassEventTime,
+  formatRescheduleRequestTime,
+  getNextClassEvent,
+  getStudentClassEvents,
+} from "@/lib/class-events";
 import { getStudentDashboardData } from "@/lib/data";
 import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
-import { formatBatchSchedule, formatSessionTime, getActiveOrNextJoinSession } from "@/lib/time";
-import { formatDate } from "@/lib/utils";
-
-function formatRequestRange(date: string, startTime: string, endTime: string, timeZone: string) {
-  return `${formatDate(date)} · ${startTime.slice(0, 5)} - ${endTime.slice(0, 5)} ${timeZone}`;
-}
+import { ADMIN_TIME_ZONE, formatBatchSchedule, formatSessionTime, getActiveOrNextJoinSession } from "@/lib/time";
 
 function rescheduleMessage(code?: string) {
   if (code === "requested") return "Your reschedule request was sent to admin for approval.";
@@ -28,11 +30,24 @@ export default async function ClassPage({
 }) {
   const { join, reschedule } = await searchParams;
   const data = await getStudentDashboardData();
-  const nextSession = getActiveOrNextJoinSession(data.sessions, data.batch) ?? data.sessions[0];
+  const now = new Date();
+  const classEvents = getStudentClassEvents({
+    student: data.student,
+    batch: data.batch,
+    sessions: data.sessions,
+    requests: data.rescheduleRequests,
+    now,
+  });
+  const nextClassEvent = getNextClassEvent(classEvents, now);
+  const nextSession = nextClassEvent?.kind === "regular" && nextClassEvent.session
+    ? nextClassEvent.session
+    : getActiveOrNextJoinSession(data.sessions, data.batch) ?? data.sessions[0];
   const requestMessage = rescheduleMessage(reschedule);
   const rescheduleOptions = getStudentRescheduleOptions(data.student.timeZone);
   const pendingRequest = data.rescheduleRequests.find((request) => request.status === "pending");
-  const approvedRequests = data.rescheduleRequests.filter((request) => request.status === "approved");
+  const upcomingClassEvents = classEvents
+    .filter((event) => event.endsAt.getTime() >= now.getTime())
+    .slice(0, 10);
 
   return (
     <AnimatedPage>
@@ -57,7 +72,18 @@ export default async function ClassPage({
       ) : null}
 
       <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-        <ClassLiveCard batch={data.batch} nextSession={nextSession} viewerTimeZone={data.student.timeZone} />
+        {nextClassEvent?.kind === "makeup" ? (
+          <MakeupClassCard
+            title={nextClassEvent.title}
+            detail={nextClassEvent.detail}
+            startsAtIso={nextClassEvent.startsAt.toISOString()}
+            endsAtIso={nextClassEvent.endsAt.toISOString()}
+            meetLink={nextClassEvent.meetLink}
+            viewerTimeZone={data.student.timeZone}
+          />
+        ) : (
+          <ClassLiveCard batch={data.batch} nextSession={nextSession} viewerTimeZone={data.student.timeZone} />
+        )}
 
         <div className="premium-card rounded-xl p-5">
           <div className="flex items-start gap-3">
@@ -75,12 +101,7 @@ export default async function ClassPage({
 
           {pendingRequest ? (
             <div className="mt-5 rounded-xl border border-accent-warm/30 bg-accent-warm/10 p-4 text-sm text-amber-100">
-              Pending for {formatRequestRange(
-                pendingRequest.requestedDate,
-                pendingRequest.requestedStartTime,
-                pendingRequest.requestedEndTime,
-                pendingRequest.requestedTimeZone,
-              )}
+              Pending for {formatRescheduleRequestTime(pendingRequest, data.student.timeZone)}
             </div>
           ) : (
             <form action={requestClassRescheduleAction} className="mt-5 space-y-3">
@@ -128,38 +149,53 @@ export default async function ClassPage({
 
       <section>
         <div className="premium-card rounded-xl p-5">
-          <p className="font-mono text-xs uppercase text-accent">Approved make-up classes</p>
-          <h2 className="mt-2 font-heading text-2xl font-bold">One-off schedule changes</h2>
+          <p className="font-mono text-xs uppercase text-accent">Class timeline</p>
+          <h2 className="mt-2 font-heading text-2xl font-bold">Regular and make-up classes</h2>
+          <p className="mt-2 text-sm text-text-secondary">
+            One-off make-up classes appear here with a clear tag, beside your normal course schedule.
+          </p>
           <div className="mt-5 space-y-3">
-            {approvedRequests.length > 0 ? (
-              approvedRequests.map((request) => (
-                <article key={request.id} className="rounded-xl border border-border bg-white/[0.025] p-4">
-                  <p className="font-heading font-bold">
-                    {formatRequestRange(
-                      request.requestedDate,
-                      request.requestedStartTime,
-                      request.requestedEndTime,
-                      request.requestedTimeZone,
-                    )}
-                  </p>
-                  {request.adminNote ? (
-                    <p className="mt-2 text-sm text-text-secondary">{request.adminNote}</p>
-                  ) : null}
-                  {request.meetLink ? (
-                    <a
-                      href={request.meetLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 inline-flex rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-bold text-accent"
-                    >
-                      Open make-up class link
-                    </a>
-                  ) : null}
+            {upcomingClassEvents.length > 0 ? (
+              upcomingClassEvents.map((event) => (
+                <article
+                  key={event.id}
+                  className="rounded-xl border border-border bg-white/[0.025] p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-heading font-bold">{event.title}</p>
+                        <StatusBadge
+                          status={event.kind === "makeup" ? "rescheduled" : event.status}
+                          label={event.tag}
+                        />
+                      </div>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {formatClassEventTime(event, data.student.timeZone)}
+                      </p>
+                      <p className="mt-1 text-xs text-text-muted">{event.detail}</p>
+                      {event.kind === "makeup" ? (
+                        <p className="mt-1 font-mono text-xs text-text-muted">
+                          Tutor time: {formatClassEventTime(event, ADMIN_TIME_ZONE)}
+                        </p>
+                      ) : null}
+                    </div>
+                    {event.kind === "makeup" && event.meetLink ? (
+                      <a
+                        href={event.meetLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="button-motion inline-flex rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-sm font-bold text-blue-100"
+                      >
+                        Make-up link
+                      </a>
+                    ) : null}
+                  </div>
                 </article>
               ))
             ) : (
               <p className="rounded-xl border border-border bg-white/[0.025] p-4 text-sm text-text-secondary">
-                No approved make-up classes yet.
+                No upcoming classes found.
               </p>
             )}
           </div>
@@ -186,7 +222,7 @@ export default async function ClassPage({
                     Session {session.globalNumber} · {formatSessionTime(session, data.batch, data.student.timeZone)}
                   </p>
                   <p className="mt-1 font-mono text-xs text-text-muted">
-                    Admin time: {formatSessionTime(session, data.batch, data.batch.timeZone)}
+                    Admin time: {formatSessionTime(session, data.batch, ADMIN_TIME_ZONE)}
                   </p>
                 </div>
               </div>
