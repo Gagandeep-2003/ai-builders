@@ -28,6 +28,10 @@ type SessionDeck = {
   embedUrl: string;
 };
 
+type ExpandedSessionDeck = SessionDeck & {
+  moduleNumber: number;
+};
+
 const moduleDecks: ModuleDeck[] = [
   {
     moduleNumber: 1,
@@ -47,14 +51,32 @@ const moduleDecks: ModuleDeck[] = [
   {
     moduleNumber: 2,
     title: "Vibe Coding Lab: Idea to App",
-    status: "coming-soon",
-    sessions: [],
+    status: "live",
+    sessions: [
+      { sessionNumber: 1, title: "Vibe Coding: No-Code App Magic", embedUrl: "https://www.canva.com/design/DAHMqcOpOsI/C-roWezznrzONXf6nwVddw/view?embed" },
+      { sessionNumber: 2, title: "Vibe Coding: From Idea to App", embedUrl: "https://www.canva.com/design/DAHMqffMTxU/TFc0Zkum-h7H3eF1DFKO5g/view?embed" },
+      { sessionNumber: 3, title: "Figma AI Tools", embedUrl: "https://www.canva.com/design/DAHMqeFfEak/BVa2_U0MpI9aP79eeDAa5g/view?embed" },
+      { sessionNumber: 4, title: "No-Code GPT Wrappers", embedUrl: "https://www.canva.com/design/DAHMqQR94m4/wCD1LCrBc_YF7g_sPFFidQ/view?embed" },
+      { sessionNumber: 5, title: "Google AI Studio: Gemini Playground", embedUrl: "https://www.canva.com/design/DAHMqV4jjvM/WpxCPhyX5mrSaJ8kpzWl7A/view?embed" },
+      { sessionNumber: 6, title: "Exploring Google Labs AI", embedUrl: "https://www.canva.com/design/DAHMqc1UNLw/gkGqtqnO_TNt1B2jTMZl3A/view?embed" },
+      { sessionNumber: 7, title: "AI Ethics & Responsibility", embedUrl: "https://www.canva.com/design/DAHMqY5Zjrc/F3NRFCkj3Y9DqUsGi3UTYg/view?embed" },
+      { sessionNumber: 8, title: "Showcase Session: Present Your Smart AI App", embedUrl: "https://www.canva.com/design/DAHMqQlnWJ4/zN9GFT7MrRpU-DCuTrLwEw/view?embed" },
+    ],
   },
   {
     moduleNumber: 3,
     title: "Automation Studio: Agents & Workflows",
-    status: "coming-soon",
-    sessions: [],
+    status: "live",
+    sessions: [
+      { sessionNumber: 1, title: "AI Agents and Tools", embedUrl: "https://www.canva.com/design/DAHMqc0cVS8/Y5-veOS51cdKNUxOwnnTNg/view?embed" },
+      { sessionNumber: 2, title: "Introduction to AI Automation", embedUrl: "https://www.canva.com/design/DAHMqcn-lCo/EyNvabVZEYRQ1lojM-ABuw/view?embed" },
+      { sessionNumber: 3, title: "Build Your First AI Workflow", embedUrl: "https://www.canva.com/design/DAHMqXyHTQc/2UqwC-qkAsWp1ffIiQOyug/view?embed" },
+      { sessionNumber: 4, title: "AI Workflow: Content Pipeline", embedUrl: "https://www.canva.com/design/DAHMqWu6sEo/QQS3MRirysklienOFfv-DQ/view?embed" },
+      { sessionNumber: 5, title: "Advanced Automations using Zapier", embedUrl: "https://www.canva.com/design/DAHMqQPnKyg/sOgVkUuKGisS9AoVs4FOpw/view?embed" },
+      { sessionNumber: 6, title: "Introduction to ClawBot", embedUrl: "https://www.canva.com/design/DAHMqVS9ORY/IBoHIyrGoEeA9k0iX6jazQ/view?embed" },
+      { sessionNumber: 7, title: "Mastering ClawBot Skills", embedUrl: "https://www.canva.com/design/DAHMqWl2UNo/I1u55Z5wiQg0mkEJKir6ig/view?embed" },
+      { sessionNumber: 8, title: "Showcase Session: Present Your Smart Automation", embedUrl: "https://www.canva.com/design/DAHMqaOsxwo/-Wg1otRiv8CMCi6XhaUb7g/view?embed" },
+    ],
   },
 ];
 
@@ -94,9 +116,11 @@ function ComingSoonPanel({ moduleNumber, title }: { moduleNumber: number; title:
 
 function CanvaFrame({
   session,
+  moduleNumber,
   expanded = false,
 }: {
   session: SessionDeck;
+  moduleNumber: number;
   expanded?: boolean;
 }) {
   return (
@@ -107,7 +131,7 @@ function CanvaFrame({
       )}
     >
       <iframe
-        title={`Module 1 Session ${session.sessionNumber}: ${session.title}`}
+        title={`Module ${moduleNumber} Session ${session.sessionNumber}: ${session.title}`}
         src={session.embedUrl}
         className="h-full w-full border-0"
         loading="lazy"
@@ -129,7 +153,7 @@ export function ResourceLibrary({
 }) {
   const [activeModule, setActiveModule] = useState(1);
   const [activeSession, setActiveSession] = useState(1);
-  const [expandedSession, setExpandedSession] = useState<SessionDeck | null>(null);
+  const [expandedSession, setExpandedSession] = useState<ExpandedSessionDeck | null>(null);
 
   const selectedModule = moduleDecks.find((module) => module.moduleNumber === activeModule) ?? moduleDecks[0];
   const selectedSession =
@@ -227,7 +251,7 @@ export function ResourceLibrary({
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
-                      Module 1 · Session {selectedSession.sessionNumber}
+                      Module {selectedModule.moduleNumber} · Session {selectedSession.sessionNumber}
                     </p>
                     <h3 className="mt-2 font-heading text-2xl font-bold text-text-primary">{selectedSession.title}</h3>
                     <p className="mt-2 text-sm text-text-secondary">
@@ -235,14 +259,14 @@ export function ResourceLibrary({
                     </p>
                   </div>
                   <button
-                    onClick={() => setExpandedSession(selectedSession)}
+                    onClick={() => setExpandedSession({ ...selectedSession, moduleNumber: selectedModule.moduleNumber })}
                     className="button-motion inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-accent/30 bg-accent/10 px-4 text-sm font-bold text-accent"
                   >
                     <Expand className="h-4 w-4" />
                     Expand
                   </button>
                 </div>
-                <CanvaFrame session={selectedSession} />
+                <CanvaFrame session={selectedSession} moduleNumber={selectedModule.moduleNumber} />
               </>
             ) : null}
           </div>
@@ -293,7 +317,7 @@ export function ResourceLibrary({
               </button>
             </div>
             <div className="scrollbar-soft min-h-0 overflow-y-auto p-3">
-              <CanvaFrame session={expandedSession} expanded />
+              <CanvaFrame session={expandedSession} moduleNumber={expandedSession.moduleNumber} expanded />
             </div>
           </div>
         </div>
