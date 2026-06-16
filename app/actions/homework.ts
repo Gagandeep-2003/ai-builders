@@ -143,12 +143,30 @@ async function saveSubmissionEvidence({
     };
   }
 
-  if (hasWorkEvidence) {
+  const evidencePayload = {
+    homework_id: homeworkId,
+    student_id: studentId,
+    screen_image: screenImage || null,
+    camera_image: cameraImage || null,
+    proof_text: proofText || null,
+    attachment_name: attachment?.name || null,
+    attachment_mime: attachment?.mime || null,
+    attachment_data: attachment?.data || null,
+    captured_at: now,
+    expires_at: expiresAt,
+  };
+
+  const evidenceFallback = await supabase.from("submission_evidence").upsert(
+    evidencePayload,
+    { onConflict: "homework_id,student_id" },
+  );
+
+  if (!evidenceFallback.error) {
     return {
-      saved: false,
-      imagesSaved: false,
+      saved: true,
+      imagesSaved: hasImages,
       metadataSaved: false,
-      error: `Proof text or file attachments need the latest submission evidence migration. ${error.message}`,
+      error: error.message,
     };
   }
 
@@ -171,7 +189,7 @@ async function saveSubmissionEvidence({
       saved: true,
       imagesSaved: hasImages,
       metadataSaved: false,
-      error: error.message,
+      error: evidenceFallback.error.message || error.message,
     };
   }
 
@@ -193,7 +211,7 @@ async function saveSubmissionEvidence({
       saved: true,
       imagesSaved: hasImages,
       metadataSaved: false,
-      error: fallback.error.message || error.message,
+      error: fallback.error.message || evidenceFallback.error.message || error.message,
     };
   }
 
@@ -201,7 +219,7 @@ async function saveSubmissionEvidence({
     saved: false,
     imagesSaved: false,
     metadataSaved: false,
-    error: legacyFallback.error.message || fallback.error.message || error.message,
+    error: legacyFallback.error.message || fallback.error.message || evidenceFallback.error.message || error.message,
   };
 }
 

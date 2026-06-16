@@ -157,6 +157,7 @@ export function ResourceLibrary({
   const [activeModule, setActiveModule] = useState(1);
   const [activeSession, setActiveSession] = useState(1);
   const [expandedSession, setExpandedSession] = useState<ExpandedSessionDeck | null>(null);
+  const [resourceHint, setResourceHint] = useState("Choose an unlocked session to open it inside the portal.");
   const access = useMemo(() => getSessionAccessBoundary(sessions), [sessions]);
   const sessionByGlobalNumber = useMemo(
     () => new Map(sessions.map((session) => [session.globalNumber, session])),
@@ -206,11 +207,16 @@ export function ResourceLibrary({
           return (
             <button
               key={module.moduleNumber}
-              disabled={isLocked}
               onClick={() => {
-                if (isLocked) return;
+                if (isLocked) {
+                  setResourceHint(
+                    `Module ${module.moduleNumber} unlocks after you reach its first session. Keep going; it will appear here automatically.`,
+                  );
+                  return;
+                }
                 setActiveModule(module.moduleNumber);
                 setActiveSession(accessibleModule?.sessions[0]?.sessionNumber ?? 1);
+                setResourceHint(`Opening Module ${module.moduleNumber}. Select a session deck below to view it.`);
               }}
               className={cn(
                 "premium-card premium-card-hover group min-h-40 rounded-xl p-5 text-left",
@@ -239,6 +245,13 @@ export function ResourceLibrary({
           );
         })}
       </section>
+      <div
+        className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-3 text-sm text-accent shadow-[0_18px_45px_rgba(110,231,183,0.08)] transition"
+        role="status"
+        aria-live="polite"
+      >
+        {resourceHint}
+      </div>
 
       {accessibleModuleDecks.length === 0 ? (
         <ComingSoonPanel moduleNumber={1} title="Your first resource unlocks with Session 1" />
@@ -258,7 +271,10 @@ export function ResourceLibrary({
               {selectedModule.sessions.map((session) => (
                 <button
                   key={session.sessionNumber}
-                  onClick={() => setActiveSession(session.sessionNumber)}
+                  onClick={() => {
+                    setActiveSession(session.sessionNumber);
+                    setResourceHint(`Opening Session ${session.sessionNumber}: ${session.title}`);
+                  }}
                   className={cn(
                     "group flex min-h-16 items-center gap-3 rounded-xl border border-border bg-bg-card px-4 py-3 text-left transition hover:border-accent/35 hover:bg-accent/5",
                     activeSession === session.sessionNumber && "border-accent/50 bg-accent/10",
