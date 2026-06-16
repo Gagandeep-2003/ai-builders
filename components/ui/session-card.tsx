@@ -3,6 +3,7 @@
 import { CheckCircle2, Lock, Radio } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MotionDiv } from "@/components/ui/animated";
+import { ToolLinkChip } from "@/components/ui/tool-link-chip";
 import { cn, formatDate } from "@/lib/utils";
 import type { CurriculumSession } from "@/lib/data";
 
@@ -49,12 +50,7 @@ export function SessionCard({
       <p className="mt-4 text-sm leading-6 text-text-secondary">{session.focus}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {session.toolsCovered.map((tool) => (
-          <span
-            key={tool}
-            className="rounded-full border border-border bg-white/[0.03] px-2.5 py-1 font-mono text-[11px] text-text-secondary"
-          >
-            {tool}
-          </span>
+          <ToolLinkChip key={tool} tool={tool} className="px-2.5" />
         ))}
       </div>
       <div className="mt-5 flex items-center gap-2 border-t border-border/60 pt-4 text-sm text-text-secondary">

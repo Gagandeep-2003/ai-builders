@@ -12,7 +12,7 @@ export default async function ResourcesPage() {
         title="Resource Library"
         subtitle="Open session decks inside the portal, expand them when needed, and keep upcoming module resources organized."
       />
-      <ResourceLibrary resources={data.resources} modules={data.modules} />
+      <ResourceLibrary resources={data.resources} modules={data.modules} sessions={data.sessions} />
     </AnimatedPage>
   );
 }

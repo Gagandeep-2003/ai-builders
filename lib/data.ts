@@ -31,6 +31,7 @@ import {
   type StudentProfile,
 } from "@/lib/course-data";
 import { cache } from "react";
+import { filterUnlockedHomework, filterUnlockedResources } from "@/lib/content-access";
 import { getCourseworkDetail } from "@/lib/coursework-details";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -74,13 +75,14 @@ function curriculumWithStatus(batch = demoBatch): CurriculumSession[] {
 }
 
 function fallbackDashboardData(): DashboardData {
+  const fallbackSessions = curriculumWithStatus();
   return {
     student: demoStudent,
     batch: demoBatch,
     modules,
-    sessions: curriculumWithStatus(),
-    homework: demoHomework,
-    resources: demoResources,
+    sessions: fallbackSessions,
+    homework: filterUnlockedHomework(demoHomework, fallbackSessions),
+    resources: filterUnlockedResources(demoResources, fallbackSessions),
     announcements: demoAnnouncements,
     attendance: demoAttendance,
     feedback: demoFeedback,
@@ -270,10 +272,12 @@ function applyStudentContactOverride(
   };
 }
 
-function mapHomework(row: DbRow): HomeworkItem {
+function mapHomework(row: DbRow, currentStudentId?: string): HomeworkItem {
   const session = relation(row, "sessions");
-  const submission = relation(row, "submissions");
   const submissions = relationRows(row, "submissions");
+  const submission = currentStudentId
+    ? (submissions.find((item) => text(item, "student_id") === currentStudentId) ?? null)
+    : relation(row, "submissions");
   const startedAt = submission ? text(submission, "started_at") : "";
   const submittedAt = submission ? text(submission, "submitted_at") : "";
   const completedSubmissionTimes = submissions
@@ -562,7 +566,7 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
     await Promise.all([
       supabase
         .from("homework")
-        .select("id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(status, notes, started_at, submitted_at)")
+        .select("id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, notes, started_at, submitted_at)")
         .or(`batch_id.eq.${effectiveBatch.id},assigned_student_id.eq.${effectiveStudent.id},and(batch_id.is.null,assigned_student_id.is.null)`)
         .order("due_date", { ascending: true }),
       supabase
@@ -599,8 +603,11 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
         .limit(5),
     ]);
 
-  const homework = homeworkRows?.map((row) => mapHomework(row)) ?? demoHomework;
-  const resources = resourceRows?.map((row) => mapResource(row)) ?? demoResources;
+  const homework = filterUnlockedHomework(
+    homeworkRows?.map((row) => mapHomework(row, effectiveStudent.id)) ?? demoHomework,
+    curriculum.sessions,
+  );
+  const resources = filterUnlockedResources(resourceRows?.map((row) => mapResource(row)) ?? demoResources, curriculum.sessions);
   const feedback = feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback;
   const attendance = attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance;
 

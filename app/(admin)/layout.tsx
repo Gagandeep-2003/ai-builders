@@ -13,6 +13,7 @@ const links: NavLink[] = [
   { href: "/admin/students", label: "Students", icon: "students" },
   { href: "/admin/batches", label: "Batches", icon: "home" },
   { href: "/admin/slots", label: "Slots", icon: "slots" },
+  { href: "/admin/progress", label: "Progress", icon: "chart" },
   { href: "/admin/homework", label: "Homework", icon: "homework" },
   { href: "/admin/resources", label: "Resources", icon: "files" },
   { href: "/admin/attendance", label: "Attendance", icon: "attendance" },

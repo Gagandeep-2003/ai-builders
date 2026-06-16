@@ -64,9 +64,9 @@ export type NavBadge = {
 
 const badgeTones = {
   accent: "border-accent/35 bg-accent/12 text-accent",
-  info: "border-info/35 bg-info/12 text-blue-200",
-  warm: "border-accent-warm/35 bg-accent-warm/12 text-amber-100",
-  danger: "border-danger/35 bg-danger/12 text-rose-100",
+  info: "border-info/35 bg-info/12 text-[color:var(--info)]",
+  warm: "border-accent-warm/35 bg-accent-warm/12 text-[color:var(--accent-warm)]",
+  danger: "border-danger/35 bg-danger/12 text-[color:var(--danger)]",
 };
 
 export function SidebarNav({

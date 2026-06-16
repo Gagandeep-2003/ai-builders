@@ -239,12 +239,10 @@ export function formatSessionTime(
   const start = formatInTimeZone(startsAt, timeZone, {
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short",
   });
   const end = formatInTimeZone(endsAt, timeZone, {
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short",
   });
 
   return `${date} · ${start} - ${end}`;
@@ -281,12 +279,10 @@ export function formatBatchSchedule(batch: Batch, timeZone = batch.timeZone || D
         const start = formatInTimeZone(startsAt, timeZone, {
           hour: "numeric",
           minute: "2-digit",
-          timeZoneName: "short",
         });
         const end = formatInTimeZone(endsAt, timeZone, {
           hour: "numeric",
           minute: "2-digit",
-          timeZoneName: "short",
         });
         return `${day} ${start} - ${end}`;
       })

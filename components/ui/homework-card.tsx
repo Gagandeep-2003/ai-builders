@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarDays, ExternalLink, SendHorizontal } from "lucide-react";
 import { markHomeworkSubmitted } from "@/app/actions/homework";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ToolLinkChip } from "@/components/ui/tool-link-chip";
 import { formatDuration, formatHomeworkKind } from "@/lib/homework-utils";
 import { cn, formatDate, getDueTone } from "@/lib/utils";
 import type { HomeworkItem } from "@/lib/course-data";
@@ -33,12 +34,7 @@ export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
             Module {homework.details.moduleNumber} · Session {homework.details.sessionNumber}
           </span>
           {homework.details.tools.slice(0, 3).map((tool) => (
-            <span
-              key={tool}
-              className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 font-mono text-[11px] uppercase text-accent"
-            >
-              {tool}
-            </span>
+            <ToolLinkChip key={tool} tool={tool} />
           ))}
         </div>
       ) : null}
@@ -52,9 +48,9 @@ export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
         <span
           className={cn(
             "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-            tone === "danger" && "border-danger/40 bg-danger/10 text-rose-200",
-            tone === "warning" && "border-accent-warm/40 bg-accent-warm/10 text-amber-200",
-            tone === "success" && "border-success/35 bg-success/10 text-emerald-200",
+            tone === "danger" && "border-danger/40 bg-danger/10 text-[color:var(--danger)]",
+            tone === "warning" && "border-accent-warm/40 bg-accent-warm/10 text-[color:var(--accent-warm)]",
+            tone === "success" && "border-success/35 bg-success/10 text-[color:var(--success)]",
           )}
         >
           <CalendarDays className="h-4 w-4" />

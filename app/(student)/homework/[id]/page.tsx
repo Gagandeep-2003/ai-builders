@@ -5,6 +5,7 @@ import { HomeworkDocumentViewer } from "@/components/portal/homework-document-vi
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ToolLinkChip } from "@/components/ui/tool-link-chip";
 import { getStudentDashboardData } from "@/lib/data";
 import { formatDuration, formatHomeworkKind, getGoogleDocEmbedUrl, isTrustedTaskDuration } from "@/lib/homework-utils";
 import { formatDate } from "@/lib/utils";
@@ -144,12 +145,7 @@ export default async function HomeworkDetailPage({
             {taskDetails.tools.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 {taskDetails.tools.map((tool) => (
-                  <span
-                    key={tool}
-                    className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 font-mono text-[11px] uppercase text-accent"
-                  >
-                    {tool}
-                  </span>
+                  <ToolLinkChip key={tool} tool={tool} />
                 ))}
                 <span className="rounded-full border border-border bg-bg-elevated px-3 py-1 font-mono text-[11px] uppercase text-text-secondary">
                   {taskDetails.aiType}

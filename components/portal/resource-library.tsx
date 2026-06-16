@@ -12,7 +12,8 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import type { CourseModule, ResourceItem } from "@/lib/course-data";
+import { getSessionAccessBoundary, isSessionUnlocked } from "@/lib/content-access";
+import type { CourseModule, CourseSession, ResourceItem } from "@/lib/course-data";
 import { cn } from "@/lib/utils";
 
 type ModuleDeck = {
@@ -147,15 +148,38 @@ function CanvaFrame({
 export function ResourceLibrary({
   resources,
   modules,
+  sessions,
 }: {
   resources: ResourceItem[];
   modules: CourseModule[];
+  sessions: CourseSession[];
 }) {
   const [activeModule, setActiveModule] = useState(1);
   const [activeSession, setActiveSession] = useState(1);
   const [expandedSession, setExpandedSession] = useState<ExpandedSessionDeck | null>(null);
+  const access = useMemo(() => getSessionAccessBoundary(sessions), [sessions]);
+  const sessionByGlobalNumber = useMemo(
+    () => new Map(sessions.map((session) => [session.globalNumber, session])),
+    [sessions],
+  );
+  const accessibleModuleDecks = useMemo(
+    () =>
+      moduleDecks
+        .map((module) => ({
+          ...module,
+          sessions: module.sessions.filter((session) => {
+            const globalNumber = (module.moduleNumber - 1) * 8 + session.sessionNumber;
+            return isSessionUnlocked(sessionByGlobalNumber.get(globalNumber), access);
+          }),
+        }))
+        .filter((module) => module.sessions.length > 0),
+    [access, sessionByGlobalNumber],
+  );
 
-  const selectedModule = moduleDecks.find((module) => module.moduleNumber === activeModule) ?? moduleDecks[0];
+  const selectedModule =
+    accessibleModuleDecks.find((module) => module.moduleNumber === activeModule) ??
+    accessibleModuleDecks[0] ??
+    moduleDecks[0];
   const selectedSession =
     selectedModule.sessions.find((session) => session.sessionNumber === activeSession) ??
     selectedModule.sessions[0] ??
@@ -174,18 +198,24 @@ export function ResourceLibrary({
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-3">
         {moduleDecks.map((module) => {
+          const accessibleModule = accessibleModuleDecks.find((item) => item.moduleNumber === module.moduleNumber);
           const title = moduleTitleFromData(module.moduleNumber, modules) ?? module.title;
           const isActive = activeModule === module.moduleNumber;
+          const deckCount = accessibleModule?.sessions.length ?? 0;
+          const isLocked = deckCount === 0;
           return (
             <button
               key={module.moduleNumber}
+              disabled={isLocked}
               onClick={() => {
+                if (isLocked) return;
                 setActiveModule(module.moduleNumber);
-                setActiveSession(1);
+                setActiveSession(accessibleModule?.sessions[0]?.sessionNumber ?? 1);
               }}
               className={cn(
                 "premium-card premium-card-hover group min-h-40 rounded-xl p-5 text-left",
                 isActive && "border-accent/55 bg-accent/10",
+                isLocked && "cursor-not-allowed opacity-55",
               )}
             >
               <div className="flex items-start justify-between gap-4">
@@ -200,7 +230,9 @@ export function ResourceLibrary({
               <h3 className="mt-2 font-heading text-lg font-bold text-text-primary">{title}</h3>
               <p className="mt-3 text-sm text-text-secondary">
                 {module.status === "live"
-                  ? `${module.sessions.length} embedded session decks`
+                  ? deckCount > 0
+                    ? `${deckCount}/${module.sessions.length} session decks unlocked`
+                    : "Unlocks as your classes progress"
                   : "Session resources will unlock here"}
               </p>
             </button>
@@ -208,7 +240,9 @@ export function ResourceLibrary({
         })}
       </section>
 
-      {selectedModule.status === "coming-soon" ? (
+      {accessibleModuleDecks.length === 0 ? (
+        <ComingSoonPanel moduleNumber={1} title="Your first resource unlocks with Session 1" />
+      ) : selectedModule.status === "coming-soon" ? (
         <ComingSoonPanel
           moduleNumber={selectedModule.moduleNumber}
           title={moduleTitleFromData(selectedModule.moduleNumber, modules) ?? selectedModule.title}

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { BookOpenCheck, CheckCircle2, ChevronDown } from "lucide-react";
 import { HomeworkCard } from "@/components/ui/homework-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { getSessionAccessBoundary } from "@/lib/content-access";
 import type { CourseSession, HomeworkItem } from "@/lib/course-data";
 import { cn } from "@/lib/utils";
 
@@ -14,12 +15,17 @@ export function HomeworkTracker({
   homework: HomeworkItem[];
   sessions: CourseSession[];
 }) {
+  const unlockedSessions = useMemo(() => {
+    const access = getSessionAccessBoundary(sessions);
+    return sessions.filter((session) => session.globalNumber <= access.maxUnlockedGlobalNumber);
+  }, [sessions]);
   const firstSessionWithWork =
-    sessions.find((session) => homework.some((item) => item.sessionId === session.id))?.id ?? sessions[0]?.id;
+    unlockedSessions.find((session) => homework.some((item) => item.sessionId === session.id))?.id ??
+    unlockedSessions[0]?.id;
   const [activeSessionId, setActiveSessionId] = useState(firstSessionWithWork);
   const grouped = useMemo(
     () =>
-      sessions.map((session) => {
+      unlockedSessions.map((session) => {
         const items = homework.filter((item) => item.sessionId === session.id);
         const completed = items.filter((item) => item.status !== "pending").length;
         return {
@@ -29,7 +35,7 @@ export function HomeworkTracker({
           total: items.length,
         };
       }),
-    [homework, sessions],
+    [homework, unlockedSessions],
   );
   const active = grouped.find((item) => item.session.id === activeSessionId) ?? grouped[0];
   const overallCompleted = homework.filter((item) => item.status !== "pending").length;
@@ -94,8 +100,12 @@ export function HomeworkTracker({
                           className={cn(
                             "rounded-full border px-2.5 py-1 font-mono text-[11px]",
                             total === 0 && "border-border text-text-muted",
-                            total > 0 && completed < total && "border-accent-warm/40 bg-accent-warm/10 text-amber-200",
-                            total > 0 && completed === total && "border-success/35 bg-success/10 text-emerald-200",
+                            total > 0 &&
+                              completed < total &&
+                              "border-accent-warm/40 bg-accent-warm/10 text-[color:var(--accent-warm)]",
+                            total > 0 &&
+                              completed === total &&
+                              "border-success/35 bg-success/10 text-[color:var(--success)]",
                           )}
                         >
                           {total === 0 ? "No work" : `${completed}/${total}`}
