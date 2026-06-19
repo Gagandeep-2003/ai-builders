@@ -1,4 +1,5 @@
 import type { Batch, BatchClassSlot, CourseSession } from "@/lib/course-data";
+import { normalizeMeetLink } from "@/lib/meet-links";
 
 export const ADMIN_TIME_ZONE = "Asia/Kolkata";
 export const DEFAULT_TIME_ZONE = "Asia/Kolkata";
@@ -158,7 +159,7 @@ export function getSessionDateTimes(session: CourseSession, batch: Batch) {
   return {
     startsAt: zonedDateTimeToUtc(sessionDate, classSlot?.startTime ?? batch.startTime, timeZone),
     endsAt: zonedDateTimeToUtc(sessionDate, classSlot?.endTime ?? batch.endTime, timeZone),
-    meetLink: classSlot?.meetLink || batch.meetLink,
+    meetLink: normalizeMeetLink(classSlot?.meetLink || batch.meetLink),
     slot: classSlot,
   };
 }

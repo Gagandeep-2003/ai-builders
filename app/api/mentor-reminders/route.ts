@@ -5,6 +5,7 @@ import type {
   CourseSession,
   StudentProfile,
 } from "@/lib/course-data";
+import { normalizeMeetLink } from "@/lib/meet-links";
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/server";
 import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 
@@ -113,7 +114,7 @@ function mapBatch(row: BatchRow): Batch {
     startDate: row.start_date,
     startTime: row.start_time,
     endTime: row.end_time,
-    meetLink: row.meet_link,
+    meetLink: normalizeMeetLink(row.meet_link),
     moduleId: row.module_id,
     studentsCount: 0,
     classSlots: [...(row.batch_class_slots ?? [])]
@@ -125,7 +126,7 @@ function mapBatch(row: BatchRow): Batch {
         dayOfWeek: slot.day_of_week,
         startTime: slot.start_time,
         endTime: slot.end_time,
-        meetLink: slot.meet_link,
+        meetLink: normalizeMeetLink(slot.meet_link),
         sortOrder: slot.sort_order,
       })),
   };
@@ -145,7 +146,7 @@ function mapRequest(row: RequestRow): ClassRescheduleRequest {
     reason: row.reason ?? "",
     status: row.status,
     adminNote: row.admin_note ?? "",
-    meetLink: row.meet_link ?? "",
+    meetLink: normalizeMeetLink(row.meet_link),
     requestedAt: row.requested_at,
     reviewedAt: row.reviewed_at ?? "",
   };

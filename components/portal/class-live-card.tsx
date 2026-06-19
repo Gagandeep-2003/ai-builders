@@ -57,7 +57,7 @@ export function ClassLiveCard({
             Batch timezone: {batch.timeZone}
           </p>
         </div>
-        <form action={joinClassAction}>
+        <form action={joinClassAction} target="_blank" rel="noopener noreferrer">
           <input type="hidden" name="sessionId" value={nextSession.id} />
           <button
             disabled={!canJoin}

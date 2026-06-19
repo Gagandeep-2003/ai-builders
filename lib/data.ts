@@ -33,6 +33,7 @@ import {
 import { cache } from "react";
 import { filterUnlockedHomework, filterUnlockedResources } from "@/lib/content-access";
 import { getCourseworkDetail } from "@/lib/coursework-details";
+import { normalizeMeetLink } from "@/lib/meet-links";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { applySessionStatuses } from "@/lib/time";
@@ -196,7 +197,7 @@ function mapBatchClassSlot(row: DbRow, batchId: string): BatchClassSlot {
     dayOfWeek: num(row, "day_of_week"),
     startTime: text(row, "start_time", "17:00"),
     endTime: text(row, "end_time", "18:30"),
-    meetLink: text(row, "meet_link"),
+    meetLink: normalizeMeetLink(text(row, "meet_link")),
     sortOrder: num(row, "sort_order"),
   };
 }
@@ -216,7 +217,7 @@ function mapBatch(row: DbRow, studentsCount = 0): Batch {
     startDate: text(row, "start_date", "2026-06-15"),
     startTime: text(row, "start_time", "17:00"),
     endTime: text(row, "end_time", "18:30"),
-    meetLink: text(row, "meet_link"),
+    meetLink: normalizeMeetLink(text(row, "meet_link")),
     moduleId: text(row, "module_id"),
     studentsCount,
     classSlots,
@@ -427,7 +428,7 @@ function mapClassJoinEvent(row: DbRow): ClassJoinEvent {
     batchId: text(row, "batch_id"),
     joinedAt: text(row, "joined_at"),
     classDate: text(row, "class_date"),
-    meetLink: text(row, "meet_link"),
+    meetLink: normalizeMeetLink(text(row, "meet_link")),
     studentName: student ? text(student, "full_name", "Student") : "Student",
     sessionName: session ? text(session, "title", "Session") : "Session",
   };
@@ -449,7 +450,7 @@ function mapRescheduleRequest(row: DbRow): ClassRescheduleRequest {
     reason: text(row, "reason"),
     status: text(row, "status", "pending") as RescheduleRequestStatus,
     adminNote: text(row, "admin_note"),
-    meetLink: text(row, "meet_link"),
+    meetLink: normalizeMeetLink(text(row, "meet_link")),
     requestedAt: text(row, "requested_at"),
     reviewedAt: text(row, "reviewed_at"),
   };

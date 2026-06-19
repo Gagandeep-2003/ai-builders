@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getStudentDashboardData } from "@/lib/data";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { normalizeMeetLink } from "@/lib/meet-links";
 import { getSessionDateTimes, getSessionScheduleDate, isSessionJoinWindowOpen } from "@/lib/time";
 
 export async function joinClassAction(formData: FormData) {
@@ -28,7 +29,9 @@ export async function joinClassAction(formData: FormData) {
   if (!session) redirect("/class");
   if (!isSessionJoinWindowOpen(session, data.batch)) redirect("/class?join=not-open");
 
-  const { meetLink } = getSessionDateTimes(session, data.batch);
+  const { meetLink: rawMeetLink } = getSessionDateTimes(session, data.batch);
+  const meetLink = normalizeMeetLink(rawMeetLink);
+  if (!meetLink) redirect("/class?join=missing-link");
   const classDate = getSessionScheduleDate(session, data.batch);
 
   const { error: attendanceError } = await supabase.from("attendance").upsert(

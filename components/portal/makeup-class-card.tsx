@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, ExternalLink, Lock, Video } from "lucide-react";
+import { normalizeMeetLink } from "@/lib/meet-links";
 import { formatInTimeZone } from "@/lib/time";
 
 export function MakeupClassCard({
@@ -23,6 +24,7 @@ export function MakeupClassCard({
   const startsAt = useMemo(() => new Date(startsAtIso), [startsAtIso]);
   const endsAt = useMemo(() => new Date(endsAtIso), [endsAtIso]);
   const opensAt = useMemo(() => new Date(startsAt.getTime() - 15 * 60_000), [startsAt]);
+  const normalizedMeetLink = useMemo(() => normalizeMeetLink(meetLink), [meetLink]);
   const classTime = `${formatInTimeZone(startsAt, viewerTimeZone, {
     weekday: "short",
     month: "short",
@@ -73,7 +75,7 @@ export function MakeupClassCard({
           </p>
         </div>
         <a
-          href={canJoin ? meetLink : undefined}
+          href={canJoin && normalizedMeetLink ? normalizedMeetLink : undefined}
           target="_blank"
           rel="noreferrer"
           aria-disabled={!canJoin}

@@ -6,6 +6,7 @@ import {
   createServiceRoleSupabaseClient,
 } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { normalizeMeetLink } from "@/lib/meet-links";
 
 export type AdminActionState = {
   status: "idle" | "success" | "error";
@@ -53,8 +54,8 @@ function scheduleFields(formData: FormData) {
   const firstEnd = requiredValue(formData, "slot1EndTime") || "18:00";
   const secondStart = requiredValue(formData, "slot2StartTime") || firstStart;
   const secondEnd = requiredValue(formData, "slot2EndTime") || firstEnd;
-  const firstMeetLink = requiredValue(formData, "slot1MeetLink");
-  const secondMeetLink = requiredValue(formData, "slot2MeetLink");
+  const firstMeetLink = normalizeMeetLink(requiredValue(formData, "slot1MeetLink"));
+  const secondMeetLink = normalizeMeetLink(requiredValue(formData, "slot2MeetLink"));
 
   return {
     firstDay,
@@ -433,7 +434,7 @@ export async function createBatchAction(formData: FormData) {
       start_date: String(formData.get("startDate") ?? "2026-06-08"),
       start_time: String(formData.get("startTime") ?? "17:00"),
       end_time: String(formData.get("endTime") ?? "18:30"),
-      meet_link: String(formData.get("meetLink") ?? ""),
+      meet_link: normalizeMeetLink(String(formData.get("meetLink") ?? "")),
       module_id: String(formData.get("moduleId") ?? ""),
     })
     .select("id")
@@ -442,8 +443,8 @@ export async function createBatchAction(formData: FormData) {
   if (batch?.id) {
     const firstSlotDay = Number(formData.get("slot1Day") ?? 1);
     const secondSlotDay = Number(formData.get("slot2Day") ?? 3);
-    const firstMeetLink = String(formData.get("slot1MeetLink") ?? formData.get("meetLink") ?? "");
-    const secondMeetLink = String(formData.get("slot2MeetLink") ?? formData.get("meetLink") ?? "");
+    const firstMeetLink = normalizeMeetLink(String(formData.get("slot1MeetLink") ?? formData.get("meetLink") ?? ""));
+    const secondMeetLink = normalizeMeetLink(String(formData.get("slot2MeetLink") ?? formData.get("meetLink") ?? ""));
 
     await supabase.from("batch_class_slots").insert([
       {
@@ -479,7 +480,7 @@ export async function updateMeetLinkAction(formData: FormData) {
 
   await supabase
     .from("batches")
-    .update({ meet_link: String(formData.get("meetLink") ?? "") })
+    .update({ meet_link: normalizeMeetLink(String(formData.get("meetLink") ?? "")) })
     .eq("id", String(formData.get("batchId") ?? ""));
 
   revalidatePath("/admin/batches");
@@ -720,7 +721,9 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
     Array.isArray(batch)
       ? String((batch[0] as { meet_link?: unknown } | undefined)?.meet_link ?? "")
       : String((batch as { meet_link?: unknown } | null | undefined)?.meet_link ?? "");
-  const meetLink = String(formData.get("meetLink") ?? "").trim() || batchMeetLink;
+  const meetLink =
+    normalizeMeetLink(String(formData.get("meetLink") ?? "")) ||
+    normalizeMeetLink(batchMeetLink);
 
   await supabase
     .from("class_reschedule_requests")
@@ -750,7 +753,7 @@ export async function createAdminRescheduleAction(formData: FormData) {
   const requestedStartTime = String(formData.get("requestedStartTime") ?? "");
   const requestedEndTime = String(formData.get("requestedEndTime") ?? "");
   const requestedTimeZone = String(formData.get("requestedTimeZone") ?? "Asia/Kolkata");
-  const meetLink = String(formData.get("meetLink") ?? "").trim();
+  const meetLink = normalizeMeetLink(String(formData.get("meetLink") ?? ""));
   const adminNote = String(formData.get("adminNote") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim() || "Scheduled by admin";
   const originalDate = String(formData.get("originalDate") ?? "").trim() || null;
@@ -789,7 +792,7 @@ export async function createAdminRescheduleAction(formData: FormData) {
     reason,
     status: "approved",
     admin_note: adminNote,
-    meet_link: meetLink || batchMeetLink,
+    meet_link: meetLink || normalizeMeetLink(batchMeetLink),
     reviewed_at: new Date().toISOString(),
   });
 
