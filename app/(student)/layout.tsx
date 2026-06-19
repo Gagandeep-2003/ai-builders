@@ -31,7 +31,15 @@ export default async function StudentLayout({ children }: { children: React.Reac
   );
   const badges: Partial<Record<string, NavBadge>> = {
     "/homework": pendingHomework ? { count: pendingHomework, tone: "warm", label: "Homework pending" } : undefined,
-    "/class": nextClassEvent ? { count: 1, tone: nextClassEvent.kind === "makeup" ? "accent" : "info", label: nextClassEvent.kind === "makeup" ? "Make-up class scheduled" : "Class link status available" } : undefined,
+    "/class": nextClassEvent ? {
+      count: 1,
+      tone: nextClassEvent.kind !== "regular" ? "accent" : "info",
+      label: nextClassEvent.kind === "makeup"
+        ? "Make-up class scheduled"
+        : nextClassEvent.kind === "rescheduled"
+          ? "Class rescheduled"
+          : "Class link status available",
+    } : undefined,
   };
   const searchItems: StudentSearchItem[] = [
     ...data.modules.map((module) => ({

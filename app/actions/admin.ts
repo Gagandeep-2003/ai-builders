@@ -1,12 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   createServerSupabaseClient,
   createServiceRoleSupabaseClient,
 } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { normalizeMeetLink } from "@/lib/meet-links";
+import { getAdminData, getMentorScheduleData } from "@/lib/data";
+import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
+import { getBookedSlots } from "@/lib/slot-availability";
+import { getSessionScheduleDate } from "@/lib/time";
 
 export type AdminActionState = {
   status: "idle" | "success" | "error";
@@ -712,9 +717,56 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
 
   const { data: request } = await supabase
     .from("class_reschedule_requests")
-    .select("batch_id, batches(meet_link)")
+    .select("id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, batches(meet_link)")
     .eq("id", requestId)
     .maybeSingle();
+  if (!request) return;
+
+  const originalDateOverride = String(formData.get("originalDate") ?? "").trim();
+  const originalDate = originalDateOverride || String(request.original_date ?? "") || null;
+
+  if (status === "approved") {
+    const [adminData, mentorSchedule] = await Promise.all([
+      getAdminData(),
+      getMentorScheduleData(),
+    ]);
+    const student = adminData.students.find((item) => item.id === request.student_id);
+    const batchForStudent = adminData.batches.find((item) => item.id === request.batch_id);
+    if (!student || !batchForStudent) redirect("/admin/attendance?reschedule=invalid");
+
+    if (
+      originalDate &&
+      !adminData.sessions.some(
+        (session) => getSessionScheduleDate(session, batchForStudent) === originalDate,
+      )
+    ) {
+      redirect("/admin/attendance?reschedule=invalid-original");
+    }
+    const alreadyMoved = mentorSchedule.rescheduleRequests.some(
+      (item) =>
+        item.id !== requestId &&
+        item.studentId === request.student_id &&
+        item.status === "approved" &&
+        item.originalDate === originalDate,
+    );
+    if (originalDate && alreadyMoved) {
+      redirect("/admin/attendance?reschedule=invalid-original");
+    }
+
+    const requestSlot = [
+      request.requested_date,
+      request.requested_start_time,
+      request.requested_end_time,
+      request.requested_time_zone,
+    ].join("|");
+    const validSlots = getStudentRescheduleOptions(student.timeZone, {
+      bookedSlots: getBookedSlots(mentorSchedule.batches, mentorSchedule.students),
+      requests: mentorSchedule.rescheduleRequests.filter((item) => item.id !== requestId),
+    });
+    if (!validSlots.some((option) => option.value === requestSlot)) {
+      redirect("/admin/attendance?reschedule=slot-taken");
+    }
+  }
 
   const batch = request?.batches;
   const batchMeetLink =
@@ -729,6 +781,7 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
     .from("class_reschedule_requests")
     .update({
       status,
+      original_date: status === "approved" ? originalDate : request.original_date,
       admin_note: String(formData.get("adminNote") ?? ""),
       meet_link: status === "approved" ? meetLink : null,
       reviewed_at: new Date().toISOString(),
@@ -739,6 +792,50 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/class");
   revalidatePath("/dashboard");
+}
+
+export async function updateApprovedRescheduleOriginalAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) return;
+
+  const requestId = requiredValue(formData, "requestId");
+  const originalDate = requiredValue(formData, "originalDate");
+  if (!requestId || !originalDate) return;
+
+  const { data: request } = await supabase
+    .from("class_reschedule_requests")
+    .select("student_id, batch_id")
+    .eq("id", requestId)
+    .eq("status", "approved")
+    .maybeSingle();
+  if (!request) return;
+
+  const data = await getAdminData();
+  const batch = data.batches.find((item) => item.id === request.batch_id);
+  const validOriginal = batch && data.sessions.some(
+    (session) => getSessionScheduleDate(session, batch) === originalDate,
+  );
+  const alreadyMoved = data.rescheduleRequests.some(
+    (item) =>
+      item.id !== requestId &&
+      item.studentId === request.student_id &&
+      item.status === "approved" &&
+      item.originalDate === originalDate,
+  );
+  if (!validOriginal || alreadyMoved) {
+    redirect("/admin/attendance?reschedule=invalid-original");
+  }
+
+  await supabase
+    .from("class_reschedule_requests")
+    .update({ original_date: originalDate })
+    .eq("id", requestId);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/attendance");
+  revalidatePath("/class");
+  revalidatePath("/dashboard");
+  redirect("/admin/attendance?reschedule=updated");
 }
 
 export async function createAdminRescheduleAction(formData: FormData) {
@@ -756,9 +853,18 @@ export async function createAdminRescheduleAction(formData: FormData) {
   const meetLink = normalizeMeetLink(String(formData.get("meetLink") ?? ""));
   const adminNote = String(formData.get("adminNote") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim() || "Scheduled by admin";
-  const originalDate = String(formData.get("originalDate") ?? "").trim() || null;
+  const requestType = String(formData.get("requestType") ?? "makeup");
+  const originalDate = requestType === "reschedule"
+    ? String(formData.get("originalDate") ?? "").trim() || null
+    : null;
 
-  if (!studentId || !requestedDate || !requestedStartTime || !requestedEndTime) {
+  if (
+    !studentId ||
+    !requestedDate ||
+    !requestedStartTime ||
+    !requestedEndTime ||
+    (requestType === "reschedule" && !originalDate)
+  ) {
     revalidatePath("/admin/attendance");
     return;
   }
@@ -780,6 +886,23 @@ export async function createAdminRescheduleAction(formData: FormData) {
     Array.isArray(batch)
       ? String((batch[0] as { meet_link?: unknown } | undefined)?.meet_link ?? "")
       : String((batch as { meet_link?: unknown } | null | undefined)?.meet_link ?? "");
+
+  if (originalDate) {
+    const data = await getAdminData();
+    const mappedBatch = data.batches.find((item) => item.id === batchId);
+    const validOriginal = mappedBatch && data.sessions.some(
+      (session) => getSessionScheduleDate(session, mappedBatch) === originalDate,
+    );
+    const alreadyMoved = data.rescheduleRequests.some(
+      (request) =>
+        request.studentId === studentId &&
+        request.status === "approved" &&
+        request.originalDate === originalDate,
+    );
+    if (!validOriginal || alreadyMoved) {
+      redirect("/admin/attendance?reschedule=invalid-original");
+    }
+  }
 
   await supabase.from("class_reschedule_requests").insert({
     student_id: studentId,

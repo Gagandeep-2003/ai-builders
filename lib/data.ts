@@ -34,7 +34,10 @@ import { cache } from "react";
 import { filterUnlockedHomework, filterUnlockedResources } from "@/lib/content-access";
 import { getCourseworkDetail } from "@/lib/coursework-details";
 import { normalizeMeetLink } from "@/lib/meet-links";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  createServiceRoleSupabaseClient,
+} from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { applySessionStatuses } from "@/lib/time";
 
@@ -70,6 +73,8 @@ export type AdminData = {
   rescheduleRequests: ClassRescheduleRequest[];
   passwordRequests: PasswordChangeRequest[];
 };
+
+export type MentorScheduleData = Pick<AdminData, "students" | "batches" | "rescheduleRequests">;
 
 function curriculumWithStatus(batch = demoBatch): CurriculumSession[] {
   return applySessionStatuses(sessions, batch);
@@ -772,3 +777,36 @@ async function getAdminDataImpl(): Promise<AdminData> {
 }
 
 export const getAdminData = cache(getAdminDataImpl);
+
+async function getMentorScheduleDataImpl(): Promise<MentorScheduleData> {
+  const supabase = createServiceRoleSupabaseClient();
+  if (!supabase) {
+    const fallback = fallbackAdminData();
+    return {
+      students: fallback.students,
+      batches: fallback.batches,
+      rescheduleRequests: fallback.rescheduleRequests,
+    };
+  }
+
+  const [{ data: studentRows }, { data: batchRows }, { data: requestRows }] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)"),
+    supabase
+      .from("batches")
+      .select("id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, students(id), batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order)"),
+    supabase
+      .from("class_reschedule_requests")
+      .select("id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)")
+      .in("status", ["pending", "approved"]),
+  ]);
+
+  return {
+    students: studentRows?.map((row) => mapStudent(row)) ?? [],
+    batches: batchRows?.map((row) => mapBatch(row, relationRows(row, "students").length)) ?? [],
+    rescheduleRequests: requestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
+  };
+}
+
+export const getMentorScheduleData = cache(getMentorScheduleDataImpl);

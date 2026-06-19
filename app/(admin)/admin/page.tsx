@@ -226,7 +226,7 @@ export default async function AdminDashboardPage() {
                     <p className="font-heading font-bold">{event.student?.fullName}</p>
                   </div>
                   <p className="mt-2 text-sm text-text-secondary">
-                    {event.kind === "makeup"
+                    {event.kind !== "regular"
                       ? event.detail
                       : `Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
                   </p>
@@ -240,8 +240,8 @@ export default async function AdminDashboardPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <StatusBadge
-                    status={event.kind === "makeup" ? "rescheduled" : event.status}
-                    label={event.kind === "makeup" ? "Make-up" : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
+                    status={event.kind !== "regular" ? "rescheduled" : event.status}
+                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
                   />
                   <a
                     href={event.meetLink}
@@ -285,7 +285,7 @@ export default async function AdminDashboardPage() {
                     <p className="font-heading font-bold">{event.student?.fullName}</p>
                   </div>
                   <p className="mt-2 text-sm text-text-secondary">
-                    {event.kind === "makeup"
+                    {event.kind !== "regular"
                       ? event.detail
                       : `Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
                   </p>
@@ -293,8 +293,8 @@ export default async function AdminDashboardPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <StatusBadge
-                    status={event.kind === "makeup" ? "rescheduled" : event.status}
-                    label={event.kind === "makeup" ? "Make-up" : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
+                    status={event.kind !== "regular" ? "rescheduled" : event.status}
+                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
                   />
                   <a
                     href={event.meetLink}

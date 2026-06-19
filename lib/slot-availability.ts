@@ -41,32 +41,32 @@ export const availabilityBucket: AvailabilityDay[] = [
   {
     dayIndex: 0,
     label: "Sunday",
-    slots: ["00:30", "03:30", "07:30"],
+    slots: ["00:30", "03:30", "07:30", "08:30"],
   },
   {
     dayIndex: 2,
     label: "Tuesday",
-    slots: ["06:30", "18:30", "19:30", "21:30", "22:30"],
+    slots: ["06:30", "08:30", "18:30", "19:30", "21:30", "22:30"],
   },
   {
     dayIndex: 3,
     label: "Wednesday",
-    slots: ["01:30", "07:30", "17:30", "19:30"],
+    slots: ["01:30", "04:30", "07:30", "08:30", "17:30", "19:30"],
   },
   {
     dayIndex: 4,
     label: "Thursday",
-    slots: ["00:30", "01:30", "02:30", "07:30", "21:30", "22:30"],
+    slots: ["00:30", "01:30", "02:30", "08:30", "19:30", "21:30", "22:30"],
   },
   {
     dayIndex: 5,
     label: "Friday",
-    slots: ["00:30", "07:30", "17:30", "19:30", "20:30", "21:30"],
+    slots: ["00:30", "07:30", "08:30", "17:30", "19:30", "21:30"],
   },
   {
     dayIndex: 6,
     label: "Saturday",
-    slots: ["00:30", "02:30", "07:30", "20:30"],
+    slots: ["00:30", "02:30", "07:30", "08:30", "20:30"],
   },
   {
     dayIndex: 1,
@@ -177,7 +177,7 @@ export function getBookedSlots(batches: Batch[], students: StudentProfile[]) {
         endMinutes,
         timeLabel: formatRange(startMinutes, endMinutes),
       };
-    }).filter((slot) => slot.startMinutes % 60 === 30);
+    });
   });
 }
 

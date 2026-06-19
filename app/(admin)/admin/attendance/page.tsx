@@ -1,16 +1,20 @@
 import { AttendanceStatusForm } from "@/components/admin/attendance-status-form";
-import { createAdminRescheduleAction, reviewRescheduleRequestAction } from "@/app/actions/admin";
+import {
+  createAdminRescheduleAction,
+  reviewRescheduleRequestAction,
+  updateApprovedRescheduleOriginalAction,
+} from "@/app/actions/admin";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatRescheduleRequestTime } from "@/lib/class-events";
+import { formatRescheduleRequestTime, getRescheduleRequestKind } from "@/lib/class-events";
 import { getAdminData } from "@/lib/data";
 import { ADMIN_TIME_ZONE, commonTimeZones, formatSessionTime, getSessionScheduleDate } from "@/lib/time";
 
 export default async function AdminAttendancePage({
   searchParams,
 }: {
-  searchParams?: Promise<{ sessionId?: string }>;
+  searchParams?: Promise<{ sessionId?: string; reschedule?: string }>;
 }) {
   const data = await getAdminData();
   const params = await searchParams;
@@ -20,10 +24,23 @@ export default async function AdminAttendancePage({
   const approvedReschedules = data.rescheduleRequests.filter((request) => request.status === "approved");
   const rejectedReschedules = data.rescheduleRequests.filter((request) => request.status === "rejected").slice(0, 4);
   const studentLookup = new Map(data.students.map((student) => [student.id, student]));
+  const rescheduleNotice =
+    params?.reschedule === "slot-taken"
+      ? "That time is no longer free. Ask the student to choose another available slot."
+      : params?.reschedule === "invalid-original"
+        ? "The original class date does not match this student's schedule."
+        : params?.reschedule === "updated"
+          ? "The approved class now replaces the selected regular occurrence."
+          : "";
 
   return (
     <AnimatedPage>
       <PageHeader title="Attendance" subtitle="Select a session and mark each student as present, absent, or rescheduled." />
+      {rescheduleNotice ? (
+        <div className="rounded-xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
+          {rescheduleNotice}
+        </div>
+      ) : null}
 
       <section className="premium-card rounded-xl p-6">
         <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr] xl:items-start">
@@ -31,10 +48,18 @@ export default async function AdminAttendancePage({
             <p className="font-mono text-xs uppercase text-accent">Admin scheduler</p>
             <h2 className="mt-2 font-heading text-2xl font-bold">Create a one-off class</h2>
             <p className="mt-3 text-sm leading-6 text-text-secondary">
-              Add a make-up or rescheduled class directly. It appears on the student dashboard, class page, and admin dashboard with a Make-up tag.
+              Add an extra make-up class, or replace exactly one regular occurrence. Weekly classes after it continue normally.
             </p>
           </div>
           <form action={createAdminRescheduleAction} className="grid gap-3 md:grid-cols-2">
+            <select
+              name="requestType"
+              defaultValue="makeup"
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+            >
+              <option value="makeup">Additional make-up class</option>
+              <option value="reschedule">Replace one regular class</option>
+            </select>
             <select
               name="studentId"
               required
@@ -67,7 +92,7 @@ export default async function AdminAttendancePage({
             <input
               name="originalDate"
               type="date"
-              title="Original missed class date, optional"
+              title="Required when replacing one regular class"
               className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
             />
             <input
@@ -98,7 +123,7 @@ export default async function AdminAttendancePage({
               className="min-h-20 rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm md:col-span-2"
             />
             <button className="button-motion rounded-xl bg-accent px-5 py-3 font-bold text-bg-base md:col-span-2">
-              Add make-up class
+              Add one-off class
             </button>
           </form>
         </div>
@@ -120,6 +145,10 @@ export default async function AdminAttendancePage({
                 <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr] xl:items-start">
                   <div>
                     <h3 className="font-heading text-lg font-bold">{request.studentName}</h3>
+                    <StatusBadge
+                      status="rescheduled"
+                      label={getRescheduleRequestKind(request) === "rescheduled" ? "Move regular class" : "Additional make-up"}
+                    />
                     <p className="mt-1 text-sm text-text-secondary">
                       Requested {formatRescheduleRequestTime(request, ADMIN_TIME_ZONE)}
                     </p>
@@ -130,6 +159,13 @@ export default async function AdminAttendancePage({
                   </div>
                   <form action={reviewRescheduleRequestAction} className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto]">
                     <input type="hidden" name="requestId" value={request.id} />
+                    <input
+                      name="originalDate"
+                      type="date"
+                      defaultValue={request.originalDate ?? ""}
+                      title="Set this to replace that regular class; leave blank for an additional make-up"
+                      className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+                    />
                     <input
                       name="meetLink"
                       placeholder="Meet link, blank reuses batch link"
@@ -188,7 +224,10 @@ export default async function AdminAttendancePage({
                         Student time: {formatRescheduleRequestTime(request, studentLookup.get(request.studentId)?.timeZone ?? request.requestedTimeZone)}
                       </p>
                     </div>
-                    <StatusBadge status="rescheduled" label="Make-up" />
+                    <StatusBadge
+                      status="rescheduled"
+                      label={getRescheduleRequestKind(request) === "rescheduled" ? "Rescheduled" : "Make-up"}
+                    />
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -221,6 +260,25 @@ export default async function AdminAttendancePage({
                       {request.reason ? <p className={request.adminNote ? "mt-2" : ""}><span className="text-text-primary">Student reason:</span> {request.reason}</p> : null}
                     </div>
                   ) : null}
+                  {!request.originalDate ? (
+                    <form action={updateApprovedRescheduleOriginalAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                      <input type="hidden" name="requestId" value={request.id} />
+                      <input
+                        name="originalDate"
+                        type="date"
+                        required
+                        aria-label="Original regular class date"
+                        className="min-w-0 flex-1 rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm"
+                      />
+                      <button className="button-motion rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-sm font-bold text-blue-100">
+                        Make this a replacement
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="mt-3 text-xs text-text-muted">
+                      Replaces the regular class scheduled for {request.originalDate}.
+                    </p>
+                  )}
                 </article>
               ))}
             </div>

@@ -8,10 +8,11 @@ import type {
 import {
   formatInTimeZone,
   getSessionDateTimes,
+  getSessionScheduleDate,
   zonedDateTimeToUtc,
 } from "@/lib/time";
 
-export type ClassEventKind = "regular" | "makeup";
+export type ClassEventKind = "regular" | "makeup" | "rescheduled";
 
 export type ClassEvent = {
   id: string;
@@ -54,12 +55,10 @@ export function formatClassEventTime(event: Pick<ClassEvent, "startsAt" | "endsA
   const start = formatInTimeZone(event.startsAt, timeZone, {
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short",
   });
   const end = formatInTimeZone(event.endsAt, timeZone, {
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short",
   });
 
   return `${date} · ${start} - ${end}`;
@@ -67,6 +66,16 @@ export function formatClassEventTime(event: Pick<ClassEvent, "startsAt" | "endsA
 
 export function formatRescheduleRequestTime(request: ClassRescheduleRequest, timeZone: string) {
   return formatClassEventTime(getRescheduleRequestDateTimes(request), timeZone);
+}
+
+export function getRescheduleRequestKind(request: Pick<ClassRescheduleRequest, "originalDate">) {
+  return request.originalDate ? "rescheduled" as const : "makeup" as const;
+}
+
+export function getClassEventLabel(event: Pick<ClassEvent, "kind">) {
+  if (event.kind === "rescheduled") return "Rescheduled";
+  if (event.kind === "makeup") return "Make-up";
+  return "Regular";
 }
 
 export function daysUntilClassEvent(event: Pick<ClassEvent, "startsAt">, now = new Date()) {
@@ -90,11 +99,18 @@ export function getStudentClassEvents({
   requests: ClassRescheduleRequest[];
   now?: Date;
 }) {
-  const regularEvents: ClassEvent[] = sessions.map((session) => {
+  const approvedRequests = requests.filter((request) => request.status === "approved");
+  const replacedDates = new Set(
+    approvedRequests
+      .map((request) => request.originalDate)
+      .filter((date): date is string => Boolean(date)),
+  );
+  const regularEvents: ClassEvent[] = sessions.flatMap((session) => {
+    if (replacedDates.has(getSessionScheduleDate(session, batch))) return [];
     const schedule = getSessionDateTimes(session, batch);
-    return {
+    return [{
       id: `regular-${session.id}`,
-      kind: "regular",
+      kind: "regular" as const,
       startsAt: schedule.startsAt,
       endsAt: schedule.endsAt,
       meetLink: schedule.meetLink,
@@ -105,26 +121,35 @@ export function getStudentClassEvents({
       detail: `Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
       status: session.status ?? "current",
       tag: "Regular",
-    };
+    }];
   });
 
   const makeupEvents: ClassEvent[] = requests
     .filter((request) => request.status === "approved")
     .map((request) => {
       const schedule = getRescheduleRequestDateTimes(request);
+      const kind = getRescheduleRequestKind(request);
+      const originalSession = request.originalDate
+        ? sessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)
+        : undefined;
       return {
-        id: `makeup-${request.id}`,
-        kind: "makeup",
+        id: `${kind}-${request.id}`,
+        kind,
         startsAt: schedule.startsAt,
         endsAt: schedule.endsAt,
         meetLink: request.meetLink || batch.meetLink,
         batch,
         student,
+        session: originalSession,
         request,
-        title: "Make-up class",
-        detail: request.adminNote || "One-off class added by admin",
+        title: originalSession?.title ?? (kind === "rescheduled" ? "Rescheduled class" : "Make-up class"),
+        detail:
+          request.adminNote ||
+          (kind === "rescheduled"
+            ? `Moved from ${request.originalDate}`
+            : "One-off class added by admin"),
         status: schedule.endsAt.getTime() <= now.getTime() ? "completed" : "current",
-        tag: "Make-up",
+        tag: getClassEventLabel({ kind }),
       };
     });
 
@@ -155,14 +180,25 @@ export function getAdminClassEvents({
   const regularEvents: ClassEvent[] = students.flatMap((student) => {
     const batch = batches.find((item) => item.id === student.batchId);
     if (!batch) return [];
+    const replacedDates = new Set(
+      requests
+        .filter(
+          (request) =>
+            request.studentId === student.id &&
+            request.status === "approved" &&
+            request.originalDate,
+        )
+        .map((request) => request.originalDate as string),
+    );
 
-    return sessions.map((session) => {
+    return sessions.flatMap((session) => {
+      if (replacedDates.has(getSessionScheduleDate(session, batch))) return [];
       const schedule = getSessionDateTimes(session, batch);
       const attendanceStatus = attendance.find(
         (item) => item.studentId === student.id && item.sessionId === session.id,
       )?.status;
 
-      return {
+      return [{
         id: `regular-${student.id}-${session.id}`,
         kind: "regular" as const,
         startsAt: schedule.startsAt,
@@ -175,7 +211,7 @@ export function getAdminClassEvents({
         detail: `Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
         status: attendanceStatus ?? "current",
         tag: "Regular",
-      };
+      }];
     });
   });
 
@@ -187,19 +223,27 @@ export function getAdminClassEvents({
       if (!batch || !student) return [];
 
       const schedule = getRescheduleRequestDateTimes(request);
+      const kind = getRescheduleRequestKind(request);
+      const originalSession = request.originalDate
+        ? sessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)
+        : undefined;
       return [{
-        id: `makeup-${request.id}`,
-        kind: "makeup" as const,
+        id: `${kind}-${request.id}`,
+        kind,
         startsAt: schedule.startsAt,
         endsAt: schedule.endsAt,
         meetLink: request.meetLink || batch.meetLink,
         batch,
         student,
+        session: originalSession,
         request,
-        title: "Make-up class",
-        detail: request.adminNote || request.reason || "One-off class",
+        title: originalSession?.title ?? (kind === "rescheduled" ? "Rescheduled class" : "Make-up class"),
+        detail:
+          request.adminNote ||
+          request.reason ||
+          (kind === "rescheduled" ? `Moved from ${request.originalDate}` : "One-off class"),
         status: schedule.endsAt.getTime() <= now.getTime() ? "completed" : "current",
-        tag: "Make-up",
+        tag: getClassEventLabel({ kind }),
       }];
     });
 

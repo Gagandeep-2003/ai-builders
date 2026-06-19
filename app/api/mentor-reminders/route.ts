@@ -369,10 +369,14 @@ export async function GET(request: Request) {
         class_time_ist: istClassTime(event.startsAt, event.endsAt),
         module_number: event.session
           ? String(Math.ceil(event.session.globalNumber / 8))
-          : "Make-up",
+          : event.kind === "rescheduled" ? "Rescheduled" : "Make-up",
         session_number: event.session ? String(event.session.sessionNumber) : "One-off",
-        session_name: event.session?.title ?? "Make-up class",
-        class_type: event.kind === "makeup" ? "Make-up class" : "Regular class",
+        session_name: event.session?.title ?? (event.kind === "rescheduled" ? "Rescheduled class" : "Make-up class"),
+        class_type: event.kind === "makeup"
+          ? "Make-up class"
+          : event.kind === "rescheduled"
+            ? "Rescheduled class"
+            : "Regular class",
         meet_link: event.meetLink,
       });
       sent.push(eventKey);

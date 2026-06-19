@@ -6,6 +6,7 @@ import { normalizeMeetLink } from "@/lib/meet-links";
 import { formatInTimeZone } from "@/lib/time";
 
 export function MakeupClassCard({
+  label = "Make-up",
   title,
   detail,
   startsAtIso,
@@ -13,6 +14,7 @@ export function MakeupClassCard({
   meetLink,
   viewerTimeZone,
 }: {
+  label?: string;
   title: string;
   detail: string;
   startsAtIso: string;
@@ -64,7 +66,7 @@ export function MakeupClassCard({
               <Video className="h-5 w-5" />
             </span>
             <div>
-              <p className="font-mono text-xs uppercase text-blue-200">Make-up class</p>
+              <p className="font-mono text-xs uppercase text-blue-200">{label} class</p>
               <h2 className="font-heading text-2xl font-bold">{title}</h2>
             </div>
           </div>
@@ -79,7 +81,7 @@ export function MakeupClassCard({
           target="_blank"
           rel="noreferrer"
           aria-disabled={!canJoin}
-          title={canJoin ? "Join your make-up class" : disabledMessage}
+          title={canJoin ? `Join your ${label.toLowerCase()} class` : disabledMessage}
           className="button-motion inline-flex items-center justify-center gap-3 rounded-xl bg-accent px-5 py-3 font-bold text-bg-base shadow-[0_18px_44px_rgba(110,231,183,0.18)] aria-disabled:pointer-events-none aria-disabled:border aria-disabled:border-border aria-disabled:bg-bg-elevated aria-disabled:text-text-muted aria-disabled:shadow-none"
         >
           <span className="relative flex h-2.5 w-2.5">
@@ -88,7 +90,7 @@ export function MakeupClassCard({
             ) : null}
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-bg-base" />
           </span>
-          {canJoin ? "Join Make-up Class" : "Join unlocks soon"}
+          {canJoin ? `Join ${label} Class` : "Join unlocks soon"}
           {canJoin ? <ExternalLink className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
         </a>
       </div>

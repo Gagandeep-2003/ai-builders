@@ -11,13 +11,23 @@ import {
   getNextClassEvent,
   getStudentClassEvents,
 } from "@/lib/class-events";
-import { getStudentDashboardData } from "@/lib/data";
+import { getMentorScheduleData, getStudentDashboardData } from "@/lib/data";
 import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
-import { ADMIN_TIME_ZONE, formatBatchSchedule, formatSessionTime, getActiveOrNextJoinSession } from "@/lib/time";
+import { getBookedSlots } from "@/lib/slot-availability";
+import {
+  ADMIN_TIME_ZONE,
+  formatBatchSchedule,
+  formatSessionTime,
+  getActiveOrNextJoinSession,
+  getSessionDateTimes,
+  getSessionScheduleDate,
+} from "@/lib/time";
 
 function rescheduleMessage(code?: string) {
   if (code === "requested") return "Your reschedule request was sent to admin for approval.";
   if (code === "pending") return "You already have a pending reschedule request.";
+  if (code === "slot-taken") return "That tutor slot was just booked. Please choose another available time.";
+  if (code === "invalid-original") return "Choose the regular class you want to move.";
   if (code === "invalid") return "Please choose a valid reschedule slot.";
   if (code === "error") return "Could not send the request. Ask admin to run the reschedule migration.";
   return "";
@@ -30,6 +40,7 @@ export default async function ClassPage({
 }) {
   const { join, reschedule } = await searchParams;
   const data = await getStudentDashboardData();
+  const mentorSchedule = await getMentorScheduleData();
   const now = new Date();
   const classEvents = getStudentClassEvents({
     student: data.student,
@@ -43,8 +54,17 @@ export default async function ClassPage({
     ? nextClassEvent.session
     : getActiveOrNextJoinSession(data.sessions, data.batch) ?? data.sessions[0];
   const requestMessage = rescheduleMessage(reschedule);
-  const rescheduleOptions = getStudentRescheduleOptions(data.student.timeZone);
+  const rescheduleOptions = getStudentRescheduleOptions(data.student.timeZone, {
+    bookedSlots: getBookedSlots(mentorSchedule.batches, mentorSchedule.students),
+    requests: mentorSchedule.rescheduleRequests,
+  });
   const pendingRequest = data.rescheduleRequests.find((request) => request.status === "pending");
+  const originalClassOptions = data.sessions
+    .filter((session) => getSessionDateTimes(session, data.batch).endsAt.getTime() >= now.getTime())
+    .map((session) => ({
+      value: getSessionScheduleDate(session, data.batch),
+      label: `Session ${session.globalNumber}: ${session.title} · ${formatSessionTime(session, data.batch, data.student.timeZone)}`,
+    }));
   const upcomingClassEvents = classEvents
     .filter((event) => event.endsAt.getTime() >= now.getTime())
     .slice(0, 10);
@@ -65,6 +85,11 @@ export default async function ClassPage({
           The class link opens 15 minutes before the scheduled start time.
         </div>
       ) : null}
+      {join === "rescheduled" ? (
+        <div className="rounded-xl border border-info/30 bg-info/10 p-4 text-sm text-blue-100">
+          This regular class was moved. Use the rescheduled class shown in your timeline instead.
+        </div>
+      ) : null}
       {requestMessage ? (
         <div className="rounded-xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
           {requestMessage}
@@ -72,8 +97,9 @@ export default async function ClassPage({
       ) : null}
 
       <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-        {nextClassEvent?.kind === "makeup" ? (
+        {nextClassEvent && nextClassEvent.kind !== "regular" ? (
           <MakeupClassCard
+            label={nextClassEvent.tag}
             title={nextClassEvent.title}
             detail={nextClassEvent.detail}
             startsAtIso={nextClassEvent.startsAt.toISOString()}
@@ -92,9 +118,10 @@ export default async function ClassPage({
             </span>
             <div>
               <p className="font-mono text-xs uppercase text-accent">Reschedule</p>
-              <h2 className="mt-1 font-heading text-2xl font-bold">Request a make-up class</h2>
+              <h2 className="mt-1 font-heading text-2xl font-bold">Move or add a class</h2>
               <p className="mt-2 text-sm leading-6 text-text-secondary">
-                Pick a tutor slot in your local time. Admin approval will add the final class link here.
+                Move one regular class to another day, or request an additional make-up class.
+                Only tutor times that are still free are shown.
               </p>
             </div>
           </div>
@@ -105,25 +132,62 @@ export default async function ClassPage({
             </div>
           ) : (
             <form action={requestClassRescheduleAction} className="mt-5 space-y-3">
-              <input type="hidden" name="originalDate" value="" />
-              <select
-                name="slot"
-                required
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              >
-                {rescheduleOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <fieldset className="grid gap-2 sm:grid-cols-2">
+                <label className="cursor-pointer rounded-xl border border-accent/30 bg-accent/5 p-3">
+                  <input type="radio" name="requestType" value="reschedule" defaultChecked className="mr-2" />
+                  <span className="font-bold">Move a class</span>
+                  <span className="mt-1 block text-xs text-text-muted">
+                    After approval, the original occurrence disappears and this time replaces it.
+                  </span>
+                </label>
+                <label className="cursor-pointer rounded-xl border border-border bg-bg-elevated p-3">
+                  <input type="radio" name="requestType" value="makeup" className="mr-2" />
+                  <span className="font-bold">Add a make-up</span>
+                  <span className="mt-1 block text-xs text-text-muted">
+                    Adds one extra class without changing your normal schedule.
+                  </span>
+                </label>
+              </fieldset>
+              <label className="block">
+                <span className="mb-2 block font-mono text-xs uppercase text-text-muted">
+                  Regular class to move
+                </span>
+                <select
+                  name="originalDate"
+                  className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+                >
+                  <option value="">Not needed for an additional make-up</option>
+                  {originalClassOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block font-mono text-xs uppercase text-text-muted">
+                  New class time
+                </span>
+                <select
+                  name="slot"
+                  required
+                  className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+                >
+                  <option value="">Choose a free tutor time</option>
+                  {rescheduleOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <textarea
                 name="reason"
                 placeholder="Reason, for example: missed class / travel / school event"
                 className="min-h-20 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
               />
               <button className="button-motion w-full rounded-xl bg-accent px-5 py-3 font-bold text-bg-base">
-                Send Reschedule Request
+                Send Class Request
               </button>
             </form>
           )}
@@ -150,9 +214,9 @@ export default async function ClassPage({
       <section>
         <div className="premium-card rounded-xl p-5">
           <p className="font-mono text-xs uppercase text-accent">Class timeline</p>
-          <h2 className="mt-2 font-heading text-2xl font-bold">Regular and make-up classes</h2>
+          <h2 className="mt-2 font-heading text-2xl font-bold">Regular, rescheduled, and make-up classes</h2>
           <p className="mt-2 text-sm text-text-secondary">
-            One-off make-up classes appear here with a clear tag, beside your normal course schedule.
+            A rescheduled class replaces one original occurrence. A make-up class is an additional session.
           </p>
           <div className="mt-5 space-y-3">
             {upcomingClassEvents.length > 0 ? (
@@ -166,7 +230,7 @@ export default async function ClassPage({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-heading font-bold">{event.title}</p>
                         <StatusBadge
-                          status={event.kind === "makeup" ? "rescheduled" : event.status}
+                          status={event.kind !== "regular" ? "rescheduled" : event.status}
                           label={event.tag}
                         />
                       </div>
@@ -174,20 +238,20 @@ export default async function ClassPage({
                         {formatClassEventTime(event, data.student.timeZone)}
                       </p>
                       <p className="mt-1 text-xs text-text-muted">{event.detail}</p>
-                      {event.kind === "makeup" ? (
+                      {event.kind !== "regular" ? (
                         <p className="mt-1 font-mono text-xs text-text-muted">
                           Tutor time: {formatClassEventTime(event, ADMIN_TIME_ZONE)}
                         </p>
                       ) : null}
                     </div>
-                    {event.kind === "makeup" && event.meetLink ? (
+                    {event.kind !== "regular" && event.meetLink ? (
                       <a
                         href={event.meetLink}
                         target="_blank"
                         rel="noreferrer"
                         className="button-motion inline-flex rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-sm font-bold text-blue-100"
                       >
-                        Make-up link
+                        {event.tag} link
                       </a>
                     ) : null}
                   </div>
@@ -205,7 +269,14 @@ export default async function ClassPage({
       <section>
         <h2 className="font-heading text-2xl font-bold">Session schedule</h2>
         <div className="mt-5 space-y-3">
-          {data.sessions.map((session) => (
+          {data.sessions.map((session) => {
+            const sessionDate = getSessionScheduleDate(session, data.batch);
+            const replacement = classEvents.find(
+              (event) =>
+                event.kind === "rescheduled" &&
+                event.request?.originalDate === sessionDate,
+            );
+            return (
             <article
               key={session.id}
               className="flex flex-col gap-3 rounded-xl border border-border bg-bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -219,16 +290,28 @@ export default async function ClassPage({
                 <div>
                   <p className="font-heading font-bold">{session.title}</p>
                   <p className="mt-1 text-sm text-text-secondary">
-                    Session {session.globalNumber} · {formatSessionTime(session, data.batch, data.student.timeZone)}
+                    Session {session.globalNumber} · {replacement
+                      ? formatClassEventTime(replacement, data.student.timeZone)
+                      : formatSessionTime(session, data.batch, data.student.timeZone)}
                   </p>
                   <p className="mt-1 font-mono text-xs text-text-muted">
-                    Admin time: {formatSessionTime(session, data.batch, ADMIN_TIME_ZONE)}
+                    Admin time: {replacement
+                      ? formatClassEventTime(replacement, ADMIN_TIME_ZONE)
+                      : formatSessionTime(session, data.batch, ADMIN_TIME_ZONE)}
                   </p>
+                  {replacement ? (
+                    <p className="mt-1 text-xs text-info">
+                      Rescheduled from {sessionDate}; the original occurrence is cancelled.
+                    </p>
+                  ) : null}
                 </div>
               </div>
-              <StatusBadge status={session.status} />
+              <StatusBadge
+                status={replacement ? "rescheduled" : session.status}
+                label={replacement ? "Rescheduled" : undefined}
+              />
             </article>
-          ))}
+          )})}
         </div>
       </section>
     </AnimatedPage>

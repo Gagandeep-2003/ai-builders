@@ -43,7 +43,7 @@ export default async function DashboardPage() {
     <AnimatedPage>
       <PageHeader
         title={`Welcome back, ${data.student.fullName.split(" ")[0]} 👋`}
-        subtitle={`Today is ${formatDate(new Date(), { weekday: "long" })}. Your next class is ${nextClassEvent?.kind === "makeup" ? "a make-up class" : nextSession.title} at ${nextClassEvent ? formatClassEventTime(nextClassEvent, data.student.timeZone) : formatSessionTime(nextSession, data.batch, data.student.timeZone)}.`}
+        subtitle={`Today is ${formatDate(new Date(), { weekday: "long" })}. Your next class is ${nextClassEvent?.kind === "makeup" ? "a make-up class" : nextClassEvent?.kind === "rescheduled" ? "a rescheduled class" : nextSession.title} at ${nextClassEvent ? formatClassEventTime(nextClassEvent, data.student.timeZone) : formatSessionTime(nextSession, data.batch, data.student.timeZone)}.`}
       />
 
       <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -86,17 +86,17 @@ export default async function DashboardPage() {
           <div className="mt-6 rounded-xl border border-border/70 bg-white/[0.025] p-4">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-mono text-xs uppercase text-text-muted">Next class</p>
-              {nextClassEvent?.kind === "makeup" ? (
+              {nextClassEvent?.kind !== "regular" ? (
                 <span className="rounded-full border border-info/30 bg-info/10 px-2.5 py-1 font-mono text-[11px] uppercase text-blue-100">
-                  Make-up class
+                  {nextClassEvent?.tag} class
                 </span>
               ) : null}
             </div>
             <h3 className="mt-2 font-heading text-xl font-bold">
-              {nextClassEvent?.kind === "makeup" ? "Make-up class" : nextSession.title}
+              {nextClassEvent?.kind !== "regular" ? nextClassEvent?.title : nextSession.title}
             </h3>
             <p className="mt-2 text-text-secondary">
-              {nextClassEvent?.kind === "makeup" ? nextClassEvent.detail : nextSession.focus}
+              {nextClassEvent?.kind !== "regular" ? nextClassEvent?.detail : nextSession.focus}
             </p>
             <p className="mt-3 font-mono text-xs text-accent">
               {nextClassEvent
