@@ -233,9 +233,9 @@ export async function GET(request: Request) {
 
   const [
     { data: studentData, error: studentError },
-    { data: batchData, error: batchError },
-    { data: sessionData, error: sessionError },
-    { data: requestData, error: requestError },
+    batchResult,
+    sessionResult,
+    requestResult,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -252,9 +252,56 @@ export async function GET(request: Request) {
       .eq("status", "approved"),
   ]);
 
-  const queryError = studentError ?? batchError ?? sessionError ?? requestError;
-  if (queryError) {
-    return Response.json({ error: queryError.message }, { status: 500 });
+  let batchData: unknown = batchResult.data;
+  let batchError = batchResult.error;
+  if (batchError) {
+    const fallback = await supabase
+      .from("batches")
+      .select("id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id");
+    batchData = (fallback.data ?? []).map((batch) => ({
+      ...batch,
+      batch_class_slots: [],
+    }));
+    batchError = fallback.error;
+  }
+
+  let sessionData: unknown = sessionResult.data;
+  let sessionError = sessionResult.error;
+  if (sessionError) {
+    const fallback = await supabase
+      .from("sessions")
+      .select("id, module_id, title, session_number, focus, tools_covered, student_output, description, session_date");
+    sessionData = (fallback.data ?? []).map((session) => ({
+      ...session,
+      modules: null,
+    }));
+    sessionError = fallback.error;
+  }
+
+  const requestData = requestResult.error ? [] : requestResult.data;
+  if (requestResult.error) {
+    console.warn("Make-up classes were skipped by mentor reminders", requestResult.error);
+  }
+
+  const coreErrors = [
+    ["students", studentError],
+    ["batches", batchError],
+    ["sessions", sessionError],
+  ] as const;
+  const failedSource = coreErrors.find(([, error]) => error);
+  if (failedSource) {
+    const [source, error] = failedSource;
+    return Response.json(
+      {
+        error: `Unable to load ${source} for mentor reminders.`,
+        source,
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      },
+      { status: 500 },
+    );
   }
 
   const students = (studentData as unknown as StudentRow[]).map(mapStudent);
