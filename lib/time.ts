@@ -14,7 +14,14 @@ export const commonTimeZones = [
   "America/Chicago",
   "America/Denver",
   "America/Los_Angeles",
+  "America/Vancouver",
+  "America/Edmonton",
+  "America/Regina",
+  "America/Winnipeg",
   "America/Toronto",
+  "America/Halifax",
+  "America/St_Johns",
+  "America/Whitehorse",
   "Australia/Sydney",
 ];
 

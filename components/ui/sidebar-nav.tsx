@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   BookOpen,
   BookOpenCheck,
@@ -84,10 +84,6 @@ export function SidebarNav({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState("");
-
-  useEffect(() => {
-    setNavigatingTo("");
-  }, [pathname]);
 
   const nav = (
     <aside className="flex h-full w-72 flex-col border-r border-border/70 bg-bg-base/90 px-4 py-5 backdrop-blur-xl">
