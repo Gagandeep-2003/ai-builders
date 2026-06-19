@@ -84,6 +84,11 @@ export function SidebarNav({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState("");
+  const navigationPending = Boolean(
+    navigatingTo &&
+      pathname !== navigatingTo &&
+      !pathname.startsWith(`${navigatingTo}/`),
+  );
 
   const nav = (
     <aside className="flex h-full w-72 flex-col border-r border-border/70 bg-bg-base/90 px-4 py-5 backdrop-blur-xl">
@@ -126,7 +131,7 @@ export function SidebarNav({
             >
               <Icon className="h-4 w-4" />
               <span className="min-w-0 flex-1 truncate">{link.label}</span>
-              {navigatingTo === link.href && pathname !== link.href ? (
+              {navigationPending && navigatingTo === link.href ? (
                 <LoaderCircle className="h-3.5 w-3.5 animate-spin text-accent" />
               ) : null}
               {badge && badge.count > 0 ? (
@@ -162,7 +167,7 @@ export function SidebarNav({
 
   return (
     <>
-      {navigatingTo && navigatingTo !== pathname ? (
+      {navigationPending ? (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-1 overflow-hidden bg-accent/10">
           <div className="h-full w-1/3 animate-[navigation-progress_0.9s_ease-in-out_infinite] bg-accent shadow-[0_0_18px_rgba(110,231,183,0.75)]" />
         </div>
