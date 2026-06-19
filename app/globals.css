@@ -836,6 +836,16 @@ textarea:focus-visible {
   }
 }
 
+@keyframes navigation-progress {
+  from {
+    transform: translateX(-120%);
+  }
+
+  to {
+    transform: translateX(420%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

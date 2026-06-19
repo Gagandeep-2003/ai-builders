@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { CalendarDays, ExternalLink, SendHorizontal } from "lucide-react";
-import { markHomeworkSubmitted } from "@/app/actions/homework";
+import { CalendarDays, ExternalLink } from "lucide-react";
+import { PendingLink } from "@/components/ui/pending-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ToolLinkChip } from "@/components/ui/tool-link-chip";
 import { formatDuration, formatHomeworkKind } from "@/lib/homework-utils";
@@ -9,7 +8,6 @@ import type { HomeworkItem } from "@/lib/course-data";
 
 export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
   const tone = getDueTone(homework.dueDate, homework.status);
-  const isPending = homework.status === "pending";
   const progressLabel =
     homework.status !== "pending"
       ? "Complete"
@@ -56,23 +54,15 @@ export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
           <CalendarDays className="h-4 w-4" />
           Due {formatDate(homework.dueDate)}
         </span>
-        <div className="flex flex-wrap gap-2">
-          <Link
+        <div>
+          <PendingLink
             href={`/homework/${homework.id}`}
+            pendingLabel="Opening task..."
             className="button-motion inline-flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2 text-sm font-bold text-accent"
           >
             <ExternalLink className="h-4 w-4" />
             {homework.startedAt ? "Continue Task" : "Start Task"}
-          </Link>
-          {isPending ? (
-            <form action={markHomeworkSubmitted}>
-              <input type="hidden" name="homeworkId" value={homework.id} />
-              <button className="button-motion inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-bg-base shadow-[0_14px_30px_rgba(110,231,183,0.18)]">
-                <SendHorizontal className="h-4 w-4" />
-                Mark Complete
-              </button>
-            </form>
-          ) : null}
+          </PendingLink>
         </div>
       </div>
     </article>

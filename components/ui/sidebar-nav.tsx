@@ -16,6 +16,7 @@ import {
   FolderOpen,
   Home,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   Megaphone,
   Menu,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/utils";
 
 const navIcons = {
@@ -81,12 +83,11 @@ export function SidebarNav({
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [navigatingTo, setNavigatingTo] = useState("");
 
   useEffect(() => {
-    for (const link of links) {
-      router.prefetch(link.href);
-    }
-  }, [links, router]);
+    setNavigatingTo("");
+  }, [pathname]);
 
   const nav = (
     <aside className="flex h-full w-72 flex-col border-r border-border/70 bg-bg-base/90 px-4 py-5 backdrop-blur-xl">
@@ -113,10 +114,13 @@ export function SidebarNav({
             <Link
               key={link.href}
               href={link.href}
-              prefetch
+              prefetch={false}
               onMouseEnter={() => router.prefetch(link.href)}
               onFocus={() => router.prefetch(link.href)}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setNavigatingTo(link.href);
+                setOpen(false);
+              }}
               className={cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary transition",
                 "hover:bg-white/[0.04] hover:text-text-primary",
@@ -126,6 +130,9 @@ export function SidebarNav({
             >
               <Icon className="h-4 w-4" />
               <span className="min-w-0 flex-1 truncate">{link.label}</span>
+              {navigatingTo === link.href && pathname !== link.href ? (
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin text-accent" />
+              ) : null}
               {badge && badge.count > 0 ? (
                 <span
                   className={cn(
@@ -145,10 +152,13 @@ export function SidebarNav({
       <div className="mt-auto space-y-3 pt-6">
         {footer}
         <form action={logoutAction}>
-          <button className="button-motion flex w-full items-center gap-3 rounded-xl border border-border bg-bg-card px-3 py-2.5 text-sm text-text-secondary hover:text-text-primary">
+          <SubmitButton
+            pendingLabel="Signing out..."
+            className="flex w-full items-center gap-3 rounded-xl border border-border bg-bg-card px-3 py-2.5 text-sm text-text-secondary hover:text-text-primary"
+          >
             <LogOut className="h-4 w-4" />
             Logout
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </aside>
@@ -156,6 +166,11 @@ export function SidebarNav({
 
   return (
     <>
+      {navigatingTo && navigatingTo !== pathname ? (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-1 overflow-hidden bg-accent/10">
+          <div className="h-full w-1/3 animate-[navigation-progress_0.9s_ease-in-out_infinite] bg-accent shadow-[0_0_18px_rgba(110,231,183,0.75)]" />
+        </div>
+      ) : null}
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block">{nav}</div>
       <div className="no-print fixed left-4 top-4 z-40 lg:hidden">
         <button

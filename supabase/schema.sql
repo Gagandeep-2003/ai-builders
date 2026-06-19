@@ -209,6 +209,13 @@ create table public.announcements (
   created_at timestamptz not null default now()
 );
 
+create table public.mentor_reminder_deliveries (
+  event_key text primary key,
+  student_id uuid references public.students(id) on delete set null,
+  class_starts_at timestamptz not null,
+  sent_at timestamptz not null default now()
+);
+
 create index profiles_role_idx on public.profiles (role);
 create index profiles_last_seen_at_idx on public.profiles (last_seen_at desc);
 create index students_user_id_idx on public.students (user_id);
@@ -349,6 +356,7 @@ alter table public.class_reschedule_requests enable row level security;
 alter table public.feedback enable row level security;
 alter table public.password_change_requests enable row level security;
 alter table public.announcements enable row level security;
+alter table public.mentor_reminder_deliveries enable row level security;
 
 create policy "profiles_select_self_or_admin"
 on public.profiles for select
@@ -567,6 +575,11 @@ on public.announcements for all
 using (private.is_admin())
 with check (private.is_admin());
 
+create policy "mentor_reminder_deliveries_admin"
+on public.mentor_reminder_deliveries for all
+using (private.is_admin())
+with check (private.is_admin());
+
 grant usage on schema public to authenticated;
 grant usage on schema private to authenticated;
 
@@ -586,6 +599,7 @@ grant select, insert, update, delete on public.class_reschedule_requests to auth
 grant select, insert, update, delete on public.feedback to authenticated;
 grant select, insert, update, delete on public.password_change_requests to authenticated;
 grant select, insert, update, delete on public.announcements to authenticated;
+grant select, insert, update, delete on public.mentor_reminder_deliveries to authenticated;
 
 grant execute on function private.is_admin() to authenticated;
 grant execute on function private.current_student_id() to authenticated;

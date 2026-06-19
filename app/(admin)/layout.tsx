@@ -11,7 +11,6 @@ import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 const links: NavLink[] = [
   { href: "/admin", label: "Dashboard", icon: "dashboard" },
   { href: "/admin/students", label: "Students", icon: "students" },
-  { href: "/admin/batches", label: "Batches", icon: "home" },
   { href: "/admin/slots", label: "Slots", icon: "slots" },
   { href: "/admin/progress", label: "Progress", icon: "chart" },
   { href: "/admin/homework", label: "Homework", icon: "homework" },

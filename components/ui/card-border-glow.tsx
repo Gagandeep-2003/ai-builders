@@ -43,6 +43,9 @@ function ensureEdgeLight(card: HTMLElement) {
 
 export function CardBorderGlow() {
   useEffect(() => {
+    let firstFrame = 0;
+    let secondFrame = 0;
+
     const getCard = (target: EventTarget | null) =>
       target instanceof Element ? target.closest<HTMLElement>(".premium-card:not(.no-border-glow)") : null;
 
@@ -73,12 +76,20 @@ export function CardBorderGlow() {
       card.style.setProperty("--edge-proximity", "0");
     };
 
-    document.querySelectorAll<HTMLElement>(".premium-card:not(.no-border-glow)").forEach(ensureEdgeLight);
-    document.addEventListener("pointerenter", handlePointerEnter, true);
-    document.addEventListener("pointermove", handlePointerMove, { passive: true });
-    document.addEventListener("pointerleave", handlePointerLeave, true);
+    // Parent effects can run while nested route segments are still hydrating.
+    // Waiting two frames prevents this decorative node from changing React's
+    // expected server markup during hydration.
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        document.addEventListener("pointerenter", handlePointerEnter, true);
+        document.addEventListener("pointermove", handlePointerMove, { passive: true });
+        document.addEventListener("pointerleave", handlePointerLeave, true);
+      });
+    });
 
     return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
       document.removeEventListener("pointerenter", handlePointerEnter, true);
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerleave", handlePointerLeave, true);

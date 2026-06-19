@@ -50,5 +50,17 @@ export function filterUnlockedResources(
   boundary = getSessionAccessBoundary(sessions),
 ) {
   const sessionById = new Map(sessions.map((session) => [session.id, session]));
-  return resources.filter((item) => isSessionUnlocked(sessionById.get(item.sessionId), boundary));
+  const firstSessionByModule = new Map<string, StatusSession>();
+
+  for (const session of [...sessions].sort((a, b) => a.globalNumber - b.globalNumber)) {
+    if (!firstSessionByModule.has(session.moduleId)) {
+      firstSessionByModule.set(session.moduleId, session);
+    }
+  }
+
+  return resources.filter((item) => {
+    const session = sessionById.get(item.sessionId);
+    if (session) return isSessionUnlocked(session, boundary);
+    return isSessionUnlocked(firstSessionByModule.get(item.moduleId), boundary);
+  });
 }

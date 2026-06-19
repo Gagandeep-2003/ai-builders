@@ -1,8 +1,26 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  createServiceRoleSupabaseClient,
+} from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+export type AdminActionState = {
+  status: "idle" | "success" | "error";
+  message: string;
+};
+
+const weekdayNames = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 async function getAdminClient() {
   if (!isSupabaseConfigured()) return null;
@@ -24,6 +42,44 @@ async function getAdminClient() {
   return profile?.role === "admin" ? supabase : null;
 }
 
+function requiredValue(formData: FormData, key: string) {
+  return String(formData.get(key) ?? "").trim();
+}
+
+function scheduleFields(formData: FormData) {
+  const firstDay = Number(formData.get("slot1Day") ?? 1);
+  const secondDay = Number(formData.get("slot2Day") ?? 3);
+  const firstStart = requiredValue(formData, "slot1StartTime") || "17:00";
+  const firstEnd = requiredValue(formData, "slot1EndTime") || "18:00";
+  const secondStart = requiredValue(formData, "slot2StartTime") || firstStart;
+  const secondEnd = requiredValue(formData, "slot2EndTime") || firstEnd;
+  const firstMeetLink = requiredValue(formData, "slot1MeetLink");
+  const secondMeetLink = requiredValue(formData, "slot2MeetLink");
+
+  return {
+    firstDay,
+    secondDay,
+    firstStart,
+    firstEnd,
+    secondStart,
+    secondEnd,
+    firstMeetLink,
+    secondMeetLink,
+    days: `${weekdayNames[firstDay] ?? "Class 1"} / ${weekdayNames[secondDay] ?? "Class 2"}`,
+    timeSlot: `${weekdayNames[firstDay] ?? "Class 1"} ${firstStart} - ${firstEnd} / ${weekdayNames[secondDay] ?? "Class 2"} ${secondStart} - ${secondEnd}`,
+  };
+}
+
+function revalidateStudentManagement() {
+  revalidatePath("/admin");
+  revalidatePath("/admin/students");
+  revalidatePath("/admin/progress");
+  revalidatePath("/admin/slots");
+  revalidatePath("/dashboard");
+  revalidatePath("/class");
+  revalidatePath("/profile");
+}
+
 function getHomeworkTarget(formData: FormData) {
   const combinedTarget = String(formData.get("target") ?? "");
   if (combinedTarget.includes(":")) {
@@ -37,69 +93,311 @@ function getHomeworkTarget(formData: FormData) {
   };
 }
 
-export async function createStudentAction(formData: FormData) {
+export async function createStudentAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
   const supabase = await getAdminClient();
   if (!supabase) {
-    revalidatePath("/admin/students");
-    return;
+    return { status: "error", message: "Admin access could not be verified." };
   }
 
-  const userId = String(formData.get("userId") ?? "");
-  const fullName = String(formData.get("fullName") ?? "");
-  const email = String(formData.get("email") ?? "");
-  const parentName = String(formData.get("parentName") ?? "");
-  const parentEmail = String(formData.get("parentEmail") ?? "");
-  const country = String(formData.get("country") ?? "");
-  const timeZone = String(formData.get("timeZone") ?? "Asia/Kolkata");
-  const batchId = String(formData.get("batchId") ?? "");
+  const serviceSupabase = createServiceRoleSupabaseClient();
+  if (!serviceSupabase) {
+    return {
+      status: "error",
+      message: "Add SUPABASE_SERVICE_ROLE_KEY in Vercel before creating students from the portal.",
+    };
+  }
 
-  if (!userId || !fullName || !email || !parentName || !parentEmail || !batchId) return;
+  const fullName = requiredValue(formData, "fullName");
+  const email = requiredValue(formData, "email").toLowerCase();
+  const password = requiredValue(formData, "password");
+  const parentName = requiredValue(formData, "parentName");
+  const parentEmail = requiredValue(formData, "parentEmail").toLowerCase();
+  const country = requiredValue(formData, "country");
+  const timeZone = requiredValue(formData, "timeZone") || "Asia/Kolkata";
+  const moduleId = requiredValue(formData, "moduleId");
+  const startDate = requiredValue(formData, "startDate");
+  const batchName = requiredValue(formData, "batchName") || `${fullName} AI Course`;
+  const schedule = scheduleFields(formData);
 
-  await supabase.from("profiles").upsert({
+  if (
+    !fullName ||
+    !email ||
+    !password ||
+    !timeZone ||
+    !moduleId ||
+    !startDate ||
+    !schedule.firstMeetLink ||
+    !schedule.secondMeetLink
+  ) {
+    return {
+      status: "error",
+      message: "Complete the student, schedule, and both Meet link fields.",
+    };
+  }
+
+  const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+  });
+
+  if (authError || !authData.user) {
+    return {
+      status: "error",
+      message: authError?.message ?? "The student login could not be created.",
+    };
+  }
+
+  const userId = authData.user.id;
+  const { data: batch, error: batchError } = await supabase
+    .from("batches")
+    .insert({
+      name: batchName,
+      days: schedule.days,
+      time_slot: schedule.timeSlot,
+      time_zone: timeZone,
+      start_date: startDate,
+      start_time: schedule.firstStart,
+      end_time: schedule.firstEnd,
+      meet_link: schedule.firstMeetLink,
+      module_id: moduleId,
+    })
+    .select("id")
+    .single();
+
+  if (batchError || !batch) {
+    await serviceSupabase.auth.admin.deleteUser(userId);
+    return {
+      status: "error",
+      message: batchError?.message ?? "The class schedule could not be created.",
+    };
+  }
+
+  const { error: slotError } = await supabase.from("batch_class_slots").insert([
+    {
+      batch_id: batch.id,
+      label: `${weekdayNames[schedule.firstDay]} class`,
+      day_of_week: schedule.firstDay,
+      start_time: schedule.firstStart,
+      end_time: schedule.firstEnd,
+      meet_link: schedule.firstMeetLink,
+      sort_order: 1,
+    },
+    {
+      batch_id: batch.id,
+      label: `${weekdayNames[schedule.secondDay]} class`,
+      day_of_week: schedule.secondDay,
+      start_time: schedule.secondStart,
+      end_time: schedule.secondEnd,
+      meet_link: schedule.secondMeetLink,
+      sort_order: 2,
+    },
+  ]);
+
+  const { error: profileError } = await supabase.from("profiles").upsert({
     id: userId,
     email,
     full_name: fullName,
     role: "student",
   });
 
-  await supabase.from("students").insert({
+  const { error: studentError } = await supabase.from("students").insert({
     user_id: userId,
     full_name: fullName,
     parent_name: parentName,
     parent_email: parentEmail,
     country,
     time_zone: timeZone,
-    batch_id: batchId,
+    batch_id: batch.id,
   });
 
-  revalidatePath("/admin/students");
-}
-
-export async function updateStudentAction(formData: FormData) {
-  const supabase = await getAdminClient();
-  if (!supabase) {
-    revalidatePath("/admin/students");
-    return;
+  if (slotError || profileError || studentError) {
+    await supabase.from("batches").delete().eq("id", batch.id);
+    await serviceSupabase.auth.admin.deleteUser(userId);
+    return {
+      status: "error",
+      message:
+        slotError?.message ??
+        profileError?.message ??
+        studentError?.message ??
+        "The student setup could not be completed.",
+    };
   }
 
-  const studentId = String(formData.get("studentId") ?? "");
-  if (!studentId) return;
+  revalidateStudentManagement();
+  return {
+    status: "success",
+    message: `${fullName} is ready with login, schedule, and Meet links.`,
+  };
+}
 
-  await supabase
+export async function updateStudentAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const supabase = await getAdminClient();
+  if (!supabase) {
+    return { status: "error", message: "Admin access could not be verified." };
+  }
+
+  const studentId = requiredValue(formData, "studentId");
+  const userId = requiredValue(formData, "userId");
+  const batchId = requiredValue(formData, "batchId");
+  const fullName = requiredValue(formData, "fullName");
+  const email = requiredValue(formData, "email").toLowerCase();
+  const password = requiredValue(formData, "password");
+  const parentName = requiredValue(formData, "parentName");
+  const parentEmail = requiredValue(formData, "parentEmail").toLowerCase();
+  const country = requiredValue(formData, "country");
+  const timeZone = requiredValue(formData, "timeZone") || "Asia/Kolkata";
+  const moduleId = requiredValue(formData, "moduleId");
+  const startDate = requiredValue(formData, "startDate");
+  const batchName = requiredValue(formData, "batchName") || `${fullName} AI Course`;
+  const schedule = scheduleFields(formData);
+  const serviceSupabase = createServiceRoleSupabaseClient();
+
+  if (
+    !studentId ||
+    !userId ||
+    !batchId ||
+    !fullName ||
+    !email ||
+    !moduleId ||
+    !startDate ||
+    !schedule.firstMeetLink ||
+    !schedule.secondMeetLink
+  ) {
+    return { status: "error", message: "Student setup is missing required identifiers or fields." };
+  }
+
+  if (!serviceSupabase) {
+    return {
+      status: "error",
+      message: "Add SUPABASE_SERVICE_ROLE_KEY in Vercel before editing student login details.",
+    };
+  }
+
+  const { error: studentError } = await supabase
     .from("students")
     .update({
-      full_name: String(formData.get("fullName") ?? ""),
-      parent_name: String(formData.get("parentName") ?? ""),
-      parent_email: String(formData.get("parentEmail") ?? ""),
-      country: String(formData.get("country") ?? ""),
-      time_zone: String(formData.get("timeZone") ?? "Asia/Kolkata"),
-      batch_id: String(formData.get("batchId") ?? ""),
+      full_name: fullName,
+      parent_name: parentName,
+      parent_email: parentEmail,
+      country,
+      time_zone: timeZone,
     })
     .eq("id", studentId);
 
-  revalidatePath("/admin/students");
-  revalidatePath("/dashboard");
-  revalidatePath("/profile");
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ full_name: fullName, email })
+    .eq("id", userId);
+
+  const { error: batchError } = await supabase
+    .from("batches")
+    .update({
+      name: batchName,
+      days: schedule.days,
+      time_slot: schedule.timeSlot,
+      time_zone: timeZone,
+      start_date: startDate,
+      start_time: schedule.firstStart,
+      end_time: schedule.firstEnd,
+      meet_link: schedule.firstMeetLink,
+      module_id: moduleId,
+    })
+    .eq("id", batchId);
+
+  if (studentError || profileError || batchError) {
+    return {
+      status: "error",
+      message:
+        studentError?.message ??
+        profileError?.message ??
+        batchError?.message ??
+        "The student changes could not be saved.",
+    };
+  }
+
+  const { error: authUpdateError } = await serviceSupabase.auth.admin.updateUserById(userId, {
+    email,
+    ...(password ? { password } : {}),
+    user_metadata: { full_name: fullName },
+  });
+
+  if (authUpdateError) {
+    return {
+      status: "error",
+      message: `Profile details were saved, but the student login could not be updated: ${authUpdateError.message}`,
+    };
+  }
+
+  const { data: existingSlots, error: slotsReadError } = await supabase
+    .from("batch_class_slots")
+    .select("id")
+    .eq("batch_id", batchId)
+    .order("sort_order");
+
+  if (slotsReadError) {
+    return {
+      status: "error",
+      message: `Student details were saved, but the weekly classes could not be loaded: ${slotsReadError.message}`,
+    };
+  }
+
+  const slotPayloads = [
+    {
+      batch_id: batchId,
+      label: `${weekdayNames[schedule.firstDay]} class`,
+      day_of_week: schedule.firstDay,
+      start_time: schedule.firstStart,
+      end_time: schedule.firstEnd,
+      meet_link: schedule.firstMeetLink,
+      sort_order: 1,
+    },
+    {
+      batch_id: batchId,
+      label: `${weekdayNames[schedule.secondDay]} class`,
+      day_of_week: schedule.secondDay,
+      start_time: schedule.secondStart,
+      end_time: schedule.secondEnd,
+      meet_link: schedule.secondMeetLink,
+      sort_order: 2,
+    },
+  ];
+
+  let slotError: string | undefined;
+  for (const [index, payload] of slotPayloads.entries()) {
+    const existingId = existingSlots?.[index]?.id;
+    const { error } = existingId
+      ? await supabase.from("batch_class_slots").update(payload).eq("id", existingId)
+      : await supabase.from("batch_class_slots").insert(payload);
+
+    if (error) {
+      slotError = error.message;
+      break;
+    }
+  }
+
+  if (!slotError && (existingSlots?.length ?? 0) > slotPayloads.length) {
+    const extraIds = existingSlots!.slice(slotPayloads.length).map((slot) => slot.id);
+    const { error } = await supabase.from("batch_class_slots").delete().in("id", extraIds);
+    slotError = error?.message;
+  }
+
+  if (slotError) {
+    return {
+      status: "error",
+      message: `Student details were saved, but the weekly classes could not be updated: ${slotError}`,
+    };
+  }
+
+  revalidateStudentManagement();
+  return { status: "success", message: `${fullName}'s details and schedule were updated.` };
 }
 
 export async function removeStudentAction(formData: FormData) {
@@ -270,16 +568,28 @@ export async function createResourceAction(formData: FormData) {
     return;
   }
 
+  const sessionId = requiredValue(formData, "sessionId");
+  if (!sessionId) return;
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("module_id")
+    .eq("id", sessionId)
+    .single();
+
+  if (!session?.module_id) return;
+
   await supabase.from("resources").insert({
-    title: String(formData.get("title") ?? ""),
-    type: String(formData.get("type") ?? "link"),
-    url: String(formData.get("url") ?? ""),
-    module_id: String(formData.get("moduleId") ?? ""),
-    session_id: String(formData.get("sessionId") ?? "") || null,
+    title: requiredValue(formData, "title"),
+    type: requiredValue(formData, "type") || "link",
+    url: requiredValue(formData, "url"),
+    module_id: session.module_id,
+    session_id: sessionId,
   });
 
   revalidatePath("/admin/resources");
   revalidatePath("/resources");
+  revalidatePath("/dashboard");
 }
 
 export async function deleteResourceAction(formData: FormData) {

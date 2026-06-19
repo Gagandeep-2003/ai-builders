@@ -4,7 +4,6 @@ import {
   CalendarClock,
   ClipboardCheck,
   FilePlus2,
-  Link2,
   PlusCircle,
   UserRound,
 } from "lucide-react";
@@ -196,7 +195,7 @@ export default async function AdminDashboardPage() {
           {[
             ["Add Student", "/admin/students", PlusCircle],
             ["Assign Homework", "/admin/homework", ClipboardCheck],
-            ["Update Meet Link", "/admin/batches", Link2],
+            ["Edit Student Schedule", "/admin/students", CalendarClock],
             ["Add Resource", "/admin/resources", FilePlus2],
           ].map(([label, href, Icon]) => (
             <Link key={String(label)} href={String(href)} className="premium-card premium-card-hover rounded-xl p-5">

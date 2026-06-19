@@ -48,8 +48,8 @@ select
 from sagan_batch
 cross join (
   values
-    ('21000000-0000-4000-8000-000000000020'::uuid, 'Thursday class', 4, '11:00'::time, '12:00'::time, 'PUT_SAGAN_THURSDAY_MEET_LINK_HERE', 1),
-    ('21000000-0000-4000-8000-000000000021'::uuid, 'Friday class', 5, '11:00'::time, '12:00'::time, 'PUT_SAGAN_FRIDAY_MEET_LINK_HERE', 2)
+    ('21000000-0000-4000-8000-000000000020'::uuid, 'Thursday class', 4, '11:00'::time, '12:00'::time, 'https://meet.google.com/zic-xmpx-vct', 1),
+    ('21000000-0000-4000-8000-000000000021'::uuid, 'Friday class', 5, '11:00'::time, '12:00'::time, 'https://meet.google.com/fdt-xtrm-eug', 2)
 ) as slots(slot_id, label, day_of_week, start_time, end_time, meet_link, sort_order)
 on conflict (id) do update set
   batch_id = excluded.batch_id,
