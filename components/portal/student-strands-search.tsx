@@ -3,13 +3,10 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { AnimatePresence, motion, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   Command,
-  Gauge,
   Palette,
   Pause,
   Play,
@@ -76,31 +73,195 @@ function createAudioContext() {
   return new AudioContextCtor();
 }
 
-function playTimerSound(context: AudioContext | null, kind: "stretch" | "snap" | "tick") {
+function playTugSound(context: AudioContext | null, kind: "pop" | "tick") {
   if (!context) return;
   void context.resume().catch(() => undefined);
   const oscillator = context.createOscillator();
   const gain = context.createGain();
-  const filter = context.createBiquadFilter();
-  oscillator.type = kind === "tick" ? "square" : "sine";
-  oscillator.frequency.setValueAtTime(
-    kind === "stretch" ? 210 : kind === "snap" ? 620 : 92,
-    context.currentTime,
-  );
+  oscillator.type = kind === "tick" ? "triangle" : "sine";
+  oscillator.frequency.setValueAtTime(kind === "tick" ? 1200 : 800, context.currentTime);
   oscillator.frequency.exponentialRampToValueAtTime(
-    kind === "stretch" ? 320 : kind === "snap" ? 240 : 46,
-    context.currentTime + 0.09,
+    kind === "tick" ? 800 : 300,
+    context.currentTime + (kind === "tick" ? 0.05 : 0.1),
   );
-  filter.type = "lowpass";
-  filter.frequency.value = kind === "tick" ? 520 : 1300;
-  gain.gain.setValueAtTime(0.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(kind === "tick" ? 0.025 : 0.04, context.currentTime + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.12);
-  oscillator.connect(filter);
-  filter.connect(gain);
+  gain.gain.setValueAtTime(kind === "tick" ? 0.1 : 0.5, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(
+    kind === "tick" ? 0.001 : 0.01,
+    context.currentTime + (kind === "tick" ? 0.05 : 0.15),
+  );
+  oscillator.connect(gain);
   gain.connect(context.destination);
   oscillator.start();
-  oscillator.stop(context.currentTime + 0.13);
+  oscillator.stop(context.currentTime + (kind === "tick" ? 0.05 : 0.15));
+}
+
+function TugTimerSetup({
+  getAudioContext,
+  onStart,
+}: {
+  getAudioContext: () => AudioContext | null;
+  onStart: (minutes: number) => void;
+}) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const faceRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const draggingRef = useRef(false);
+  const targetRef = useRef({ x: 0, y: 0 });
+  const currentRef = useRef({ x: 0, y: 0 });
+  const anchorRef = useRef({ x: 0, y: 0 });
+  const previousMinuteRef = useRef(0);
+  const selectedMinuteRef = useRef(0);
+  const [dragging, setDragging] = useState(false);
+  const [selectedMinutes, setSelectedMinutes] = useState(0);
+  const [currentPoint, setCurrentPoint] = useState({ x: 0, y: 0 });
+  const [anchorPoint, setAnchorPoint] = useState({ x: 0, y: 0 });
+  const [snapScale, setSnapScale] = useState(1);
+  const [snapKey, setSnapKey] = useState(0);
+
+  const formatFutureTime = useCallback((minutes: number) => {
+    const date = new Date();
+    date.setMinutes(date.getMinutes() + minutes);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }, []);
+
+  function renderLoop() {
+    if (!draggingRef.current) return;
+    currentRef.current.x += (targetRef.current.x - currentRef.current.x) * 0.25;
+    currentRef.current.y += (targetRef.current.y - currentRef.current.y) * 0.25;
+    const pullDistance = Math.max(0, currentRef.current.y - anchorRef.current.y);
+    const minutes = Math.max(1, Math.min(60, Math.floor(pullDistance / 6)));
+    if (minutes !== previousMinuteRef.current) {
+      navigator.vibrate?.(10);
+      playTugSound(getAudioContext(), "tick");
+      previousMinuteRef.current = minutes;
+      selectedMinuteRef.current = minutes;
+      setSelectedMinutes(minutes);
+    }
+    setCurrentPoint({ ...currentRef.current });
+    rafRef.current = requestAnimationFrame(renderLoop);
+  }
+
+  useEffect(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const stage = stageRef.current?.getBoundingClientRect();
+    const face = faceRef.current?.getBoundingClientRect();
+    if (!stage || !face) return;
+    const anchor = {
+      x: face.left - stage.left + face.width / 2,
+      y: face.bottom - stage.top - 6,
+    };
+    anchorRef.current = anchor;
+    targetRef.current = { x: event.clientX - stage.left, y: event.clientY - stage.top };
+    currentRef.current = anchor;
+    previousMinuteRef.current = 0;
+    selectedMinuteRef.current = 0;
+    setAnchorPoint(anchor);
+    setCurrentPoint(anchor);
+    setSelectedMinutes(0);
+    draggingRef.current = true;
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(renderLoop);
+  }
+
+  function updateTarget(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current || !stageRef.current) return;
+    event.preventDefault();
+    const stage = stageRef.current.getBoundingClientRect();
+    targetRef.current = { x: event.clientX - stage.left, y: event.clientY - stage.top };
+  }
+
+  function endDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    setDragging(false);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const pullDistance = currentRef.current.y - anchorRef.current.y;
+    setSnapScale(Math.max(1, Math.min(pullDistance / 20, 6)));
+    setSnapKey((key) => key + 1);
+    playTugSound(getAudioContext(), "pop");
+    navigator.vibrate?.([30, 40, 30]);
+    if (selectedMinuteRef.current > 0) onStart(selectedMinuteRef.current);
+  }
+
+  const pullDistance = Math.max(0, currentPoint.y - anchorPoint.y);
+  const controlY = anchorPoint.y + pullDistance / 1.5;
+  const path = dragging
+    ? `M ${anchorPoint.x} ${anchorPoint.y} Q ${anchorPoint.x} ${controlY} ${currentPoint.x} ${currentPoint.y}`
+    : "";
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-emerald-300/25 bg-[#f4f1eb] p-5 text-[#111] shadow-[0_24px_100px_rgba(30,179,108,0.12)]">
+      <div className="text-center">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#1eb36c]">Tug timer</p>
+        <h3 className="mt-2 font-heading text-2xl font-bold">Pull. Release. Done.</h3>
+        <p className="mt-2 text-sm text-black/55">Drag the frog&apos;s tongue downward to choose your focus time.</p>
+      </div>
+      <div ref={stageRef} className="relative mt-5 h-[430px] w-full overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_50%_10%,rgba(30,179,108,0.12),transparent_45%)]">
+        <div className="absolute inset-x-0 top-0 flex h-9 items-center justify-end gap-3 rounded-b-xl bg-[#111] px-4 font-mono text-[0.6rem] font-semibold text-white/65">
+          <span>FOCUS</span>
+          <span>TUG TIMER</span>
+        </div>
+        <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+          <path d={path} stroke="#fb5498" strokeWidth="10" strokeLinecap="round" fill="none" />
+          {dragging ? <circle cx={currentPoint.x} cy={currentPoint.y} r="8" fill="#fb5498" /> : null}
+        </svg>
+        <div
+          ref={faceRef}
+          onPointerDown={startDrag}
+          onPointerMove={updateTarget}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className="absolute right-4 top-0 flex h-9 w-10 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+        >
+          <div className="relative mt-1 flex h-[22px] w-[26px] items-center justify-center rounded-[20px] bg-[#1eb36c]">
+            <span className="absolute left-0.5 -top-1.5 h-[3px] w-2 rotate-[15deg] rounded-sm bg-[#1eb36c]" />
+            <span className="absolute right-0.5 -top-1.5 h-[3px] w-2 -rotate-[15deg] rounded-sm bg-[#1eb36c]" />
+            <div className="-mt-0.5 flex gap-0.5">
+              {[0, 1].map((eye) => (
+                <span key={eye} className="grid h-[11px] w-[11px] place-items-center rounded-full bg-white">
+                  <span
+                    className="h-[5px] w-[5px] rounded-full bg-black transition-transform duration-100"
+                    style={{ transform: `translateY(${dragging ? 3 : 0}px)` }}
+                  />
+                </span>
+              ))}
+            </div>
+            {!dragging ? (
+              <motion.span
+                key={snapKey}
+                className="absolute -bottom-1.5 left-1/2 h-3 w-2.5 -translate-x-1/2 origin-top rounded-b-[10px] bg-[#fb5498]"
+                initial={{ scaleY: snapScale }}
+                animate={{ scaleY: [snapScale, 0.4, 1.3, 0.85, 1] }}
+                transition={{ duration: 0.6, times: [0, 0.3, 0.55, 0.8, 1], ease: [0.34, 1.56, 0.64, 1] }}
+              />
+            ) : null}
+          </div>
+        </div>
+        <AnimatePresence>
+          {dragging ? (
+            <motion.div
+              className="pointer-events-none absolute rounded-full bg-[#111] px-4 py-2 text-sm font-semibold text-white shadow-xl"
+              style={{ left: currentPoint.x + 15, top: currentPoint.y - 15 }}
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+            >
+              {selectedMinutes} min • {formatFutureTime(selectedMinutes)}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
 }
 
 function playResultTone(context: AudioContext | null, index: number, variant: "result" | "ready" = "result") {
@@ -136,17 +297,11 @@ export function StudentStrandsSearch({
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [searched, setSearched] = useState(false);
-  const [timerSetupMode, setTimerSetupMode] = useState<"pull" | "dial" | null>(null);
-  const [timerMinutes, setTimerMinutes] = useState(25);
-  const [dialRotation, setDialRotation] = useState(150);
+  const [timerSetupOpen, setTimerSetupOpen] = useState(false);
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [focusTotalSeconds, setFocusTotalSeconds] = useState(25 * 60);
   const [focusRunning, setFocusRunning] = useState(false);
-  const [focusDockOpen, setFocusDockOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const dialRef = useRef<HTMLDivElement>(null);
-  const dialDraggingRef = useRef(false);
-  const lastTickMinuteRef = useRef(timerMinutes);
   const audioContextRef = useRef<AudioContext | null>(null);
   const { theme } = useTheme();
   const firstName = studentName.split(" ")[0] || "Builder";
@@ -179,7 +334,7 @@ export function StudentStrandsSearch({
     },
     {
       title: "Start a focus timer",
-      description: "Choose Pull Timer or Dial Timer from Quick Actions. No command syntax needed.",
+      description: "Open Tug Timer from Quick Actions and pull the frog's tongue to choose a duration.",
     },
   ];
 
@@ -277,7 +432,9 @@ export function StudentStrandsSearch({
       setFocusSeconds((seconds) => {
         if (seconds <= 1) {
           setFocusRunning(false);
-          playResultTone(audioContextRef.current, 0, "ready");
+          playTugSound(audioContextRef.current, "pop");
+          window.setTimeout(() => playTugSound(audioContextRef.current, "pop"), 150);
+          navigator.vibrate?.([100, 50, 100]);
           return 0;
         }
         return seconds - 1;
@@ -291,7 +448,7 @@ export function StudentStrandsSearch({
     setQuery("");
     setSubmittedQuery("");
     setSearched(false);
-    setTimerSetupMode(null);
+    setTimerSetupOpen(false);
   }
 
   function submitSearch(event: FormEvent) {
@@ -302,52 +459,13 @@ export function StudentStrandsSearch({
   }
 
   function startFocusTimer(minutes: number) {
-    const boundedMinutes = Math.min(60, Math.max(5, Math.round(minutes / 5) * 5));
+    const boundedMinutes = Math.min(60, Math.max(1, Math.round(minutes)));
     ensureAudioContext();
-    playTimerSound(audioContextRef.current, "snap");
-    setTimerMinutes(boundedMinutes);
     setFocusSeconds(boundedMinutes * 60);
     setFocusTotalSeconds(boundedMinutes * 60);
     setFocusRunning(true);
-    setFocusDockOpen(true);
-    setTimerSetupMode(null);
+    setTimerSetupOpen(false);
     setOpen(false);
-  }
-
-  function handleTongueDrag(_: MouseEvent | TouchEvent | globalThis.PointerEvent, info: PanInfo) {
-    const minutes = Math.min(60, Math.max(5, Math.round((5 + info.offset.y / 2.6) / 5) * 5));
-    if (minutes !== timerMinutes) {
-      setTimerMinutes(minutes);
-      playTimerSound(audioContextRef.current, "stretch");
-    }
-  }
-
-  function handleTongueRelease(_: MouseEvent | TouchEvent | globalThis.PointerEvent, info: PanInfo) {
-    if (info.offset.y >= 18) startFocusTimer(timerMinutes);
-  }
-
-  function handleDialPointer(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!dialDraggingRef.current || !dialRef.current) return;
-    const rect = dialRef.current.getBoundingClientRect();
-    const angle = (Math.atan2(
-      event.clientY - (rect.top + rect.height / 2),
-      event.clientX - (rect.left + rect.width / 2),
-    ) * 180) / Math.PI + 90;
-    const normalizedAngle = (angle + 360) % 360;
-    const minutes = Math.min(60, Math.max(5, Math.round(normalizedAngle / 30) * 5 || 5));
-    setDialRotation(minutes * 6);
-    setTimerMinutes(minutes);
-    if (minutes !== lastTickMinuteRef.current) {
-      lastTickMinuteRef.current = minutes;
-      playTimerSound(audioContextRef.current, "tick");
-    }
-  }
-
-  function finishDial(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!dialDraggingRef.current) return;
-    dialDraggingRef.current = false;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    startFocusTimer(timerMinutes);
   }
 
   const focusMinutes = Math.floor(focusSeconds / 60);
@@ -454,8 +572,7 @@ export function StudentStrandsSearch({
                       <button
                         onClick={() => {
                           ensureAudioContext();
-                          setTimerMinutes(25);
-                          setTimerSetupMode("pull");
+                          setTimerSetupOpen(true);
                           setSearched(true);
                         }}
                         className="group overflow-hidden rounded-2xl border border-pink-300/20 bg-[radial-gradient(circle_at_85%_0%,rgba(244,114,182,0.16),transparent_45%),rgba(255,255,255,0.025)] p-4 text-left transition hover:-translate-y-0.5 hover:border-pink-300/45"
@@ -465,25 +582,7 @@ export function StudentStrandsSearch({
                           <TimerReset className="h-4 w-4 text-pink-300" />
                         </span>
                         <span className="mt-2 block text-sm leading-6 text-text-secondary">
-                          Pull an elastic tab to choose the duration. Release it to begin.
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          ensureAudioContext();
-                          setTimerMinutes(25);
-                          setDialRotation(150);
-                          setTimerSetupMode("dial");
-                          setSearched(true);
-                        }}
-                        className="group overflow-hidden rounded-2xl border border-cyan-300/20 bg-[radial-gradient(circle_at_85%_0%,rgba(34,211,238,0.16),transparent_45%),rgba(255,255,255,0.025)] p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/45"
-                      >
-                        <span className="flex items-center justify-between gap-3">
-                          <span className="font-heading font-bold text-text-primary">Dial Timer</span>
-                          <Gauge className="h-4 w-4 text-cyan-300" />
-                        </span>
-                        <span className="mt-2 block text-sm leading-6 text-text-secondary">
-                          Turn a weighted dial through five-minute steps. Release it to begin.
+                          Pull the frog&apos;s elastic tongue. Every six pixels adds one minute; release to begin.
                         </span>
                       </button>
                       <button
@@ -539,99 +638,12 @@ export function StudentStrandsSearch({
                       Use natural words, exact session names, tools, module numbers, or portal areas.
                     </p>
                   </div>
-                ) : timerSetupMode === "pull" ? (
+                ) : timerSetupOpen ? (
                   <motion.div
-                    className="overflow-hidden rounded-3xl border border-pink-300/25 bg-bg-base/82 p-6 shadow-[0_24px_100px_rgba(244,114,182,0.12)]"
                     initial={{ opacity: 0, y: 18, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                   >
-                    <div className="flex flex-col items-center text-center">
-                      <p className="font-mono text-xs uppercase tracking-[0.2em] text-pink-200">Pull to focus</p>
-                      <h3 className="mt-2 font-heading text-2xl font-bold">Choose time by stretching the tab</h3>
-                      <div className="relative mt-8 h-64 w-full max-w-sm">
-                        <div className="absolute left-1/2 top-0 -translate-x-1/2">
-                          <div className="relative h-24 w-40 rounded-[3rem] border border-white/10 bg-[linear-gradient(145deg,#201638,#0f0c17)] shadow-[0_22px_70px_rgba(124,58,237,0.28)]">
-                            <span className="absolute -left-1 top-2 h-5 w-12 -rotate-6 rounded-full bg-violet-400/70 blur-[1px]" />
-                            <span className="absolute -right-1 top-2 h-5 w-12 rotate-6 rounded-full bg-cyan-300/65 blur-[1px]" />
-                            <div className="absolute left-1/2 top-7 flex -translate-x-1/2 gap-3">
-                              {[0, 1].map((eye) => (
-                                <span key={eye} className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-inner">
-                                  <motion.span
-                                    className="h-4 w-4 rounded-full bg-[#17111f]"
-                                    animate={{ y: Math.min(7, timerMinutes / 10) }}
-                                  />
-                                </span>
-                              ))}
-                            </div>
-                            <motion.button
-                              drag="y"
-                              dragConstraints={{ top: 0, bottom: 142 }}
-                              dragElastic={0.12}
-                              dragMomentum={false}
-                              onDrag={handleTongueDrag}
-                              onDragEnd={handleTongueRelease}
-                              whileTap={{ scaleX: 1.08 }}
-                              className="absolute left-1/2 top-[78px] h-14 w-12 -translate-x-1/2 cursor-grab rounded-b-[2rem] bg-[linear-gradient(180deg,#fb7185,#f472b6)] shadow-[0_12px_30px_rgba(244,114,182,0.45)] active:cursor-grabbing"
-                              aria-label="Pull timer tab"
-                            >
-                              <span className="absolute inset-x-3 bottom-3 h-1 rounded-full bg-white/45" />
-                            </motion.button>
-                          </div>
-                        </div>
-                        <motion.div
-                          className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-2xl border border-pink-300/25 bg-pink-300/10 px-6 py-3 font-mono text-3xl font-bold tabular-nums text-pink-100"
-                          animate={{ scale: [1, 1.035, 1] }}
-                          transition={{ duration: 1.8, repeat: Infinity }}
-                        >
-                          {timerMinutes} min
-                        </motion.div>
-                      </div>
-                      <p className="mt-4 text-sm text-text-secondary">Pull farther for more time. Release after pulling to start.</p>
-                    </div>
-                  </motion.div>
-                ) : timerSetupMode === "dial" ? (
-                  <motion.div
-                    className="overflow-hidden rounded-3xl border border-cyan-300/25 bg-bg-base/82 p-6 shadow-[0_24px_100px_rgba(6,182,212,0.12)]"
-                    initial={{ opacity: 0, y: 18, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">Weighted dial</p>
-                      <h3 className="mt-2 font-heading text-2xl font-bold">Turn and release to begin</h3>
-                      <div className="relative mt-7 grid h-72 w-72 place-items-center rounded-full border-[10px] border-black/35 bg-[linear-gradient(145deg,#25222e,#0a0910)] shadow-[20px_22px_70px_rgba(0,0,0,0.5),-12px_-12px_45px_rgba(124,58,237,0.12),inset_0_0_0_2px_rgba(255,255,255,0.05)]">
-                        <span className="absolute top-2 z-30 h-0 w-0 border-x-[8px] border-b-[13px] border-x-transparent border-b-pink-400 drop-shadow-[0_0_7px_#f472b6]" />
-                        <div
-                          ref={dialRef}
-                          onPointerDown={(event) => {
-                            ensureAudioContext();
-                            dialDraggingRef.current = true;
-                            event.currentTarget.setPointerCapture(event.pointerId);
-                            handleDialPointer(event);
-                          }}
-                          onPointerMove={handleDialPointer}
-                          onPointerUp={finishDial}
-                          onPointerCancel={() => {
-                            dialDraggingRef.current = false;
-                          }}
-                          className="absolute h-60 w-60 cursor-grab touch-none rounded-full bg-[repeating-conic-gradient(from_0deg,#111018_0deg_3deg,transparent_3deg_8deg),conic-gradient(from_0deg,#17141f,#302943,#131119,#263544,#17141f)] shadow-[inset_0_0_26px_rgba(0,0,0,0.85),0_16px_30px_rgba(0,0,0,0.55)] active:cursor-grabbing"
-                          style={{ transform: `rotate(${dialRotation}deg)` }}
-                          role="slider"
-                          aria-label="Focus timer minutes"
-                          aria-valuemin={5}
-                          aria-valuemax={60}
-                          aria-valuenow={timerMinutes}
-                        >
-                          <span className="absolute left-1/2 top-4 h-7 w-1.5 -translate-x-1/2 rounded-full bg-cyan-200 shadow-[0_0_16px_#67e8f9]" />
-                        </div>
-                        <div className="pointer-events-none relative z-20 grid h-32 w-32 place-items-center rounded-full border border-white/10 bg-[#08070c] shadow-[inset_0_5px_16px_rgba(0,0,0,0.9),0_0_28px_rgba(6,182,212,0.12)]">
-                          <div>
-                            <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-cyan-200">Minutes</p>
-                            <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-white">{timerMinutes}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="mt-5 text-sm text-text-secondary">Each soft click is five minutes. Release the dial to start.</p>
-                    </div>
+                    <TugTimerSetup getAudioContext={ensureAudioContext} onStart={startFocusTimer} />
                   </motion.div>
                 ) : isThemeCommand ? (
                   <motion.div
@@ -747,121 +759,84 @@ export function StudentStrandsSearch({
       <AnimatePresence>
         {focusSeconds > 0 ? (
           <motion.aside
-            drag="y"
-            dragConstraints={{ top: -280, bottom: 280 }}
-            dragElastic={0.08}
+            drag
+            dragConstraints={{ top: -220, right: 24, bottom: 220, left: -280 }}
+            dragElastic={0.06}
             dragMomentum={false}
-            className="fixed right-0 top-[42%] z-[65] touch-none"
-            initial={{ x: 120, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 120, opacity: 0 }}
+            className="fixed bottom-5 right-5 z-[65] w-[min(21rem,calc(100vw-2rem))] touch-none sm:bottom-7 sm:right-7"
+            initial={{ y: 28, opacity: 0, scale: 0.94 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 18, opacity: 0, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 260, damping: 24 }}
           >
-            <svg className="absolute h-0 w-0" aria-hidden="true">
-              <filter id="focus-dock-goo">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
-                <feColorMatrix
-                  in="blur"
-                  mode="matrix"
-                  values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10"
-                  result="goo"
-                />
-                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
-              </filter>
-            </svg>
-            <div className="relative flex items-center pr-2" style={{ filter: "url(#focus-dock-goo)" }}>
-              <motion.div
-                className="pointer-events-none absolute -inset-4 rounded-[2rem] bg-[conic-gradient(from_90deg,#f97316,#7c3aed,#06b6d4,#f472b6,#f97316)] opacity-55 blur-xl"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-              />
-              <motion.div
-                layout
-                className="relative overflow-hidden rounded-l-3xl border border-r-0 border-white/15 bg-[#100d18]/95 shadow-[-18px_18px_70px_rgba(6,182,212,0.18)] backdrop-blur-2xl"
-                transition={{ type: "spring", stiffness: 300, damping: 28 }}
-              >
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(249,115,22,0.25),transparent_36%),radial-gradient(circle_at_10%_90%,rgba(6,182,212,0.22),transparent_40%),linear-gradient(120deg,rgba(124,58,237,0.16),transparent_55%)]" />
-                <div className="relative flex items-stretch">
-                  <button
-                    onClick={() => setFocusDockOpen((value) => !value)}
-                    className="group grid min-h-20 w-12 shrink-0 place-items-center border-r border-white/10 text-white"
-                    aria-label={focusDockOpen ? "Collapse focus timer" : "Expand focus timer"}
-                    title="Drag vertically or click to expand"
-                  >
-                    <span className="absolute left-1 top-2 h-2 w-2 rounded-full bg-orange-300 shadow-[0_0_16px_#fb923c]" />
-                    {focusDockOpen
-                      ? <ChevronRight className="h-5 w-5 transition group-hover:translate-x-0.5" />
-                      : <ChevronLeft className="h-5 w-5 transition group-hover:-translate-x-0.5" />}
-                    <span className="absolute bottom-2 left-1 h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_16px_#67e8f9]" />
-                  </button>
+            <div className="relative cursor-grab overflow-hidden rounded-2xl border border-[#1eb36c]/30 bg-[#f4f1eb] p-4 text-[#111] shadow-[0_18px_60px_rgba(17,17,17,0.16),0_0_36px_rgba(30,179,108,0.12)] active:cursor-grabbing">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#1eb36c] to-transparent" />
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="relative grid h-14 w-[4.5rem] shrink-0 place-items-center rounded-[2rem] bg-[#1eb36c] shadow-[0_10px_24px_rgba(30,179,108,0.24)]"
+                  animate={focusRunning ? { y: [0, -1.5, 0] } : { y: 0 }}
+                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                  aria-hidden="true"
+                >
+                  <span className="absolute -left-0.5 -top-1 h-2 w-6 rotate-[15deg] rounded-full bg-[#1eb36c]" />
+                  <span className="absolute -right-0.5 -top-1 h-2 w-6 -rotate-[15deg] rounded-full bg-[#1eb36c]" />
+                  <span className="flex gap-1">
+                    {[0, 1].map((eye) => (
+                      <span key={eye} className="grid h-7 w-7 place-items-center rounded-full bg-white">
+                        <span className="h-3 w-3 rounded-full bg-black" />
+                      </span>
+                    ))}
+                  </span>
+                  <motion.span
+                    className="absolute -bottom-3 left-1/2 h-5 w-4 -translate-x-1/2 origin-top rounded-b-full bg-[#fb5498]"
+                    animate={focusRunning ? { scaleY: [1, 1.14, 1] } : { scaleY: 0.72 }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                </motion.div>
 
-                  <AnimatePresence initial={false}>
-                    {focusDockOpen ? (
-                      <motion.div
-                        key="focus-expanded"
-                        className="w-64 p-4 text-white"
-                        initial={{ width: 0, opacity: 0 }}
-                        animate={{ width: 256, opacity: 1 }}
-                        exit={{ width: 0, opacity: 0 }}
-                        transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-cyan-200">
-                              Focus chamber
-                            </p>
-                            <p className="mt-1 font-mono text-3xl font-bold tabular-nums">{focusLabel}</p>
-                          </div>
-                          <span className={`mt-1 h-2.5 w-2.5 rounded-full ${
-                            focusRunning
-                              ? "animate-pulse bg-emerald-300 shadow-[0_0_18px_#6ee7b7]"
-                              : "bg-white/35"
-                          }`} />
-                        </div>
-                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                          <motion.div
-                            className="h-full rounded-full bg-[linear-gradient(90deg,#f97316,#7c3aed,#06b6d4)] shadow-[0_0_16px_rgba(6,182,212,0.8)]"
-                            animate={{ width: `${Math.max(4, Math.min(100, (focusSeconds / focusTotalSeconds) * 100))}%` }}
-                            transition={{ duration: 0.35, ease: "easeOut" }}
-                          />
-                        </div>
-                        <div className="mt-4 flex gap-2">
-                          <button
-                            onClick={() => setFocusRunning((running) => !running)}
-                            className="button-motion inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-bold text-slate-950"
-                          >
-                            {focusRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                            {focusRunning ? "Pause" : "Resume"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setFocusSeconds(0);
-                              setFocusRunning(false);
-                              setFocusDockOpen(false);
-                            }}
-                            className="button-motion grid h-9 w-9 place-items-center rounded-xl border border-white/15 bg-white/5 text-white/75"
-                            aria-label="End focus timer"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="focus-compact"
-                        className="flex w-16 items-center justify-center px-2"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                      >
-                        <span className="font-mono text-xs font-bold tabular-nums text-white [writing-mode:vertical-rl]">
-                          {focusLabel}
-                        </span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-[0.62rem] font-bold uppercase tracking-[0.18em] text-[#1eb36c]">
+                        Focus · Tug timer
+                      </p>
+                      <p className="mt-0.5 font-heading text-sm font-bold">
+                        {focusRunning ? "Deep work in progress" : "Timer paused"}
+                      </p>
+                    </div>
+                    <p className="font-mono text-2xl font-bold tabular-nums">{focusLabel}</p>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/10">
+                    <motion.div
+                      className="h-full rounded-full bg-[linear-gradient(90deg,#1eb36c_0%,#1eb36c_72%,#fb5498_100%)]"
+                      animate={{ width: `${Math.max(2, Math.min(100, (focusSeconds / focusTotalSeconds) * 100))}%` }}
+                      transition={{ duration: 0.35, ease: "easeOut" }}
+                    />
+                  </div>
                 </div>
-              </motion.div>
+
+                <div className="flex shrink-0 flex-col gap-1.5">
+                  <button
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => setFocusRunning((running) => !running)}
+                    className="button-motion grid h-8 w-8 place-items-center rounded-full bg-[#111] text-white"
+                    aria-label={focusRunning ? "Pause focus timer" : "Resume focus timer"}
+                  >
+                    {focusRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => {
+                      setFocusSeconds(0);
+                      setFocusRunning(false);
+                    }}
+                    className="button-motion grid h-8 w-8 place-items-center rounded-full border border-black/10 bg-white/70 text-black/55"
+                    aria-label="End focus timer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </motion.aside>
         ) : null}
