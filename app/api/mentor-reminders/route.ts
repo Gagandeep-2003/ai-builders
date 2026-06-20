@@ -231,10 +231,25 @@ export async function GET(request: Request) {
     return Response.json({ error: "Supabase service role is not configured." }, { status: 500 });
   }
 
-  await supabase
+  const warnings: string[] = [];
+  const cleanupResult = await supabase
     .from("submission_evidence")
     .delete()
     .lt("expires_at", new Date().toISOString());
+  if (cleanupResult.error) {
+    warnings.push(`Evidence cleanup skipped: ${cleanupResult.error.message}`);
+  }
+
+  const ledgerProbe = await supabase
+    .from("mentor_reminder_deliveries")
+    .select("event_key")
+    .limit(1);
+  const ledgerAvailable = !ledgerProbe.error;
+  if (ledgerProbe.error) {
+    warnings.push(
+      "Reminder delivery ledger is unavailable. Using the narrow cron window fallback.",
+    );
+  }
 
   const [
     { data: studentData, error: studentError },
@@ -336,7 +351,9 @@ export async function GET(request: Request) {
     now,
   }).filter((event) => {
     const minutesUntil = (event.startsAt.getTime() - now.getTime()) / 60_000;
-    return minutesUntil >= 45 && minutesUntil <= 75;
+    return ledgerAvailable
+      ? minutesUntil >= 45 && minutesUntil <= 75
+      : minutesUntil >= 53 && minutesUntil <= 67;
   });
 
   const sent: string[] = [];
@@ -345,26 +362,23 @@ export async function GET(request: Request) {
 
   for (const event of events) {
     const eventKey = `${event.id}:${event.startsAt.toISOString()}`;
-    const { error: deliveryError } = await supabase
-      .from("mentor_reminder_deliveries")
-      .insert({
-        event_key: eventKey,
-        student_id: event.student?.id ?? null,
-        class_starts_at: event.startsAt.toISOString(),
-      });
+    if (ledgerAvailable) {
+      const { error: deliveryError } = await supabase
+        .from("mentor_reminder_deliveries")
+        .insert({
+          event_key: eventKey,
+          student_id: event.student?.id ?? null,
+          class_starts_at: event.startsAt.toISOString(),
+        });
 
-    if (deliveryError?.code === "23505") {
-      skipped.push(eventKey);
-      continue;
-    }
-    if (deliveryError) {
-      return Response.json(
-        {
-          error: deliveryError.message,
-          hint: "Run supabase/mentor-reminders-migration.sql first.",
-        },
-        { status: 500 },
-      );
+      if (deliveryError?.code === "23505") {
+        skipped.push(eventKey);
+        continue;
+      }
+      if (deliveryError) {
+        failed.push({ event: eventKey, error: deliveryError.message });
+        continue;
+      }
     }
 
     try {
@@ -386,10 +400,12 @@ export async function GET(request: Request) {
       });
       sent.push(eventKey);
     } catch (error) {
-      await supabase
-        .from("mentor_reminder_deliveries")
-        .delete()
-        .eq("event_key", eventKey);
+      if (ledgerAvailable) {
+        await supabase
+          .from("mentor_reminder_deliveries")
+          .delete()
+          .eq("event_key", eventKey);
+      }
       failed.push({
         event: eventKey,
         error: error instanceof Error ? error.message : "Email could not be sent.",
@@ -400,8 +416,10 @@ export async function GET(request: Request) {
   return Response.json({
     checkedAt: now.toISOString(),
     matchingClasses: events.length,
+    ledgerAvailable,
     sent,
     skipped,
     failed,
+    warnings,
   });
 }
