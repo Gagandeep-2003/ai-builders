@@ -7,6 +7,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Clipboard,
   Command,
   Lightbulb,
@@ -151,7 +153,9 @@ export function StudentStrandsSearch({
   const [searched, setSearched] = useState(false);
   const [copied, setCopied] = useState(false);
   const [focusSeconds, setFocusSeconds] = useState(0);
+  const [focusTotalSeconds, setFocusTotalSeconds] = useState(25 * 60);
   const [focusRunning, setFocusRunning] = useState(false);
+  const [focusDockOpen, setFocusDockOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const { theme } = useTheme();
@@ -195,6 +199,38 @@ export function StudentStrandsSearch({
     {
       title: "Start a focus sprint",
       description: "Try: /focus 25 to launch a distraction-free 25-minute timer.",
+    },
+  ];
+  const commandSuggestions = [
+    {
+      command: "/focus 25",
+      title: "Focus timer",
+      description: "Starts a persistent 25-minute timer that stays on screen after search closes.",
+    },
+    {
+      command: "/prompt explain neural networks",
+      title: "Prompt Studio",
+      description: "Turns a rough task into a structured prompt you can copy into an AI tool.",
+    },
+    {
+      command: "/quiz prompt engineering",
+      title: "Quiz Builder",
+      description: "Creates active-recall questions and a self-check for any topic.",
+    },
+    {
+      command: "/plan finish my Bolt app",
+      title: "Plan Builder",
+      description: "Converts a goal into a practical build-and-test sequence.",
+    },
+    {
+      command: "/reflect my latest homework",
+      title: "Reflection Canvas",
+      description: "Creates useful reflection questions for homework evidence and learning notes.",
+    },
+    {
+      command: "next class",
+      title: "Portal Search",
+      description: "Finds lessons, homework, class information, tools, resources, and profile areas.",
     },
   ];
 
@@ -258,7 +294,9 @@ export function StudentStrandsSearch({
         ? Math.min(90, Math.max(1, requestedMinutes))
         : 25;
       setFocusSeconds(minutes * 60);
+      setFocusTotalSeconds(minutes * 60);
       setFocusRunning(true);
+      setFocusDockOpen(true);
     }
     setQuery(nextQuery);
     setSubmittedQuery(nextQuery);
@@ -335,10 +373,13 @@ export function StudentStrandsSearch({
 
   const focusMinutes = Math.floor(focusSeconds / 60);
   const focusRemainder = focusSeconds % 60;
+  const focusLabel =
+    `${String(focusMinutes).padStart(2, "0")}:${String(focusRemainder).padStart(2, "0")}`;
 
   return (
-    <AnimatePresence>
-      {open ? (
+    <>
+      <AnimatePresence>
+        {open ? (
         <motion.div
           className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-bg-base/88 px-4 py-4 backdrop-blur-2xl"
           initial={{ opacity: 0 }}
@@ -430,21 +471,23 @@ export function StudentStrandsSearch({
                         Preparing your course index...
                       </p>
                     ) : null}
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {[
-                        "/help",
-                        "/focus 25",
-                        "/prompt explain neural networks",
-                        "/quiz prompt engineering",
-                        "next class",
-                        "module 1 homework",
-                      ].map((suggestion) => (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {commandSuggestions.map((suggestion) => (
                         <button
-                          key={suggestion}
-                          onClick={() => runQuery(suggestion)}
-                          className="rounded-xl border border-border bg-white/[0.025] px-4 py-3 text-left text-sm text-text-secondary transition hover:border-accent/35 hover:text-text-primary"
+                          key={suggestion.command}
+                          onClick={() => runQuery(suggestion.command)}
+                          className="group rounded-2xl border border-border bg-white/[0.025] p-4 text-left transition hover:-translate-y-0.5 hover:border-accent/35 hover:bg-white/[0.045]"
                         >
-                          {suggestion}
+                          <span className="flex items-center justify-between gap-3">
+                            <span className="font-heading font-bold text-text-primary">{suggestion.title}</span>
+                            <ArrowRight className="h-4 w-4 text-text-muted transition group-hover:translate-x-1 group-hover:text-accent" />
+                          </span>
+                          <span className="mt-2 block text-sm leading-6 text-text-secondary">
+                            {suggestion.description}
+                          </span>
+                          <code className="mt-3 block truncate rounded-lg border border-white/5 bg-black/15 px-2.5 py-2 font-mono text-[0.67rem] text-accent">
+                            {suggestion.command}
+                          </code>
                         </button>
                       ))}
                     </div>
@@ -490,7 +533,7 @@ export function StudentStrandsSearch({
                         Focus chamber
                       </p>
                       <p className="mt-3 font-mono text-6xl font-bold tabular-nums text-text-primary sm:text-7xl">
-                        {String(focusMinutes).padStart(2, "0")}:{String(focusRemainder).padStart(2, "0")}
+                        {focusLabel}
                       </p>
                       <p className="mt-3 max-w-lg text-sm text-text-secondary">
                         Work on one task only. When the timer ends, record one sentence about what moved forward.
@@ -655,8 +698,132 @@ export function StudentStrandsSearch({
               <span>{loadingItems ? "Indexing..." : `${items.length} indexed portal items`}</span>
             </div>
           </motion.section>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {focusSeconds > 0 ? (
+          <motion.aside
+            drag="y"
+            dragConstraints={{ top: -280, bottom: 280 }}
+            dragElastic={0.08}
+            dragMomentum={false}
+            className="fixed right-0 top-[42%] z-[65] touch-none"
+            initial={{ x: 120, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 120, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 24 }}
+          >
+            <svg className="absolute h-0 w-0" aria-hidden="true">
+              <filter id="focus-dock-goo">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
+                <feColorMatrix
+                  in="blur"
+                  mode="matrix"
+                  values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10"
+                  result="goo"
+                />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+              </filter>
+            </svg>
+            <div className="relative flex items-center pr-2" style={{ filter: "url(#focus-dock-goo)" }}>
+              <motion.div
+                className="pointer-events-none absolute -inset-4 rounded-[2rem] bg-[conic-gradient(from_90deg,#f97316,#7c3aed,#06b6d4,#f472b6,#f97316)] opacity-55 blur-xl"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              />
+              <motion.div
+                layout
+                className="relative overflow-hidden rounded-l-3xl border border-r-0 border-white/15 bg-[#100d18]/95 shadow-[-18px_18px_70px_rgba(6,182,212,0.18)] backdrop-blur-2xl"
+                transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              >
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(249,115,22,0.25),transparent_36%),radial-gradient(circle_at_10%_90%,rgba(6,182,212,0.22),transparent_40%),linear-gradient(120deg,rgba(124,58,237,0.16),transparent_55%)]" />
+                <div className="relative flex items-stretch">
+                  <button
+                    onClick={() => setFocusDockOpen((value) => !value)}
+                    className="group grid min-h-20 w-12 shrink-0 place-items-center border-r border-white/10 text-white"
+                    aria-label={focusDockOpen ? "Collapse focus timer" : "Expand focus timer"}
+                    title="Drag vertically or click to expand"
+                  >
+                    <span className="absolute left-1 top-2 h-2 w-2 rounded-full bg-orange-300 shadow-[0_0_16px_#fb923c]" />
+                    {focusDockOpen
+                      ? <ChevronRight className="h-5 w-5 transition group-hover:translate-x-0.5" />
+                      : <ChevronLeft className="h-5 w-5 transition group-hover:-translate-x-0.5" />}
+                    <span className="absolute bottom-2 left-1 h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_16px_#67e8f9]" />
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {focusDockOpen ? (
+                      <motion.div
+                        key="focus-expanded"
+                        className="w-64 p-4 text-white"
+                        initial={{ width: 0, opacity: 0 }}
+                        animate={{ width: 256, opacity: 1 }}
+                        exit={{ width: 0, opacity: 0 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 28 }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-cyan-200">
+                              Focus chamber
+                            </p>
+                            <p className="mt-1 font-mono text-3xl font-bold tabular-nums">{focusLabel}</p>
+                          </div>
+                          <span className={`mt-1 h-2.5 w-2.5 rounded-full ${
+                            focusRunning
+                              ? "animate-pulse bg-emerald-300 shadow-[0_0_18px_#6ee7b7]"
+                              : "bg-white/35"
+                          }`} />
+                        </div>
+                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                          <motion.div
+                            className="h-full rounded-full bg-[linear-gradient(90deg,#f97316,#7c3aed,#06b6d4)] shadow-[0_0_16px_rgba(6,182,212,0.8)]"
+                            animate={{ width: `${Math.max(4, Math.min(100, (focusSeconds / focusTotalSeconds) * 100))}%` }}
+                            transition={{ duration: 0.35, ease: "easeOut" }}
+                          />
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                          <button
+                            onClick={() => setFocusRunning((running) => !running)}
+                            className="button-motion inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-bold text-slate-950"
+                          >
+                            {focusRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                            {focusRunning ? "Pause" : "Resume"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setFocusSeconds(0);
+                              setFocusRunning(false);
+                              setFocusDockOpen(false);
+                            }}
+                            className="button-motion grid h-9 w-9 place-items-center rounded-xl border border-white/15 bg-white/5 text-white/75"
+                            aria-label="End focus timer"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="focus-compact"
+                        className="flex w-16 items-center justify-center px-2"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <span className="font-mono text-xs font-bold tabular-nums text-white [writing-mode:vertical-rl]">
+                          {focusLabel}
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            </div>
+          </motion.aside>
+        ) : null}
+      </AnimatePresence>
+    </>
   );
 }
