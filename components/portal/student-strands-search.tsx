@@ -7,12 +7,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   Command,
+  Droplets,
   Palette,
   Pause,
   Play,
   Search,
   Sparkles,
-  TimerReset,
   X,
 } from "lucide-react";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -40,11 +40,29 @@ function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+const SEARCH_ALIASES: Record<string, string[]> = {
+  assignment: ["homework", "task", "challenge"],
+  assignments: ["homework", "tasks", "challenges"],
+  deck: ["resource", "presentation", "slides", "canva"],
+  lesson: ["session", "curriculum", "module"],
+  lessons: ["sessions", "curriculum", "modules"],
+  meeting: ["class", "meet", "schedule"],
+  score: ["progress", "completed", "submitted"],
+  submission: ["homework", "submitted", "evidence"],
+  teacher: ["class", "mentor", "schedule"],
+  video: ["resource", "session", "canva"],
+};
+
+function expandSearchTerms(query: string) {
+  const terms = normalize(query).split(" ").filter(Boolean);
+  return Array.from(new Set(terms.flatMap((term) => [term, ...(SEARCH_ALIASES[term] ?? [])])));
+}
+
 function scoreItem(item: StudentSearchItem, query: string) {
   const normalizedQuery = normalize(query);
   if (!normalizedQuery) return 0;
 
-  const terms = normalizedQuery.split(" ").filter(Boolean);
+  const terms = expandSearchTerms(query);
   const haystack = normalize([
     item.title,
     item.eyebrow,
@@ -73,192 +91,172 @@ function createAudioContext() {
   return new AudioContextCtor();
 }
 
-function playTugSound(context: AudioContext | null, kind: "pop" | "tick") {
+function playBubblePop(context: AudioContext | null) {
   if (!context) return;
   void context.resume().catch(() => undefined);
   const oscillator = context.createOscillator();
   const gain = context.createGain();
-  oscillator.type = kind === "tick" ? "triangle" : "sine";
-  oscillator.frequency.setValueAtTime(kind === "tick" ? 1200 : 800, context.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(
-    kind === "tick" ? 800 : 300,
-    context.currentTime + (kind === "tick" ? 0.05 : 0.1),
-  );
-  gain.gain.setValueAtTime(kind === "tick" ? 0.1 : 0.5, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(
-    kind === "tick" ? 0.001 : 0.01,
-    context.currentTime + (kind === "tick" ? 0.05 : 0.15),
-  );
+  const startFrequency = 400 + Math.random() * 400;
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(startFrequency, context.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(startFrequency * 1.5, context.currentTime + 0.1);
+  gain.gain.setValueAtTime(0, context.currentTime);
+  gain.gain.linearRampToValueAtTime(0.2, context.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.1);
   oscillator.connect(gain);
   gain.connect(context.destination);
   oscillator.start();
-  oscillator.stop(context.currentTime + (kind === "tick" ? 0.05 : 0.15));
+  oscillator.stop(context.currentTime + 0.1);
 }
 
-function TugTimerSetup({
+function playValveThunk(context: AudioContext | null) {
+  if (!context) return;
+  void context.resume().catch(() => undefined);
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = "square";
+  oscillator.frequency.setValueAtTime(100, context.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(20, context.currentTime + 0.15);
+  gain.gain.setValueAtTime(0.5, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.15);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.15);
+}
+
+function playLiquidAlarm(context: AudioContext | null) {
+  if (!context) return;
+  void context.resume().catch(() => undefined);
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = "sawtooth";
+  oscillator.frequency.setValueAtTime(800, context.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(400, context.currentTime + 0.2);
+  gain.gain.setValueAtTime(0.3, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.4);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.4);
+}
+
+function LiquidPressureTimer({
   getAudioContext,
   onStart,
 }: {
   getAudioContext: () => AudioContext | null;
   onStart: (minutes: number) => void;
 }) {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const faceRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number | null>(null);
-  const draggingRef = useRef(false);
-  const targetRef = useRef({ x: 0, y: 0 });
-  const currentRef = useRef({ x: 0, y: 0 });
-  const anchorRef = useRef({ x: 0, y: 0 });
-  const previousMinuteRef = useRef(0);
-  const selectedMinuteRef = useRef(0);
-  const [dragging, setDragging] = useState(false);
-  const [selectedMinutes, setSelectedMinutes] = useState(0);
-  const [currentPoint, setCurrentPoint] = useState({ x: 0, y: 0 });
-  const [anchorPoint, setAnchorPoint] = useState({ x: 0, y: 0 });
-  const [snapScale, setSnapScale] = useState(1);
-  const [snapKey, setSnapKey] = useState(0);
+  const fillIntervalRef = useRef<number | null>(null);
+  const bubbleIntervalRef = useRef<number | null>(null);
+  const minutesRef = useRef(0);
+  const [holding, setHolding] = useState(false);
+  const [minutes, setMinutes] = useState(0);
 
-  const formatFutureTime = useCallback((minutes: number) => {
-    const date = new Date();
-    date.setMinutes(date.getMinutes() + minutes);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const stopIntervals = useCallback(() => {
+    if (fillIntervalRef.current) window.clearInterval(fillIntervalRef.current);
+    if (bubbleIntervalRef.current) window.clearInterval(bubbleIntervalRef.current);
+    fillIntervalRef.current = null;
+    bubbleIntervalRef.current = null;
   }, []);
 
-  function renderLoop() {
-    if (!draggingRef.current) return;
-    currentRef.current.x += (targetRef.current.x - currentRef.current.x) * 0.25;
-    currentRef.current.y += (targetRef.current.y - currentRef.current.y) * 0.25;
-    const pullDistance = Math.max(0, currentRef.current.y - anchorRef.current.y);
-    const minutes = Math.max(1, Math.min(60, Math.floor(pullDistance / 6)));
-    if (minutes !== previousMinuteRef.current) {
-      navigator.vibrate?.(10);
-      playTugSound(getAudioContext(), "tick");
-      previousMinuteRef.current = minutes;
-      selectedMinuteRef.current = minutes;
-      setSelectedMinutes(minutes);
-    }
-    setCurrentPoint({ ...currentRef.current });
-    rafRef.current = requestAnimationFrame(renderLoop);
-  }
+  useEffect(() => stopIntervals, [stopIntervals]);
 
-  useEffect(() => () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  }, []);
-
-  function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
+  function startFilling(event: ReactPointerEvent<HTMLButtonElement>) {
     event.preventDefault();
-    const stage = stageRef.current?.getBoundingClientRect();
-    const face = faceRef.current?.getBoundingClientRect();
-    if (!stage || !face) return;
-    const anchor = {
-      x: face.left - stage.left + face.width / 2,
-      y: face.bottom - stage.top - 6,
-    };
-    anchorRef.current = anchor;
-    targetRef.current = { x: event.clientX - stage.left, y: event.clientY - stage.top };
-    currentRef.current = anchor;
-    previousMinuteRef.current = 0;
-    selectedMinuteRef.current = 0;
-    setAnchorPoint(anchor);
-    setCurrentPoint(anchor);
-    setSelectedMinutes(0);
-    draggingRef.current = true;
-    setDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(renderLoop);
+    stopIntervals();
+    minutesRef.current = 0;
+    setMinutes(0);
+    setHolding(true);
+    navigator.vibrate?.([20, 20, 20]);
+    bubbleIntervalRef.current = window.setInterval(() => {
+      if (Math.random() > 0.3) playBubblePop(getAudioContext());
+    }, 50);
+    fillIntervalRef.current = window.setInterval(() => {
+      minutesRef.current = Math.min(60, minutesRef.current + 0.5);
+      setMinutes(minutesRef.current);
+      if (minutesRef.current % 1 === 0) navigator.vibrate?.(10);
+      if (minutesRef.current >= 60) stopIntervals();
+    }, 30);
   }
 
-  function updateTarget(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!draggingRef.current || !stageRef.current) return;
-    event.preventDefault();
-    const stage = stageRef.current.getBoundingClientRect();
-    targetRef.current = { x: event.clientX - stage.left, y: event.clientY - stage.top };
-  }
-
-  function endDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!draggingRef.current) return;
-    draggingRef.current = false;
-    setDragging(false);
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  function stopFilling(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!holding) return;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    const pullDistance = currentRef.current.y - anchorRef.current.y;
-    setSnapScale(Math.max(1, Math.min(pullDistance / 20, 6)));
-    setSnapKey((key) => key + 1);
-    playTugSound(getAudioContext(), "pop");
-    navigator.vibrate?.([30, 40, 30]);
-    if (selectedMinuteRef.current > 0) onStart(selectedMinuteRef.current);
+    setHolding(false);
+    stopIntervals();
+    playValveThunk(getAudioContext());
+    navigator.vibrate?.(50);
+    const selectedMinutes = Math.floor(minutesRef.current);
+    if (selectedMinutes > 0) onStart(selectedMinutes);
   }
 
-  const pullDistance = Math.max(0, currentPoint.y - anchorPoint.y);
-  const controlY = anchorPoint.y + pullDistance / 1.5;
-  const path = dragging
-    ? `M ${anchorPoint.x} ${anchorPoint.y} Q ${anchorPoint.x} ${controlY} ${currentPoint.x} ${currentPoint.y}`
-    : "";
+  const fluidPercentage = Math.min(100, (minutes / 60) * 100);
+  const shownMinutes = Math.floor(minutes);
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-emerald-300/25 bg-[#f4f1eb] p-5 text-[#111] shadow-[0_24px_100px_rgba(30,179,108,0.12)]">
-      <div className="text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#1eb36c]">Tug timer</p>
-        <h3 className="mt-2 font-heading text-2xl font-bold">Pull. Release. Done.</h3>
-        <p className="mt-2 text-sm text-black/55">Drag the frog&apos;s tongue downward to choose your focus time.</p>
-      </div>
-      <div ref={stageRef} className="relative mt-5 h-[430px] w-full overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_50%_10%,rgba(30,179,108,0.12),transparent_45%)]">
-        <div className="absolute inset-x-0 top-0 flex h-9 items-center justify-end gap-3 rounded-b-xl bg-[#111] px-4 font-mono text-[0.6rem] font-semibold text-white/65">
-          <span>FOCUS</span>
-          <span>TUG TIMER</span>
+    <div className="relative overflow-hidden rounded-3xl border border-cyan-300/20 bg-[#050914] p-6 text-white shadow-[0_28px_100px_rgba(0,102,255,0.18)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,#111a30_0%,transparent_52%),linear-gradient(0deg,rgba(0,240,255,0.04),transparent)]" />
+      <div className="relative">
+        <div className="mb-6 text-center">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-300">Liquid pressure timer</p>
+          <h3 className="mt-2 font-heading text-2xl font-bold">Hold to fill. Release to focus.</h3>
+          <p className="mt-2 text-sm text-slate-400">The longer you hold the valve, the longer your focus session.</p>
         </div>
-        <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
-          <path d={path} stroke="#fb5498" strokeWidth="10" strokeLinecap="round" fill="none" />
-          {dragging ? <circle cx={currentPoint.x} cy={currentPoint.y} r="8" fill="#fb5498" /> : null}
-        </svg>
-        <div
-          ref={faceRef}
-          onPointerDown={startDrag}
-          onPointerMove={updateTarget}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          className="absolute right-4 top-0 flex h-9 w-10 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
-        >
-          <div className="relative mt-1 flex h-[22px] w-[26px] items-center justify-center rounded-[20px] bg-[#1eb36c]">
-            <span className="absolute left-0.5 -top-1.5 h-[3px] w-2 rotate-[15deg] rounded-sm bg-[#1eb36c]" />
-            <span className="absolute right-0.5 -top-1.5 h-[3px] w-2 -rotate-[15deg] rounded-sm bg-[#1eb36c]" />
-            <div className="-mt-0.5 flex gap-0.5">
-              {[0, 1].map((eye) => (
-                <span key={eye} className="grid h-[11px] w-[11px] place-items-center rounded-full bg-white">
-                  <span
-                    className="h-[5px] w-[5px] rounded-full bg-black transition-transform duration-100"
-                    style={{ transform: `translateY(${dragging ? 3 : 0}px)` }}
-                  />
-                </span>
+        <div className="flex min-h-[400px] items-end justify-center gap-8 sm:gap-12">
+          <div className="relative h-[360px] w-[108px] overflow-hidden rounded-[54px_54px_18px_18px] border-2 border-white/20 bg-white/5 shadow-[inset_0_0_30px_rgba(0,0,0,0.8),inset_0_0_10px_rgba(255,255,255,0.1),0_20px_40px_rgba(0,0,0,0.5)] backdrop-blur-sm">
+            <div className="pointer-events-none absolute inset-y-[5%] left-[10%] z-20 w-[30%] rounded-2xl bg-gradient-to-r from-white/10 to-transparent" />
+            <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between py-9">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <span key={index} className="ml-2.5 h-0.5 w-4 bg-white/30" />
               ))}
             </div>
-            {!dragging ? (
-              <motion.span
-                key={snapKey}
-                className="absolute -bottom-1.5 left-1/2 h-3 w-2.5 -translate-x-1/2 origin-top rounded-b-[10px] bg-[#fb5498]"
-                initial={{ scaleY: snapScale }}
-                animate={{ scaleY: [snapScale, 0.4, 1.3, 0.85, 1] }}
-                transition={{ duration: 0.6, times: [0, 0.3, 0.55, 0.8, 1], ease: [0.34, 1.56, 0.64, 1] }}
-              />
-            ) : null}
+            <div
+              className="absolute inset-x-0 bottom-0 bg-gradient-to-b from-[#00f0ff] to-[#0066ff] shadow-[0_0_20px_rgba(0,240,255,0.6)] transition-[height] duration-100"
+              style={{ height: `${fluidPercentage}%` }}
+            >
+              <svg
+                className={`absolute -top-4 left-0 h-5 w-[200%] fill-[#00f0ff] ${
+                  holding ? "animate-[liquid-boil_0.5s_linear_infinite]" : "animate-[liquid-slosh_3s_linear_infinite]"
+                }`}
+                viewBox="0 0 800 50"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path d="M0,25 C100,50 150,0 200,25 C250,50 300,0 400,25 C500,50 550,0 600,25 C650,50 700,0 800,25 L800,50 L0,50 Z" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-center gap-5 pb-5">
+            <div>
+              <p className={`font-mono text-sm uppercase tracking-[0.16em] ${holding ? "text-cyan-300" : "text-slate-400"}`}>
+                {holding ? "Pressurizing..." : "System idle"}
+              </p>
+              <p className="mt-1 w-40 font-mono text-5xl font-bold tabular-nums text-white [text-shadow:0_0_20px_rgba(255,255,255,0.3)]">
+                {String(shownMinutes).padStart(2, "0")}:00
+              </p>
+            </div>
+            <motion.button
+              type="button"
+              onPointerDown={startFilling}
+              onPointerUp={stopFilling}
+              onPointerCancel={stopFilling}
+              className={`touch-none rounded-xl border-2 px-5 py-5 font-mono text-sm font-bold uppercase tracking-[0.15em] transition ${
+                holding
+                  ? "translate-y-1 border-cyan-300 bg-gradient-to-br from-slate-900 to-slate-950 text-cyan-300 shadow-[0_2px_5px_rgba(0,0,0,0.5),inset_0_4px_10px_rgba(0,0,0,0.8),0_0_20px_rgba(0,240,255,0.4)]"
+                  : "border-slate-700 bg-gradient-to-br from-slate-800 to-slate-950 text-white shadow-[0_10px_20px_rgba(0,0,0,0.5),inset_0_2px_5px_rgba(255,255,255,0.1)]"
+              }`}
+              whileTap={{ y: 4 }}
+            >
+              Hold to fill
+            </motion.button>
           </div>
         </div>
-        <AnimatePresence>
-          {dragging ? (
-            <motion.div
-              className="pointer-events-none absolute rounded-full bg-[#111] px-4 py-2 text-sm font-semibold text-white shadow-xl"
-              style={{ left: currentPoint.x + 15, top: currentPoint.y - 15 }}
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85 }}
-            >
-              {selectedMinutes} min • {formatFutureTime(selectedMinutes)}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
       </div>
     </div>
   );
@@ -301,6 +299,7 @@ export function StudentStrandsSearch({
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [focusTotalSeconds, setFocusTotalSeconds] = useState(25 * 60);
   const [focusRunning, setFocusRunning] = useState(false);
+  const [waterRelease, setWaterRelease] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const { theme } = useTheme();
@@ -314,6 +313,11 @@ export function StudentStrandsSearch({
       normalizedSubmittedQuery.includes("dark mode") ||
       normalizedSubmittedQuery.includes("light mode") ||
       (normalizedSubmittedQuery.includes("toggle") && normalizedSubmittedQuery.includes("theme")));
+  const isTimerCommand =
+    searched &&
+    ["timer", "focus", "focus timer", "study timer", "pomodoro", "pressure timer"].some(
+      (command) => normalizedSubmittedQuery === command || normalizedSubmittedQuery.includes(command),
+    );
   const nextTheme = theme === "dark" ? "light" : "dark";
   const helpItems = [
     {
@@ -334,7 +338,7 @@ export function StudentStrandsSearch({
     },
     {
       title: "Start a focus timer",
-      description: "Open Tug Timer from Quick Actions and pull the frog's tongue to choose a duration.",
+      description: "Search timer, focus, study timer, or pomodoro; then hold the pressure valve to choose a duration.",
     },
   ];
 
@@ -343,7 +347,8 @@ export function StudentStrandsSearch({
       !searched ||
       !submittedQuery.trim() ||
       isHelp ||
-      isThemeCommand
+      isThemeCommand ||
+      isTimerCommand
     ) return [];
     return items
       .map((item) => ({ item, score: scoreItem(item, submittedQuery) }))
@@ -351,7 +356,7 @@ export function StudentStrandsSearch({
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
       .map(({ item }) => item);
-  }, [isHelp, isThemeCommand, items, searched, submittedQuery]);
+  }, [isHelp, isThemeCommand, isTimerCommand, items, searched, submittedQuery]);
 
   const ensureAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -419,12 +424,12 @@ export function StudentStrandsSearch({
   }, [open, speakGreeting]);
 
   useEffect(() => {
-    if (!searched || (results.length === 0 && !isHelp && !isThemeCommand)) return;
-    const count = isHelp ? helpItems.length : isThemeCommand ? 1 : Math.min(results.length, 4);
+    if (!searched || (results.length === 0 && !isHelp && !isThemeCommand && !isTimerCommand)) return;
+    const count = isHelp ? helpItems.length : isThemeCommand || isTimerCommand ? 1 : Math.min(results.length, 4);
     Array.from({ length: count }).forEach((_, index) => {
       window.setTimeout(() => playResultTone(audioContextRef.current, index), index * 95);
     });
-  }, [helpItems.length, isHelp, isThemeCommand, results.length, searched]);
+  }, [helpItems.length, isHelp, isThemeCommand, isTimerCommand, results.length, searched]);
 
   useEffect(() => {
     if (!focusRunning) return;
@@ -432,9 +437,12 @@ export function StudentStrandsSearch({
       setFocusSeconds((seconds) => {
         if (seconds <= 1) {
           setFocusRunning(false);
-          playTugSound(audioContextRef.current, "pop");
-          window.setTimeout(() => playTugSound(audioContextRef.current, "pop"), 150);
-          navigator.vibrate?.([100, 50, 100]);
+          setWaterRelease(true);
+          playLiquidAlarm(audioContextRef.current);
+          window.setTimeout(() => playLiquidAlarm(audioContextRef.current), 200);
+          window.setTimeout(() => playLiquidAlarm(audioContextRef.current), 400);
+          window.setTimeout(() => setWaterRelease(false), 2200);
+          navigator.vibrate?.([100, 100, 100, 100, 100]);
           return 0;
         }
         return seconds - 1;
@@ -575,14 +583,14 @@ export function StudentStrandsSearch({
                           setTimerSetupOpen(true);
                           setSearched(true);
                         }}
-                        className="group overflow-hidden rounded-2xl border border-pink-300/20 bg-[radial-gradient(circle_at_85%_0%,rgba(244,114,182,0.16),transparent_45%),rgba(255,255,255,0.025)] p-4 text-left transition hover:-translate-y-0.5 hover:border-pink-300/45"
+                        className="group overflow-hidden rounded-2xl border border-cyan-300/20 bg-[radial-gradient(circle_at_85%_0%,rgba(0,240,255,0.13),transparent_45%),rgba(255,255,255,0.025)] p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/45"
                       >
                         <span className="flex items-center justify-between gap-3">
-                          <span className="font-heading font-bold text-text-primary">Pull Timer</span>
-                          <TimerReset className="h-4 w-4 text-pink-300" />
+                          <span className="font-heading font-bold text-text-primary">Pressure Timer</span>
+                          <Droplets className="h-4 w-4 text-cyan-300" />
                         </span>
                         <span className="mt-2 block text-sm leading-6 text-text-secondary">
-                          Pull the frog&apos;s elastic tongue. Every six pixels adds one minute; release to begin.
+                          Hold the valve to fill the vial. Release when your focus duration is ready.
                         </span>
                       </button>
                       <button
@@ -609,6 +617,20 @@ export function StudentStrandsSearch({
                           Jump straight to class timing, Meet access, and schedule information.
                         </span>
                       </button>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-text-muted">
+                        Try
+                      </span>
+                      {["continue homework", "my next class", "module 2 resources", "submitted work", "timer"].map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          onClick={() => runQuery(suggestion)}
+                          className="rounded-full border border-border bg-bg-elevated/70 px-3 py-1.5 text-xs text-text-secondary transition hover:border-accent/35 hover:text-accent"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
                     </div>
                   </>
                 ) : isHelp ? (
@@ -638,12 +660,12 @@ export function StudentStrandsSearch({
                       Use natural words, exact session names, tools, module numbers, or portal areas.
                     </p>
                   </div>
-                ) : timerSetupOpen ? (
+                ) : timerSetupOpen || isTimerCommand ? (
                   <motion.div
                     initial={{ opacity: 0, y: 18, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                   >
-                    <TugTimerSetup getAudioContext={ensureAudioContext} onStart={startFocusTimer} />
+                    <LiquidPressureTimer getAudioContext={ensureAudioContext} onStart={startFocusTimer} />
                   </motion.div>
                 ) : isThemeCommand ? (
                   <motion.div
@@ -763,63 +785,51 @@ export function StudentStrandsSearch({
             dragConstraints={{ top: -220, right: 24, bottom: 220, left: -280 }}
             dragElastic={0.06}
             dragMomentum={false}
-            className="fixed bottom-5 right-5 z-[65] w-[min(21rem,calc(100vw-2rem))] touch-none sm:bottom-7 sm:right-7"
+            className="fixed bottom-5 right-5 z-[65] w-[min(19rem,calc(100vw-2rem))] touch-none sm:bottom-7 sm:right-7"
             initial={{ y: 28, opacity: 0, scale: 0.94 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 18, opacity: 0, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 260, damping: 24 }}
           >
-            <div className="relative cursor-grab overflow-hidden rounded-2xl border border-[#1eb36c]/30 bg-[#f4f1eb] p-4 text-[#111] shadow-[0_18px_60px_rgba(17,17,17,0.16),0_0_36px_rgba(30,179,108,0.12)] active:cursor-grabbing">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#1eb36c] to-transparent" />
+            <div className="relative cursor-grab overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#07101f]/95 p-3.5 text-white shadow-[0_18px_60px_rgba(0,0,0,0.34),0_0_36px_rgba(0,240,255,0.12)] backdrop-blur-xl active:cursor-grabbing">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(0,240,255,0.14),transparent_40%)]" />
               <div className="flex items-center gap-3">
-                <motion.div
-                  className="relative grid h-14 w-[4.5rem] shrink-0 place-items-center rounded-[2rem] bg-[#1eb36c] shadow-[0_10px_24px_rgba(30,179,108,0.24)]"
-                  animate={focusRunning ? { y: [0, -1.5, 0] } : { y: 0 }}
-                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                  aria-hidden="true"
-                >
-                  <span className="absolute -left-0.5 -top-1 h-2 w-6 rotate-[15deg] rounded-full bg-[#1eb36c]" />
-                  <span className="absolute -right-0.5 -top-1 h-2 w-6 -rotate-[15deg] rounded-full bg-[#1eb36c]" />
-                  <span className="flex gap-1">
-                    {[0, 1].map((eye) => (
-                      <span key={eye} className="grid h-7 w-7 place-items-center rounded-full bg-white">
-                        <span className="h-3 w-3 rounded-full bg-black" />
-                      </span>
-                    ))}
-                  </span>
-                  <motion.span
-                    className="absolute -bottom-3 left-1/2 h-5 w-4 -translate-x-1/2 origin-top rounded-b-full bg-[#fb5498]"
-                    animate={focusRunning ? { scaleY: [1, 1.14, 1] } : { scaleY: 0.72 }}
-                    transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                </motion.div>
+                <div className="relative h-16 w-10 shrink-0 overflow-hidden rounded-[20px_20px_7px_7px] border border-white/25 bg-white/5 shadow-[inset_0_0_14px_rgba(0,0,0,0.75)]">
+                  <div className="pointer-events-none absolute inset-y-[8%] left-[12%] z-20 w-[28%] rounded-full bg-gradient-to-r from-white/12 to-transparent" />
+                  <div
+                    className="absolute inset-x-0 bottom-0 bg-gradient-to-b from-[#00f0ff] to-[#0066ff] shadow-[0_0_14px_rgba(0,240,255,0.55)] transition-[height] duration-500"
+                    style={{ height: `${Math.max(3, (focusSeconds / focusTotalSeconds) * 100)}%` }}
+                  >
+                    <svg
+                      className="absolute -top-1.5 left-0 h-2 w-[200%] animate-[liquid-slosh_3s_linear_infinite] fill-[#00f0ff]"
+                      viewBox="0 0 800 50"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
+                      <path d="M0,25 C100,50 150,0 200,25 C250,50 300,0 400,25 C500,50 550,0 600,25 C650,50 700,0 800,25 L800,50 L0,50 Z" />
+                    </svg>
+                  </div>
+                </div>
 
-                <div className="min-w-0 flex-1">
+                <div className="relative min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-mono text-[0.62rem] font-bold uppercase tracking-[0.18em] text-[#1eb36c]">
-                        Focus · Tug timer
+                      <p className="font-mono text-[0.58rem] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                        Liquid focus
                       </p>
-                      <p className="mt-0.5 font-heading text-sm font-bold">
-                        {focusRunning ? "Deep work in progress" : "Timer paused"}
+                      <p className="mt-1 font-heading text-xs font-bold text-slate-300">
+                        {focusRunning ? "Depleting" : "Pressure paused"}
                       </p>
                     </div>
                     <p className="font-mono text-2xl font-bold tabular-nums">{focusLabel}</p>
                   </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/10">
-                    <motion.div
-                      className="h-full rounded-full bg-[linear-gradient(90deg,#1eb36c_0%,#1eb36c_72%,#fb5498_100%)]"
-                      animate={{ width: `${Math.max(2, Math.min(100, (focusSeconds / focusTotalSeconds) * 100))}%` }}
-                      transition={{ duration: 0.35, ease: "easeOut" }}
-                    />
-                  </div>
                 </div>
 
-                <div className="flex shrink-0 flex-col gap-1.5">
+                <div className="relative flex shrink-0 flex-col gap-1.5">
                   <button
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => setFocusRunning((running) => !running)}
-                    className="button-motion grid h-8 w-8 place-items-center rounded-full bg-[#111] text-white"
+                    className="button-motion grid h-8 w-8 place-items-center rounded-full bg-cyan-300 text-slate-950"
                     aria-label={focusRunning ? "Pause focus timer" : "Resume focus timer"}
                   >
                     {focusRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
@@ -830,7 +840,7 @@ export function StudentStrandsSearch({
                       setFocusSeconds(0);
                       setFocusRunning(false);
                     }}
-                    className="button-motion grid h-8 w-8 place-items-center rounded-full border border-black/10 bg-white/70 text-black/55"
+                    className="button-motion grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-white/55"
                     aria-label="End focus timer"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -839,6 +849,45 @@ export function StudentStrandsSearch({
               </div>
             </div>
           </motion.aside>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {waterRelease ? (
+          <motion.div
+            className="pointer-events-none fixed inset-0 z-[90] overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="absolute inset-x-0 bottom-0 h-[125%] bg-gradient-to-b from-[#00f0ff]/90 via-[#008cff]/95 to-[#0038a8]"
+              initial={{ y: "105%" }}
+              animate={{ y: ["105%", "8%", "18%", "-115%"] }}
+              transition={{ duration: 2.1, times: [0, 0.38, 0.58, 1], ease: "easeInOut" }}
+            >
+              <svg
+                className="absolute -top-16 left-0 h-20 w-[200%] animate-[liquid-boil_0.5s_linear_infinite] fill-[#00f0ff]"
+                viewBox="0 0 800 50"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path d="M0,25 C100,50 150,0 200,25 C250,50 300,0 400,25 C500,50 550,0 600,25 C650,50 700,0 800,25 L800,50 L0,50 Z" />
+              </svg>
+            </motion.div>
+            <motion.div
+              className="absolute inset-0 grid place-items-center"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: [0, 1, 1, 0], scale: [0.9, 1, 1, 1.05] }}
+              transition={{ duration: 1.8, times: [0, 0.28, 0.68, 1] }}
+            >
+              <div className="rounded-2xl border border-white/30 bg-[#050914]/75 px-7 py-5 text-center text-white shadow-[0_0_70px_rgba(0,240,255,0.45)] backdrop-blur-xl">
+                <Droplets className="mx-auto h-7 w-7 text-cyan-200" />
+                <p className="mt-2 font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">Pressure released</p>
+                <p className="mt-1 font-heading text-xl font-bold">Focus session complete</p>
+              </div>
+            </motion.div>
+          </motion.div>
         ) : null}
       </AnimatePresence>
     </>

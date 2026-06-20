@@ -846,6 +846,42 @@ textarea:focus-visible {
   }
 }
 
+@keyframes liquid-slosh {
+  0% {
+    transform: translateX(0) scaleY(1);
+  }
+
+  50% {
+    transform: translateX(-25%) scaleY(0.8);
+  }
+
+  100% {
+    transform: translateX(-50%) scaleY(1);
+  }
+}
+
+@keyframes liquid-boil {
+  0% {
+    transform: translateX(0) scaleY(1.5);
+  }
+
+  25% {
+    transform: translateX(-12.5%) scaleY(0.8);
+  }
+
+  50% {
+    transform: translateX(-25%) scaleY(1.8);
+  }
+
+  75% {
+    transform: translateX(-37.5%) scaleY(0.9);
+  }
+
+  100% {
+    transform: translateX(-50%) scaleY(1.5);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

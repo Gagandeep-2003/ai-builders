@@ -1,18 +1,42 @@
 -- Repair permissions required by the server-side mentor reminder cron.
--- Run this once in Supabase SQL Editor as the postgres role.
+-- Run the complete file once in Supabase SQL Editor using the postgres role.
 
 grant usage on schema public to service_role;
 
-grant select on table public.students to service_role;
-grant select on table public.batches to service_role;
-grant select on table public.batch_class_slots to service_role;
-grant select on table public.sessions to service_role;
-grant select on table public.modules to service_role;
-grant select on table public.class_reschedule_requests to service_role;
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'students',
+    'batches',
+    'batch_class_slots',
+    'sessions',
+    'modules',
+    'class_reschedule_requests',
+    'mentor_reminder_deliveries',
+    'submission_evidence'
+  ]
+  loop
+    if to_regclass(format('public.%I', table_name)) is not null then
+      execute format(
+        'grant select, insert, update, delete on table public.%I to service_role',
+        table_name
+      );
+    end if;
+  end loop;
+end
+$$;
 
-grant select, insert, delete on table public.mentor_reminder_deliveries to service_role;
-grant select, delete on table public.submission_evidence to service_role;
+grant usage, select on all sequences in schema public to service_role;
 
--- Keep table-owner changes from silently removing cron access later.
-alter default privileges in schema public
+-- Preserve access for tables and sequences created by future migrations.
+alter default privileges for role postgres in schema public
 grant select, insert, update, delete on tables to service_role;
+
+alter default privileges for role postgres in schema public
+grant usage, select on sequences to service_role;
+
+-- The result must be true before testing cron-job.org again.
+select has_table_privilege('service_role', 'public.students', 'select')
+  as mentor_cron_students_access;

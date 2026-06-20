@@ -228,14 +228,17 @@ async function runMentorReminders(request: Request) {
 
   const supabase = createServiceRoleSupabaseClient();
   if (!supabase) {
-    return Response.json({
-      ok: false,
-      error: "Supabase service role is not configured.",
-      matchingClasses: 0,
-      sent: [],
-      skipped: [],
-      failed: [],
-    });
+    return Response.json(
+      {
+        ok: false,
+        error: "Supabase service role is not configured.",
+        matchingClasses: 0,
+        sent: [],
+        skipped: [],
+        failed: [],
+      },
+      { status: 500 },
+    );
   }
 
   const warnings: string[] = [];
@@ -341,6 +344,7 @@ async function runMentorReminders(request: Request) {
             ? "Run supabase/mentor-reminders-service-role-grants.sql in Supabase SQL Editor."
             : error?.hint,
       },
+      { status: 500 },
     );
   }
 
@@ -433,16 +437,19 @@ async function runMentorReminders(request: Request) {
     }
   }
 
-  return Response.json({
-    ok: failed.length === 0,
-    checkedAt: now.toISOString(),
-    matchingClasses: events.length,
-    ledgerAvailable,
-    sent,
-    skipped,
-    failed,
-    warnings,
-  });
+  return Response.json(
+    {
+      ok: failed.length === 0,
+      checkedAt: now.toISOString(),
+      matchingClasses: events.length,
+      ledgerAvailable,
+      sent,
+      skipped,
+      failed,
+      warnings,
+    },
+    { status: failed.length === 0 ? 200 : 500 },
+  );
 }
 
 export async function GET(request: Request) {
@@ -450,19 +457,22 @@ export async function GET(request: Request) {
     return await runMentorReminders(request);
   } catch (error) {
     console.error("Mentor reminder cron failed", error);
-    return Response.json({
-      ok: false,
-      checkedAt: new Date().toISOString(),
-      matchingClasses: 0,
-      sent: [],
-      skipped: [],
-      failed: [{
-        event: "cron-run",
-        error: error instanceof Error ? error.message : "Unexpected reminder failure.",
-      }],
-      warnings: [
-        "The cron request completed safely, but reminders were not sent. Check Vercel logs for the recorded error.",
-      ],
-    });
+    return Response.json(
+      {
+        ok: false,
+        checkedAt: new Date().toISOString(),
+        matchingClasses: 0,
+        sent: [],
+        skipped: [],
+        failed: [{
+          event: "cron-run",
+          error: error instanceof Error ? error.message : "Unexpected reminder failure.",
+        }],
+        warnings: [
+          "The cron request completed safely, but reminders were not sent. Check Vercel logs for the recorded error.",
+        ],
+      },
+      { status: 500 },
+    );
   }
 }
