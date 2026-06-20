@@ -2,13 +2,13 @@ import { PasswordChangePanel } from "@/components/portal/password-change-panel";
 import { ProfileContactForm } from "@/components/portal/profile-contact-form";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentProfileData } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
-  const data = await getStudentDashboardData();
+  const data = await getStudentProfileData();
 
   const lockedRows = [
     ["Name", data.student.fullName],

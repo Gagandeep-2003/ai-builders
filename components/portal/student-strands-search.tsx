@@ -1,13 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Command, Palette, Search, Sparkles, X } from "lucide-react";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import { RippleGrid } from "@/components/ui/ripple-grid";
-import { Strands } from "@/components/ui/strands";
 import { useTheme } from "@/components/ui/theme-provider";
+
+const RippleGrid = dynamic(
+  () => import("@/components/ui/ripple-grid").then((module) => module.RippleGrid),
+  { ssr: false },
+);
+const Strands = dynamic(
+  () => import("@/components/ui/strands").then((module) => module.Strands),
+  { ssr: false },
+);
 
 export type StudentSearchItem = {
   title: string;
@@ -79,12 +87,12 @@ declare global {
 
 export function StudentStrandsSearch({
   studentName,
-  items,
 }: {
   studentName: string;
-  items: StudentSearchItem[];
 }) {
   const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<StudentSearchItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [searched, setSearched] = useState(false);
@@ -141,6 +149,19 @@ export function StudentStrandsSearch({
     return audioContextRef.current;
   }, []);
 
+  const loadSearchItems = useCallback(async () => {
+    if (items.length > 0 || loadingItems) return;
+    setLoadingItems(true);
+    try {
+      const response = await fetch("/api/student-search");
+      if (!response.ok) return;
+      const payload = await response.json() as { items?: StudentSearchItem[] };
+      setItems(payload.items ?? []);
+    } finally {
+      setLoadingItems(false);
+    }
+  }, [items.length, loadingItems]);
+
   const speakGreeting = useCallback(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
@@ -166,12 +187,15 @@ export function StudentStrandsSearch({
       if (!shortcut) return;
       event.preventDefault();
       ensureAudioContext();
-      setOpen((value) => !value);
+      setOpen((value) => {
+        if (!value) void loadSearchItems();
+        return !value;
+      });
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [ensureAudioContext]);
+  }, [ensureAudioContext, loadSearchItems]);
 
   useEffect(() => {
     if (!open) return;
@@ -290,17 +314,24 @@ export function StudentStrandsSearch({
 
               <div className="mx-auto mt-8 w-full max-w-3xl">
                 {!searched ? (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    {["/help", "toggle theme", "next class", "module 1 homework"].map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        onClick={() => runQuery(suggestion)}
-                        className="rounded-xl border border-border bg-white/[0.025] px-4 py-3 text-left text-sm text-text-secondary transition hover:border-accent/35 hover:text-text-primary"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    {loadingItems ? (
+                      <p className="mb-3 font-mono text-xs uppercase tracking-[0.16em] text-accent">
+                        Preparing your course index...
+                      </p>
+                    ) : null}
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {["/help", "toggle theme", "next class", "module 1 homework"].map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          onClick={() => runQuery(suggestion)}
+                          className="rounded-xl border border-border bg-white/[0.025] px-4 py-3 text-left text-sm text-text-secondary transition hover:border-accent/35 hover:text-text-primary"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 ) : isHelp ? (
                   <div>
                     <motion.p
@@ -432,7 +463,7 @@ export function StudentStrandsSearch({
                 <Command className="h-3.5 w-3.5" />
                 Student search
               </span>
-              <span>{items.length} indexed portal items</span>
+              <span>{loadingItems ? "Indexing..." : `${items.length} indexed portal items`}</span>
             </div>
           </motion.section>
         </motion.div>

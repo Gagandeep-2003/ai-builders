@@ -4,11 +4,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PrintButton } from "@/components/portal/print-button";
 import { ProgressRing } from "@/components/portal/progress-ring";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentProgressData } from "@/lib/data";
 import { formatDate, percent } from "@/lib/utils";
 
 export default async function ProgressPage() {
-  const data = await getStudentDashboardData();
+  const data = await getStudentProgressData();
   const completed = data.sessions.filter((session) => session.status === "completed").length;
   const completion = percent(completed, data.sessions.length);
   const attendanceSummary = ["present", "absent", "rescheduled"].map((status) => ({

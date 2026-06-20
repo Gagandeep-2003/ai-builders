@@ -1,10 +1,10 @@
 import { ResourceLibrary } from "@/components/portal/resource-library";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentResourcesData } from "@/lib/data";
 
 export default async function ResourcesPage() {
-  const data = await getStudentDashboardData();
+  const data = await getStudentResourcesData();
 
   return (
     <AnimatedPage>

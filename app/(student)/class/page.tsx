@@ -11,7 +11,7 @@ import {
   getNextClassEvent,
   getStudentClassEvents,
 } from "@/lib/class-events";
-import { getMentorScheduleData, getStudentDashboardData } from "@/lib/data";
+import { getMentorScheduleData, getStudentClassData } from "@/lib/data";
 import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
 import { getBookedSlots } from "@/lib/slot-availability";
 import {
@@ -39,7 +39,7 @@ export default async function ClassPage({
   searchParams: Promise<{ join?: string; reschedule?: string }>;
 }) {
   const { join, reschedule } = await searchParams;
-  const data = await getStudentDashboardData();
+  const data = await getStudentClassData();
   const mentorSchedule = await getMentorScheduleData();
   const now = new Date();
   const classEvents = getStudentClassEvents({

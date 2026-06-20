@@ -6,7 +6,7 @@ import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ToolLinkChip } from "@/components/ui/tool-link-chip";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentHomeworkData } from "@/lib/data";
 import { formatDuration, formatHomeworkKind, getGoogleDocEmbedUrl, isTrustedTaskDuration } from "@/lib/homework-utils";
 import { formatDate } from "@/lib/utils";
 
@@ -71,7 +71,7 @@ export default async function HomeworkDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await getStudentDashboardData();
+  const data = await getStudentHomeworkData();
   const homework = data.homework.find((item) => item.id === id);
 
   if (!homework) notFound();

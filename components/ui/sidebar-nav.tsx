@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   BookOpenCheck,
@@ -56,6 +56,7 @@ export type NavLink = {
   href: string;
   label: string;
   icon: NavIconName;
+  priority?: boolean;
 };
 
 export type NavBadge = {
@@ -90,6 +91,19 @@ export function SidebarNav({
       !pathname.startsWith(`${navigatingTo}/`),
   );
 
+  useEffect(() => {
+    if (typeof performance === "undefined") return;
+    const startMark = "portal-navigation-start";
+    if (!performance.getEntriesByName(startMark).length) return;
+    performance.mark("portal-navigation-content");
+    const measure = performance.measure("portal-navigation", startMark, "portal-navigation-content");
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      console.info(`[portal-navigation] ${pathname} ${Math.round(measure.duration)}ms`);
+    }
+    performance.clearMarks(startMark);
+    performance.clearMarks("portal-navigation-content");
+  }, [pathname]);
+
   const nav = (
     <aside className="flex h-full w-72 flex-col border-r border-border/70 bg-bg-base/90 px-4 py-5 backdrop-blur-xl">
       <div className="flex items-center gap-3 px-2">
@@ -115,10 +129,14 @@ export function SidebarNav({
             <Link
               key={link.href}
               href={link.href}
-              prefetch={false}
+              prefetch={link.priority ? true : null}
               onMouseEnter={() => router.prefetch(link.href)}
               onFocus={() => router.prefetch(link.href)}
               onClick={() => {
+                if (typeof performance !== "undefined") {
+                  performance.clearMarks("portal-navigation-start");
+                  performance.mark("portal-navigation-start");
+                }
                 setNavigatingTo(link.href);
                 setOpen(false);
               }}

@@ -14,7 +14,7 @@ export type ClassAlert = {
 
 export function PortalAutoSync({
   alerts = [],
-  refreshMs = 120_000,
+  refreshMs = 0,
 }: {
   alerts?: ClassAlert[];
   refreshMs?: number;
@@ -41,6 +41,8 @@ export function PortalAutoSync({
   }, []);
 
   useEffect(() => {
+    if (refreshMs <= 0) return;
+
     let lastRefresh = Date.now();
     const refresh = () => {
       if (document.visibilityState !== "visible") return;

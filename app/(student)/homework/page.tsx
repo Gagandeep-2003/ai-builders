@@ -1,10 +1,10 @@
 import { HomeworkTracker } from "@/components/portal/homework-tracker";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentHomeworkData } from "@/lib/data";
 
 export default async function HomeworkPage() {
-  const data = await getStudentDashboardData();
+  const data = await getStudentHomeworkData();
 
   return (
     <AnimatedPage>

@@ -3,10 +3,10 @@ import { AdminHomeworkTaskManager } from "@/components/admin/admin-homework-task
 import { AdminHomeworkWorkbook } from "@/components/admin/admin-homework-workbook";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getAdminData } from "@/lib/data";
+import { getAdminHomeworkData } from "@/lib/data";
 
 export default async function AdminHomeworkPage() {
-  const data = await getAdminData();
+  const data = await getAdminHomeworkData();
 
   return (
     <AnimatedPage>

@@ -231,6 +231,11 @@ export async function GET(request: Request) {
     return Response.json({ error: "Supabase service role is not configured." }, { status: 500 });
   }
 
+  await supabase
+    .from("submission_evidence")
+    .delete()
+    .lt("expires_at", new Date().toISOString());
+
   const [
     { data: studentData, error: studentError },
     batchResult,

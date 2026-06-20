@@ -23,7 +23,7 @@ export function PendingLink({
   return (
     <Link
       href={href}
-      prefetch={false}
+      prefetch
       onMouseEnter={() => router.prefetch(href)}
       onFocus={() => router.prefetch(href)}
       onClick={() => setPending(true)}

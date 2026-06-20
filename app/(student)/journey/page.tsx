@@ -1,10 +1,10 @@
 import { JourneyExperience } from "@/components/portal/journey-experience";
 import { AnimatedPage } from "@/components/ui/animated";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentContextData } from "@/lib/data";
 import { getNextSession } from "@/lib/time";
 
 export default async function JourneyPage() {
-  const data = await getStudentDashboardData();
+  const data = await getStudentContextData();
   const completedCount = data.sessions.filter((session) => session.status === "completed").length;
   const nextSession = getNextSession(data.sessions);
 

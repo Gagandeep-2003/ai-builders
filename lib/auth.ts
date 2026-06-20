@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { demoStudent, type Role } from "@/lib/course-data";
@@ -25,6 +26,12 @@ export type AppProfile = {
   role: Role;
 };
 
+export type AuthIdentity = {
+  userId: string;
+  email: string | null;
+  userMetadata: unknown;
+};
+
 export function getDemoProfileFallback(email?: string | null, id?: string): AppProfile | null {
   if (!email) return null;
   const fallback = demoRoleFallbacks[email.toLowerCase()];
@@ -36,7 +43,25 @@ export function getDemoProfileFallback(email?: string | null, id?: string): AppP
   };
 }
 
-export async function getCurrentProfile(): Promise<AppProfile | null> {
+async function getAuthIdentityImpl(): Promise<AuthIdentity | null> {
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return null;
+
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  const email = typeof claimsData?.claims?.email === "string" ? claimsData.claims.email : null;
+
+  if (claimsError || !userId) return null;
+  return {
+    userId,
+    email,
+    userMetadata: claimsData.claims.user_metadata,
+  };
+}
+
+export const getAuthIdentity = cache(getAuthIdentityImpl);
+
+async function getCurrentProfileImpl(): Promise<AppProfile | null> {
   if (!isSupabaseConfigured()) {
     return {
       id: demoStudent.userId,
@@ -46,23 +71,19 @@ export async function getCurrentProfile(): Promise<AppProfile | null> {
     };
   }
 
+  const identity = await getAuthIdentity();
+  if (!identity) return null;
   const supabase = await createServerSupabaseClient();
   if (!supabase) return null;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
 
   const { data, error } = await supabase
     .from("profiles")
     .select("id, email, full_name, role")
-    .eq("id", user.id)
+    .eq("id", identity.userId)
     .maybeSingle();
 
   if (error || !data) {
-    return getDemoProfileFallback(user.email, user.id);
+    return getDemoProfileFallback(identity.email, identity.userId);
   }
 
   return {
@@ -72,6 +93,8 @@ export async function getCurrentProfile(): Promise<AppProfile | null> {
     role: data.role,
   };
 }
+
+export const getCurrentProfile = cache(getCurrentProfileImpl);
 
 export async function requireAdmin() {
   const profile = await getCurrentProfile();

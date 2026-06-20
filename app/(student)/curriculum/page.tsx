@@ -1,10 +1,10 @@
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { CurriculumTabs } from "@/components/portal/curriculum-tabs";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentContextData } from "@/lib/data";
 
 export default async function CurriculumPage() {
-  const { modules, sessions } = await getStudentDashboardData();
+  const { modules, sessions } = await getStudentContextData();
 
   return (
     <AnimatedPage>

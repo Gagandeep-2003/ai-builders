@@ -5,24 +5,24 @@ import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar-nav";
 import { getAdminClassEvents } from "@/lib/class-events";
-import { getAdminData } from "@/lib/data";
+import { getAdminShellData } from "@/lib/data";
 import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 
 const links: NavLink[] = [
-  { href: "/admin", label: "Dashboard", icon: "dashboard" },
-  { href: "/admin/students", label: "Students", icon: "students" },
+  { href: "/admin", label: "Dashboard", icon: "dashboard", priority: true },
+  { href: "/admin/students", label: "Students", icon: "students", priority: true },
   { href: "/admin/slots", label: "Slots", icon: "slots" },
   { href: "/admin/progress", label: "Progress", icon: "chart" },
-  { href: "/admin/homework", label: "Homework", icon: "homework" },
+  { href: "/admin/homework", label: "Homework", icon: "homework", priority: true },
   { href: "/admin/resources", label: "Resources", icon: "files" },
-  { href: "/admin/attendance", label: "Attendance", icon: "attendance" },
+  { href: "/admin/attendance", label: "Attendance", icon: "attendance", priority: true },
   { href: "/admin/feedback", label: "Feedback", icon: "message" },
   { href: "/admin/announcements", label: "Announcements", icon: "megaphone" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
-  const data = await getAdminData();
+  const data = await getAdminShellData();
   const now = new Date();
   const todayKey = formatInTimeZone(now, ADMIN_TIME_ZONE, {
     year: "numeric",
