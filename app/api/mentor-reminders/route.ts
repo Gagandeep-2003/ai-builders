@@ -13,14 +13,14 @@ export const runtime = "nodejs";
 
 type StudentRow = {
   id: string;
-  user_id: string;
+  user_id?: string | null;
   full_name: string;
-  parent_name: string;
-  parent_email: string;
-  country: string;
-  time_zone: string;
+  parent_name?: string | null;
+  parent_email?: string | null;
+  country?: string | null;
+  time_zone?: string | null;
   batch_id: string;
-  enrolled_at: string;
+  enrolled_at?: string | null;
 };
 
 type SlotRow = {
@@ -92,15 +92,15 @@ function moduleOrder(row: SessionRow) {
 function mapStudent(row: StudentRow): StudentProfile {
   return {
     id: row.id,
-    userId: row.user_id,
+    userId: row.user_id ?? "",
     fullName: row.full_name,
     email: "",
-    parentName: row.parent_name,
-    parentEmail: row.parent_email,
-    country: row.country,
-    timeZone: row.time_zone,
+    parentName: row.parent_name ?? "",
+    parentEmail: row.parent_email ?? "",
+    country: row.country ?? "",
+    timeZone: row.time_zone || ADMIN_TIME_ZONE,
     batchId: row.batch_id,
-    enrolledAt: row.enrolled_at,
+    enrolledAt: row.enrolled_at ?? "",
   };
 }
 
@@ -197,7 +197,7 @@ async function sendEmail(templateParams: Record<string, string>) {
   }
 }
 
-export async function GET(request: Request) {
+async function runMentorReminders(request: Request) {
   if (!authorized(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -228,7 +228,14 @@ export async function GET(request: Request) {
 
   const supabase = createServiceRoleSupabaseClient();
   if (!supabase) {
-    return Response.json({ error: "Supabase service role is not configured." }, { status: 500 });
+    return Response.json({
+      ok: false,
+      error: "Supabase service role is not configured.",
+      matchingClasses: 0,
+      sent: [],
+      skipped: [],
+      failed: [],
+    });
   }
 
   const warnings: string[] = [];
@@ -252,7 +259,7 @@ export async function GET(request: Request) {
   }
 
   const [
-    { data: studentData, error: studentError },
+    studentResult,
     batchResult,
     sessionResult,
     requestResult,
@@ -271,6 +278,16 @@ export async function GET(request: Request) {
       .select("id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at")
       .eq("status", "approved"),
   ]);
+
+  let studentData: unknown = studentResult.data;
+  let studentError = studentResult.error;
+  if (studentError) {
+    const fallback = await supabase
+      .from("students")
+      .select("id, full_name, time_zone, batch_id");
+    studentData = fallback.data;
+    studentError = fallback.error;
+  }
 
   let batchData: unknown = batchResult.data;
   let batchError = batchResult.error;
@@ -313,6 +330,7 @@ export async function GET(request: Request) {
     const [source, error] = failedSource;
     return Response.json(
       {
+        ok: false,
         error: `Unable to load ${source} for mentor reminders.`,
         source,
         message: error?.message,
@@ -320,7 +338,6 @@ export async function GET(request: Request) {
         details: error?.details,
         hint: error?.hint,
       },
-      { status: 500 },
     );
   }
 
@@ -414,6 +431,7 @@ export async function GET(request: Request) {
   }
 
   return Response.json({
+    ok: failed.length === 0,
     checkedAt: now.toISOString(),
     matchingClasses: events.length,
     ledgerAvailable,
@@ -422,4 +440,26 @@ export async function GET(request: Request) {
     failed,
     warnings,
   });
+}
+
+export async function GET(request: Request) {
+  try {
+    return await runMentorReminders(request);
+  } catch (error) {
+    console.error("Mentor reminder cron failed", error);
+    return Response.json({
+      ok: false,
+      checkedAt: new Date().toISOString(),
+      matchingClasses: 0,
+      sent: [],
+      skipped: [],
+      failed: [{
+        event: "cron-run",
+        error: error instanceof Error ? error.message : "Unexpected reminder failure.",
+      }],
+      warnings: [
+        "The cron request completed safely, but reminders were not sent. Check Vercel logs for the recorded error.",
+      ],
+    });
+  }
 }

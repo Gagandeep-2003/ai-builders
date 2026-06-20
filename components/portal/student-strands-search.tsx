@@ -4,7 +4,22 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Command, Palette, Search, Sparkles, X } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  Clipboard,
+  Command,
+  Lightbulb,
+  Palette,
+  Pause,
+  Play,
+  RotateCcw,
+  Search,
+  Sparkles,
+  TimerReset,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { useTheme } from "@/components/ui/theme-provider";
 
@@ -55,6 +70,44 @@ function scoreItem(item: StudentSearchItem, query: string) {
   return score;
 }
 
+function commandParts(value: string) {
+  const match = value.trim().match(/^\/([a-z-]+)\s*(.*)$/i);
+  return { command: match?.[1]?.toLowerCase() ?? "", input: match?.[2]?.trim() ?? "" };
+}
+
+function buildLocalUtility(command: string, input: string) {
+  if (command === "prompt") {
+    return {
+      title: "Prompt upgrade",
+      eyebrow: "Prompt Studio",
+      text: `Act as an expert learning coach.\n\nContext: I am working on ${input || "[YOUR TOPIC]"}.\n\nTask: Help me produce a clear, accurate, practical result.\n\nRequirements:\n- Ask up to 3 useful questions if context is missing.\n- Explain the reasoning in beginner-friendly steps.\n- Include one example.\n- Finish with a short quality checklist.\n\nOutput format: Use concise headings, bullets, and a final action step.`,
+    };
+  }
+  if (command === "plan") {
+    return {
+      title: "Learning sprint",
+      eyebrow: "Plan Builder",
+      text: `Goal: ${input || "[YOUR GOAL]"}\n\n1. Define the finished result in one sentence.\n2. Gather the minimum tools or information needed.\n3. Build the smallest useful first version.\n4. Test it with one realistic example.\n5. Record what worked and what needs improvement.\n6. Refine once, then save evidence of the result.\n\nSuccess check: Can you explain what you made, demonstrate it, and name one next improvement?`,
+    };
+  }
+  if (command === "quiz") {
+    const topic = input || "[YOUR TOPIC]";
+    return {
+      title: "Active-recall quiz",
+      eyebrow: "Quiz Builder",
+      text: `Topic: ${topic}\n\n1. Explain ${topic} in one sentence without notes.\n2. What problem does ${topic} solve?\n3. Name three important ideas connected to ${topic}.\n4. Give one real-world example and explain why it fits.\n5. What is one common mistake or limitation?\n\nSelf-check: Review your session resource, correct weak answers, then answer question 1 again more clearly.`,
+    };
+  }
+  if (command === "reflect") {
+    return {
+      title: "Reflection canvas",
+      eyebrow: "Learning Journal",
+      text: `Topic or task: ${input || "[YOUR WORK]"}\n\n- What did I create or understand?\n- Which step was most difficult?\n- What evidence shows that the result works?\n- What changed after I refined it?\n- What would I do differently next time?\n- What is my next smallest action?`,
+    };
+  }
+  return null;
+}
+
 function createAudioContext() {
   if (typeof window === "undefined") return;
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -96,11 +149,15 @@ export function StudentStrandsSearch({
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [searched, setSearched] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [focusSeconds, setFocusSeconds] = useState(0);
+  const [focusRunning, setFocusRunning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const { theme } = useTheme();
   const firstName = studentName.split(" ")[0] || "Builder";
   const normalizedSubmittedQuery = normalize(submittedQuery);
+  const submittedCommand = commandParts(submittedQuery);
   const isHelp = searched && ["/help", "help", "?"].includes(normalizedSubmittedQuery);
   const isThemeCommand =
     searched &&
@@ -109,6 +166,10 @@ export function StudentStrandsSearch({
       normalizedSubmittedQuery.includes("dark mode") ||
       normalizedSubmittedQuery.includes("light mode") ||
       (normalizedSubmittedQuery.includes("toggle") && normalizedSubmittedQuery.includes("theme")));
+  const isFocusCommand = searched && submittedCommand.command === "focus";
+  const utilityResult = searched
+    ? buildLocalUtility(submittedCommand.command, submittedCommand.input)
+    : null;
   const nextTheme = theme === "dark" ? "light" : "dark";
   const helpItems = [
     {
@@ -127,17 +188,32 @@ export function StudentStrandsSearch({
       title: "Control appearance",
       description: "Try: toggle theme, light mode, or dark mode to switch the portal theme.",
     },
+    {
+      title: "Build better work",
+      description: "Try: /prompt, /plan, /quiz, or /reflect followed by your topic.",
+    },
+    {
+      title: "Start a focus sprint",
+      description: "Try: /focus 25 to launch a distraction-free 25-minute timer.",
+    },
   ];
 
   const results = useMemo(() => {
-    if (!searched || !submittedQuery.trim() || isHelp || isThemeCommand) return [];
+    if (
+      !searched ||
+      !submittedQuery.trim() ||
+      isHelp ||
+      isThemeCommand ||
+      isFocusCommand ||
+      utilityResult
+    ) return [];
     return items
       .map((item) => ({ item, score: scoreItem(item, submittedQuery) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
       .map(({ item }) => item);
-  }, [isHelp, isThemeCommand, items, searched, submittedQuery]);
+  }, [isFocusCommand, isHelp, isThemeCommand, items, searched, submittedQuery, utilityResult]);
 
   const ensureAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -175,6 +251,15 @@ export function StudentStrandsSearch({
   const runQuery = useCallback((nextQuery: string) => {
     ensureAudioContext();
     playResultTone(audioContextRef.current, 0, "ready");
+    const nextCommand = commandParts(nextQuery);
+    if (nextCommand.command === "focus") {
+      const requestedMinutes = Number.parseInt(nextCommand.input, 10);
+      const minutes = Number.isFinite(requestedMinutes)
+        ? Math.min(90, Math.max(1, requestedMinutes))
+        : 25;
+      setFocusSeconds(minutes * 60);
+      setFocusRunning(true);
+    }
     setQuery(nextQuery);
     setSubmittedQuery(nextQuery);
     setSearched(false);
@@ -212,11 +297,27 @@ export function StudentStrandsSearch({
     });
   }, [helpItems.length, isHelp, isThemeCommand, results.length, searched]);
 
+  useEffect(() => {
+    if (!focusRunning) return;
+    const timer = window.setInterval(() => {
+      setFocusSeconds((seconds) => {
+        if (seconds <= 1) {
+          setFocusRunning(false);
+          playResultTone(audioContextRef.current, 0, "ready");
+          return 0;
+        }
+        return seconds - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [focusRunning]);
+
   function close() {
     setOpen(false);
     setQuery("");
     setSubmittedQuery("");
     setSearched(false);
+    setCopied(false);
   }
 
   function submitSearch(event: FormEvent) {
@@ -225,6 +326,15 @@ export function StudentStrandsSearch({
     if (!nextQuery) return;
     runQuery(nextQuery);
   }
+
+  async function copyUtilityText(text: string) {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+
+  const focusMinutes = Math.floor(focusSeconds / 60);
+  const focusRemainder = focusSeconds % 60;
 
   return (
     <AnimatePresence>
@@ -320,8 +430,15 @@ export function StudentStrandsSearch({
                         Preparing your course index...
                       </p>
                     ) : null}
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      {["/help", "toggle theme", "next class", "module 1 homework"].map((suggestion) => (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {[
+                        "/help",
+                        "/focus 25",
+                        "/prompt explain neural networks",
+                        "/quiz prompt engineering",
+                        "next class",
+                        "module 1 homework",
+                      ].map((suggestion) => (
                         <button
                           key={suggestion}
                           onClick={() => runQuery(suggestion)}
@@ -341,7 +458,7 @@ export function StudentStrandsSearch({
                     >
                       Search powers
                     </motion.p>
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {helpItems.map((item, index) => (
                         <motion.div
                           key={item.title}
@@ -359,6 +476,78 @@ export function StudentStrandsSearch({
                       Use natural words, exact session names, tools, module numbers, or portal areas.
                     </p>
                   </div>
+                ) : isFocusCommand ? (
+                  <motion.div
+                    className="overflow-hidden rounded-3xl border border-cyan-300/25 bg-bg-base/82 p-6 shadow-[0_24px_100px_rgba(6,182,212,0.12)]"
+                    initial={{ opacity: 0, y: 18, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <span className="grid h-14 w-14 place-items-center rounded-2xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">
+                        <TimerReset className="h-6 w-6" />
+                      </span>
+                      <p className="mt-5 font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">
+                        Focus chamber
+                      </p>
+                      <p className="mt-3 font-mono text-6xl font-bold tabular-nums text-text-primary sm:text-7xl">
+                        {String(focusMinutes).padStart(2, "0")}:{String(focusRemainder).padStart(2, "0")}
+                      </p>
+                      <p className="mt-3 max-w-lg text-sm text-text-secondary">
+                        Work on one task only. When the timer ends, record one sentence about what moved forward.
+                      </p>
+                      <div className="mt-6 flex gap-3">
+                        <button
+                          onClick={() => setFocusRunning((running) => !running)}
+                          className="button-motion inline-flex items-center gap-2 rounded-xl bg-cyan-200 px-5 py-3 font-bold text-slate-950"
+                        >
+                          {focusRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                          {focusRunning ? "Pause" : "Resume"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setFocusSeconds(25 * 60);
+                            setFocusRunning(false);
+                          }}
+                          className="button-motion grid h-12 w-12 place-items-center rounded-xl border border-border bg-bg-elevated text-text-secondary"
+                          aria-label="Reset focus timer"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : utilityResult ? (
+                  <motion.div
+                    className="overflow-hidden rounded-3xl border border-violet-300/25 bg-bg-base/82 shadow-[0_24px_100px_rgba(124,58,237,0.14)]"
+                    initial={{ opacity: 0, y: 18, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                  >
+                    <div className="flex items-start justify-between gap-4 border-b border-border/70 p-5">
+                      <div className="flex gap-3">
+                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-violet-300/25 bg-violet-300/10 text-violet-200">
+                          {submittedCommand.command === "prompt"
+                            ? <WandSparkles className="h-5 w-5" />
+                            : <Lightbulb className="h-5 w-5" />}
+                        </span>
+                        <div>
+                          <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-violet-200">
+                            {utilityResult.eyebrow}
+                          </p>
+                          <h3 className="mt-1 font-heading text-xl font-bold">{utilityResult.title}</h3>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => void copyUtilityText(utilityResult.text)}
+                        className="button-motion inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 text-xs text-text-secondary"
+                      >
+                        {copied ? <Check className="h-4 w-4 text-accent" /> : <Clipboard className="h-4 w-4" />}
+                        {copied ? "Copied" : "Copy"}
+                      </button>
+                    </div>
+                    <pre className="scrollbar-soft max-h-96 overflow-auto whitespace-pre-wrap p-5 font-sans text-sm leading-7 text-text-secondary">
+                      {utilityResult.text}
+                    </pre>
+                  </motion.div>
                 ) : isThemeCommand ? (
                   <motion.div
                     className="overflow-hidden rounded-3xl border border-accent/25 bg-bg-base/80 shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
