@@ -336,7 +336,10 @@ async function runMentorReminders(request: Request) {
         message: error?.message,
         code: error?.code,
         details: error?.details,
-        hint: error?.hint,
+        hint:
+          error?.code === "42501"
+            ? "Run supabase/mentor-reminders-service-role-grants.sql in Supabase SQL Editor."
+            : error?.hint,
       },
     );
   }

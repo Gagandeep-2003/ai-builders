@@ -2,24 +2,20 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import {
   ArrowRight,
-  Check,
   ChevronLeft,
   ChevronRight,
-  Clipboard,
   Command,
-  Lightbulb,
+  Gauge,
   Palette,
   Pause,
   Play,
-  RotateCcw,
   Search,
   Sparkles,
   TimerReset,
-  WandSparkles,
   X,
 } from "lucide-react";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -72,50 +68,39 @@ function scoreItem(item: StudentSearchItem, query: string) {
   return score;
 }
 
-function commandParts(value: string) {
-  const match = value.trim().match(/^\/([a-z-]+)\s*(.*)$/i);
-  return { command: match?.[1]?.toLowerCase() ?? "", input: match?.[2]?.trim() ?? "" };
-}
-
-function buildLocalUtility(command: string, input: string) {
-  if (command === "prompt") {
-    return {
-      title: "Prompt upgrade",
-      eyebrow: "Prompt Studio",
-      text: `Act as an expert learning coach.\n\nContext: I am working on ${input || "[YOUR TOPIC]"}.\n\nTask: Help me produce a clear, accurate, practical result.\n\nRequirements:\n- Ask up to 3 useful questions if context is missing.\n- Explain the reasoning in beginner-friendly steps.\n- Include one example.\n- Finish with a short quality checklist.\n\nOutput format: Use concise headings, bullets, and a final action step.`,
-    };
-  }
-  if (command === "plan") {
-    return {
-      title: "Learning sprint",
-      eyebrow: "Plan Builder",
-      text: `Goal: ${input || "[YOUR GOAL]"}\n\n1. Define the finished result in one sentence.\n2. Gather the minimum tools or information needed.\n3. Build the smallest useful first version.\n4. Test it with one realistic example.\n5. Record what worked and what needs improvement.\n6. Refine once, then save evidence of the result.\n\nSuccess check: Can you explain what you made, demonstrate it, and name one next improvement?`,
-    };
-  }
-  if (command === "quiz") {
-    const topic = input || "[YOUR TOPIC]";
-    return {
-      title: "Active-recall quiz",
-      eyebrow: "Quiz Builder",
-      text: `Topic: ${topic}\n\n1. Explain ${topic} in one sentence without notes.\n2. What problem does ${topic} solve?\n3. Name three important ideas connected to ${topic}.\n4. Give one real-world example and explain why it fits.\n5. What is one common mistake or limitation?\n\nSelf-check: Review your session resource, correct weak answers, then answer question 1 again more clearly.`,
-    };
-  }
-  if (command === "reflect") {
-    return {
-      title: "Reflection canvas",
-      eyebrow: "Learning Journal",
-      text: `Topic or task: ${input || "[YOUR WORK]"}\n\n- What did I create or understand?\n- Which step was most difficult?\n- What evidence shows that the result works?\n- What changed after I refined it?\n- What would I do differently next time?\n- What is my next smallest action?`,
-    };
-  }
-  return null;
-}
-
 function createAudioContext() {
   if (typeof window === "undefined") return;
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextCtor) return;
 
   return new AudioContextCtor();
+}
+
+function playTimerSound(context: AudioContext | null, kind: "stretch" | "snap" | "tick") {
+  if (!context) return;
+  void context.resume().catch(() => undefined);
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const filter = context.createBiquadFilter();
+  oscillator.type = kind === "tick" ? "square" : "sine";
+  oscillator.frequency.setValueAtTime(
+    kind === "stretch" ? 210 : kind === "snap" ? 620 : 92,
+    context.currentTime,
+  );
+  oscillator.frequency.exponentialRampToValueAtTime(
+    kind === "stretch" ? 320 : kind === "snap" ? 240 : 46,
+    context.currentTime + 0.09,
+  );
+  filter.type = "lowpass";
+  filter.frequency.value = kind === "tick" ? 520 : 1300;
+  gain.gain.setValueAtTime(0.0001, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(kind === "tick" ? 0.025 : 0.04, context.currentTime + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.12);
+  oscillator.connect(filter);
+  filter.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.13);
 }
 
 function playResultTone(context: AudioContext | null, index: number, variant: "result" | "ready" = "result") {
@@ -151,17 +136,21 @@ export function StudentStrandsSearch({
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [searched, setSearched] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [timerSetupMode, setTimerSetupMode] = useState<"pull" | "dial" | null>(null);
+  const [timerMinutes, setTimerMinutes] = useState(25);
+  const [dialRotation, setDialRotation] = useState(150);
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [focusTotalSeconds, setFocusTotalSeconds] = useState(25 * 60);
   const [focusRunning, setFocusRunning] = useState(false);
   const [focusDockOpen, setFocusDockOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialRef = useRef<HTMLDivElement>(null);
+  const dialDraggingRef = useRef(false);
+  const lastTickMinuteRef = useRef(timerMinutes);
   const audioContextRef = useRef<AudioContext | null>(null);
   const { theme } = useTheme();
   const firstName = studentName.split(" ")[0] || "Builder";
   const normalizedSubmittedQuery = normalize(submittedQuery);
-  const submittedCommand = commandParts(submittedQuery);
   const isHelp = searched && ["/help", "help", "?"].includes(normalizedSubmittedQuery);
   const isThemeCommand =
     searched &&
@@ -170,10 +159,6 @@ export function StudentStrandsSearch({
       normalizedSubmittedQuery.includes("dark mode") ||
       normalizedSubmittedQuery.includes("light mode") ||
       (normalizedSubmittedQuery.includes("toggle") && normalizedSubmittedQuery.includes("theme")));
-  const isFocusCommand = searched && submittedCommand.command === "focus";
-  const utilityResult = searched
-    ? buildLocalUtility(submittedCommand.command, submittedCommand.input)
-    : null;
   const nextTheme = theme === "dark" ? "light" : "dark";
   const helpItems = [
     {
@@ -193,44 +178,8 @@ export function StudentStrandsSearch({
       description: "Try: toggle theme, light mode, or dark mode to switch the portal theme.",
     },
     {
-      title: "Build better work",
-      description: "Try: /prompt, /plan, /quiz, or /reflect followed by your topic.",
-    },
-    {
-      title: "Start a focus sprint",
-      description: "Try: /focus 25 to launch a distraction-free 25-minute timer.",
-    },
-  ];
-  const commandSuggestions = [
-    {
-      command: "/focus 25",
-      title: "Focus timer",
-      description: "Starts a persistent 25-minute timer that stays on screen after search closes.",
-    },
-    {
-      command: "/prompt explain neural networks",
-      title: "Prompt Studio",
-      description: "Turns a rough task into a structured prompt you can copy into an AI tool.",
-    },
-    {
-      command: "/quiz prompt engineering",
-      title: "Quiz Builder",
-      description: "Creates active-recall questions and a self-check for any topic.",
-    },
-    {
-      command: "/plan finish my Bolt app",
-      title: "Plan Builder",
-      description: "Converts a goal into a practical build-and-test sequence.",
-    },
-    {
-      command: "/reflect my latest homework",
-      title: "Reflection Canvas",
-      description: "Creates useful reflection questions for homework evidence and learning notes.",
-    },
-    {
-      command: "next class",
-      title: "Portal Search",
-      description: "Finds lessons, homework, class information, tools, resources, and profile areas.",
+      title: "Start a focus timer",
+      description: "Choose Pull Timer or Dial Timer from Quick Actions. No command syntax needed.",
     },
   ];
 
@@ -239,9 +188,7 @@ export function StudentStrandsSearch({
       !searched ||
       !submittedQuery.trim() ||
       isHelp ||
-      isThemeCommand ||
-      isFocusCommand ||
-      utilityResult
+      isThemeCommand
     ) return [];
     return items
       .map((item) => ({ item, score: scoreItem(item, submittedQuery) }))
@@ -249,7 +196,7 @@ export function StudentStrandsSearch({
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
       .map(({ item }) => item);
-  }, [isFocusCommand, isHelp, isThemeCommand, items, searched, submittedQuery, utilityResult]);
+  }, [isHelp, isThemeCommand, items, searched, submittedQuery]);
 
   const ensureAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -287,17 +234,6 @@ export function StudentStrandsSearch({
   const runQuery = useCallback((nextQuery: string) => {
     ensureAudioContext();
     playResultTone(audioContextRef.current, 0, "ready");
-    const nextCommand = commandParts(nextQuery);
-    if (nextCommand.command === "focus") {
-      const requestedMinutes = Number.parseInt(nextCommand.input, 10);
-      const minutes = Number.isFinite(requestedMinutes)
-        ? Math.min(90, Math.max(1, requestedMinutes))
-        : 25;
-      setFocusSeconds(minutes * 60);
-      setFocusTotalSeconds(minutes * 60);
-      setFocusRunning(true);
-      setFocusDockOpen(true);
-    }
     setQuery(nextQuery);
     setSubmittedQuery(nextQuery);
     setSearched(false);
@@ -355,7 +291,7 @@ export function StudentStrandsSearch({
     setQuery("");
     setSubmittedQuery("");
     setSearched(false);
-    setCopied(false);
+    setTimerSetupMode(null);
   }
 
   function submitSearch(event: FormEvent) {
@@ -365,10 +301,53 @@ export function StudentStrandsSearch({
     runQuery(nextQuery);
   }
 
-  async function copyUtilityText(text: string) {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
+  function startFocusTimer(minutes: number) {
+    const boundedMinutes = Math.min(60, Math.max(5, Math.round(minutes / 5) * 5));
+    ensureAudioContext();
+    playTimerSound(audioContextRef.current, "snap");
+    setTimerMinutes(boundedMinutes);
+    setFocusSeconds(boundedMinutes * 60);
+    setFocusTotalSeconds(boundedMinutes * 60);
+    setFocusRunning(true);
+    setFocusDockOpen(true);
+    setTimerSetupMode(null);
+    setOpen(false);
+  }
+
+  function handleTongueDrag(_: MouseEvent | TouchEvent | globalThis.PointerEvent, info: PanInfo) {
+    const minutes = Math.min(60, Math.max(5, Math.round((5 + info.offset.y / 2.6) / 5) * 5));
+    if (minutes !== timerMinutes) {
+      setTimerMinutes(minutes);
+      playTimerSound(audioContextRef.current, "stretch");
+    }
+  }
+
+  function handleTongueRelease(_: MouseEvent | TouchEvent | globalThis.PointerEvent, info: PanInfo) {
+    if (info.offset.y >= 18) startFocusTimer(timerMinutes);
+  }
+
+  function handleDialPointer(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dialDraggingRef.current || !dialRef.current) return;
+    const rect = dialRef.current.getBoundingClientRect();
+    const angle = (Math.atan2(
+      event.clientY - (rect.top + rect.height / 2),
+      event.clientX - (rect.left + rect.width / 2),
+    ) * 180) / Math.PI + 90;
+    const normalizedAngle = (angle + 360) % 360;
+    const minutes = Math.min(60, Math.max(5, Math.round(normalizedAngle / 30) * 5 || 5));
+    setDialRotation(minutes * 6);
+    setTimerMinutes(minutes);
+    if (minutes !== lastTickMinuteRef.current) {
+      lastTickMinuteRef.current = minutes;
+      playTimerSound(audioContextRef.current, "tick");
+    }
+  }
+
+  function finishDial(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dialDraggingRef.current) return;
+    dialDraggingRef.current = false;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    startFocusTimer(timerMinutes);
   }
 
   const focusMinutes = Math.floor(focusSeconds / 60);
@@ -472,24 +451,65 @@ export function StudentStrandsSearch({
                       </p>
                     ) : null}
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {commandSuggestions.map((suggestion) => (
-                        <button
-                          key={suggestion.command}
-                          onClick={() => runQuery(suggestion.command)}
-                          className="group rounded-2xl border border-border bg-white/[0.025] p-4 text-left transition hover:-translate-y-0.5 hover:border-accent/35 hover:bg-white/[0.045]"
-                        >
-                          <span className="flex items-center justify-between gap-3">
-                            <span className="font-heading font-bold text-text-primary">{suggestion.title}</span>
-                            <ArrowRight className="h-4 w-4 text-text-muted transition group-hover:translate-x-1 group-hover:text-accent" />
-                          </span>
-                          <span className="mt-2 block text-sm leading-6 text-text-secondary">
-                            {suggestion.description}
-                          </span>
-                          <code className="mt-3 block truncate rounded-lg border border-white/5 bg-black/15 px-2.5 py-2 font-mono text-[0.67rem] text-accent">
-                            {suggestion.command}
-                          </code>
-                        </button>
-                      ))}
+                      <button
+                        onClick={() => {
+                          ensureAudioContext();
+                          setTimerMinutes(25);
+                          setTimerSetupMode("pull");
+                          setSearched(true);
+                        }}
+                        className="group overflow-hidden rounded-2xl border border-pink-300/20 bg-[radial-gradient(circle_at_85%_0%,rgba(244,114,182,0.16),transparent_45%),rgba(255,255,255,0.025)] p-4 text-left transition hover:-translate-y-0.5 hover:border-pink-300/45"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="font-heading font-bold text-text-primary">Pull Timer</span>
+                          <TimerReset className="h-4 w-4 text-pink-300" />
+                        </span>
+                        <span className="mt-2 block text-sm leading-6 text-text-secondary">
+                          Pull an elastic tab to choose the duration. Release it to begin.
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          ensureAudioContext();
+                          setTimerMinutes(25);
+                          setDialRotation(150);
+                          setTimerSetupMode("dial");
+                          setSearched(true);
+                        }}
+                        className="group overflow-hidden rounded-2xl border border-cyan-300/20 bg-[radial-gradient(circle_at_85%_0%,rgba(34,211,238,0.16),transparent_45%),rgba(255,255,255,0.025)] p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/45"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="font-heading font-bold text-text-primary">Dial Timer</span>
+                          <Gauge className="h-4 w-4 text-cyan-300" />
+                        </span>
+                        <span className="mt-2 block text-sm leading-6 text-text-secondary">
+                          Turn a weighted dial through five-minute steps. Release it to begin.
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => runQuery("/help")}
+                        className="group rounded-2xl border border-border bg-white/[0.025] p-4 text-left transition hover:-translate-y-0.5 hover:border-accent/35"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="font-heading font-bold text-text-primary">What can I search?</span>
+                          <Command className="h-4 w-4 text-accent" />
+                        </span>
+                        <span className="mt-2 block text-sm leading-6 text-text-secondary">
+                          See examples for finding sessions, homework, tools, classes, and resources.
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => runQuery("next class")}
+                        className="group rounded-2xl border border-border bg-white/[0.025] p-4 text-left transition hover:-translate-y-0.5 hover:border-accent/35"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="font-heading font-bold text-text-primary">Find my next class</span>
+                          <ArrowRight className="h-4 w-4 text-text-muted transition group-hover:translate-x-1 group-hover:text-accent" />
+                        </span>
+                        <span className="mt-2 block text-sm leading-6 text-text-secondary">
+                          Jump straight to class timing, Meet access, and schedule information.
+                        </span>
+                      </button>
                     </div>
                   </>
                 ) : isHelp ? (
@@ -519,77 +539,99 @@ export function StudentStrandsSearch({
                       Use natural words, exact session names, tools, module numbers, or portal areas.
                     </p>
                   </div>
-                ) : isFocusCommand ? (
+                ) : timerSetupMode === "pull" ? (
+                  <motion.div
+                    className="overflow-hidden rounded-3xl border border-pink-300/25 bg-bg-base/82 p-6 shadow-[0_24px_100px_rgba(244,114,182,0.12)]"
+                    initial={{ opacity: 0, y: 18, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <p className="font-mono text-xs uppercase tracking-[0.2em] text-pink-200">Pull to focus</p>
+                      <h3 className="mt-2 font-heading text-2xl font-bold">Choose time by stretching the tab</h3>
+                      <div className="relative mt-8 h-64 w-full max-w-sm">
+                        <div className="absolute left-1/2 top-0 -translate-x-1/2">
+                          <div className="relative h-24 w-40 rounded-[3rem] border border-white/10 bg-[linear-gradient(145deg,#201638,#0f0c17)] shadow-[0_22px_70px_rgba(124,58,237,0.28)]">
+                            <span className="absolute -left-1 top-2 h-5 w-12 -rotate-6 rounded-full bg-violet-400/70 blur-[1px]" />
+                            <span className="absolute -right-1 top-2 h-5 w-12 rotate-6 rounded-full bg-cyan-300/65 blur-[1px]" />
+                            <div className="absolute left-1/2 top-7 flex -translate-x-1/2 gap-3">
+                              {[0, 1].map((eye) => (
+                                <span key={eye} className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-inner">
+                                  <motion.span
+                                    className="h-4 w-4 rounded-full bg-[#17111f]"
+                                    animate={{ y: Math.min(7, timerMinutes / 10) }}
+                                  />
+                                </span>
+                              ))}
+                            </div>
+                            <motion.button
+                              drag="y"
+                              dragConstraints={{ top: 0, bottom: 142 }}
+                              dragElastic={0.12}
+                              dragMomentum={false}
+                              onDrag={handleTongueDrag}
+                              onDragEnd={handleTongueRelease}
+                              whileTap={{ scaleX: 1.08 }}
+                              className="absolute left-1/2 top-[78px] h-14 w-12 -translate-x-1/2 cursor-grab rounded-b-[2rem] bg-[linear-gradient(180deg,#fb7185,#f472b6)] shadow-[0_12px_30px_rgba(244,114,182,0.45)] active:cursor-grabbing"
+                              aria-label="Pull timer tab"
+                            >
+                              <span className="absolute inset-x-3 bottom-3 h-1 rounded-full bg-white/45" />
+                            </motion.button>
+                          </div>
+                        </div>
+                        <motion.div
+                          className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-2xl border border-pink-300/25 bg-pink-300/10 px-6 py-3 font-mono text-3xl font-bold tabular-nums text-pink-100"
+                          animate={{ scale: [1, 1.035, 1] }}
+                          transition={{ duration: 1.8, repeat: Infinity }}
+                        >
+                          {timerMinutes} min
+                        </motion.div>
+                      </div>
+                      <p className="mt-4 text-sm text-text-secondary">Pull farther for more time. Release after pulling to start.</p>
+                    </div>
+                  </motion.div>
+                ) : timerSetupMode === "dial" ? (
                   <motion.div
                     className="overflow-hidden rounded-3xl border border-cyan-300/25 bg-bg-base/82 p-6 shadow-[0_24px_100px_rgba(6,182,212,0.12)]"
                     initial={{ opacity: 0, y: 18, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                   >
                     <div className="flex flex-col items-center text-center">
-                      <span className="grid h-14 w-14 place-items-center rounded-2xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">
-                        <TimerReset className="h-6 w-6" />
-                      </span>
-                      <p className="mt-5 font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">
-                        Focus chamber
-                      </p>
-                      <p className="mt-3 font-mono text-6xl font-bold tabular-nums text-text-primary sm:text-7xl">
-                        {focusLabel}
-                      </p>
-                      <p className="mt-3 max-w-lg text-sm text-text-secondary">
-                        Work on one task only. When the timer ends, record one sentence about what moved forward.
-                      </p>
-                      <div className="mt-6 flex gap-3">
-                        <button
-                          onClick={() => setFocusRunning((running) => !running)}
-                          className="button-motion inline-flex items-center gap-2 rounded-xl bg-cyan-200 px-5 py-3 font-bold text-slate-950"
-                        >
-                          {focusRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                          {focusRunning ? "Pause" : "Resume"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setFocusSeconds(25 * 60);
-                            setFocusRunning(false);
+                      <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">Weighted dial</p>
+                      <h3 className="mt-2 font-heading text-2xl font-bold">Turn and release to begin</h3>
+                      <div className="relative mt-7 grid h-72 w-72 place-items-center rounded-full border-[10px] border-black/35 bg-[linear-gradient(145deg,#25222e,#0a0910)] shadow-[20px_22px_70px_rgba(0,0,0,0.5),-12px_-12px_45px_rgba(124,58,237,0.12),inset_0_0_0_2px_rgba(255,255,255,0.05)]">
+                        <span className="absolute top-2 z-30 h-0 w-0 border-x-[8px] border-b-[13px] border-x-transparent border-b-pink-400 drop-shadow-[0_0_7px_#f472b6]" />
+                        <div
+                          ref={dialRef}
+                          onPointerDown={(event) => {
+                            ensureAudioContext();
+                            dialDraggingRef.current = true;
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                            handleDialPointer(event);
                           }}
-                          className="button-motion grid h-12 w-12 place-items-center rounded-xl border border-border bg-bg-elevated text-text-secondary"
-                          aria-label="Reset focus timer"
+                          onPointerMove={handleDialPointer}
+                          onPointerUp={finishDial}
+                          onPointerCancel={() => {
+                            dialDraggingRef.current = false;
+                          }}
+                          className="absolute h-60 w-60 cursor-grab touch-none rounded-full bg-[repeating-conic-gradient(from_0deg,#111018_0deg_3deg,transparent_3deg_8deg),conic-gradient(from_0deg,#17141f,#302943,#131119,#263544,#17141f)] shadow-[inset_0_0_26px_rgba(0,0,0,0.85),0_16px_30px_rgba(0,0,0,0.55)] active:cursor-grabbing"
+                          style={{ transform: `rotate(${dialRotation}deg)` }}
+                          role="slider"
+                          aria-label="Focus timer minutes"
+                          aria-valuemin={5}
+                          aria-valuemax={60}
+                          aria-valuenow={timerMinutes}
                         >
-                          <RotateCcw className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : utilityResult ? (
-                  <motion.div
-                    className="overflow-hidden rounded-3xl border border-violet-300/25 bg-bg-base/82 shadow-[0_24px_100px_rgba(124,58,237,0.14)]"
-                    initial={{ opacity: 0, y: 18, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                  >
-                    <div className="flex items-start justify-between gap-4 border-b border-border/70 p-5">
-                      <div className="flex gap-3">
-                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-violet-300/25 bg-violet-300/10 text-violet-200">
-                          {submittedCommand.command === "prompt"
-                            ? <WandSparkles className="h-5 w-5" />
-                            : <Lightbulb className="h-5 w-5" />}
-                        </span>
-                        <div>
-                          <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-violet-200">
-                            {utilityResult.eyebrow}
-                          </p>
-                          <h3 className="mt-1 font-heading text-xl font-bold">{utilityResult.title}</h3>
+                          <span className="absolute left-1/2 top-4 h-7 w-1.5 -translate-x-1/2 rounded-full bg-cyan-200 shadow-[0_0_16px_#67e8f9]" />
+                        </div>
+                        <div className="pointer-events-none relative z-20 grid h-32 w-32 place-items-center rounded-full border border-white/10 bg-[#08070c] shadow-[inset_0_5px_16px_rgba(0,0,0,0.9),0_0_28px_rgba(6,182,212,0.12)]">
+                          <div>
+                            <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-cyan-200">Minutes</p>
+                            <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-white">{timerMinutes}</p>
+                          </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => void copyUtilityText(utilityResult.text)}
-                        className="button-motion inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 text-xs text-text-secondary"
-                      >
-                        {copied ? <Check className="h-4 w-4 text-accent" /> : <Clipboard className="h-4 w-4" />}
-                        {copied ? "Copied" : "Copy"}
-                      </button>
+                      <p className="mt-5 text-sm text-text-secondary">Each soft click is five minutes. Release the dial to start.</p>
                     </div>
-                    <pre className="scrollbar-soft max-h-96 overflow-auto whitespace-pre-wrap p-5 font-sans text-sm leading-7 text-text-secondary">
-                      {utilityResult.text}
-                    </pre>
                   </motion.div>
                 ) : isThemeCommand ? (
                   <motion.div
