@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -16,11 +16,14 @@ import {
 const attendanceColors = ["#6EE7B7", "#FB7185", "#60A5FA"];
 
 function useMounted() {
-  return useSyncExternalStore(
-    () => () => undefined,
-    () => true,
-    () => false,
-  );
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setMounted(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  return mounted;
 }
 
 export function AttendanceDonut({
