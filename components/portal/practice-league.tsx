@@ -17,6 +17,7 @@ import {
   Target,
   Trophy,
 } from "lucide-react";
+import { LeagueCloudReveal } from "@/components/portal/league-cloud-reveal";
 import type { LeagueEntry, LeagueScore } from "@/lib/league";
 import { cn } from "@/lib/utils";
 
@@ -141,6 +142,7 @@ export function PracticeLeague({
 
   return (
     <main className="relative isolate -mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
+      <LeagueCloudReveal />
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(circle_at_8%_15%,rgba(255,138,52,0.12),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(110,231,183,0.16),transparent_32%),radial-gradient(circle_at_55%_38%,rgba(91,140,255,0.12),transparent_30%)]" />
         <div className="league-arena-grid absolute inset-0 opacity-35" />
