@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -21,10 +20,6 @@ import {
 } from "lucide-react";
 import type { LeagueEntry, LeagueScore } from "@/lib/league";
 import { cn } from "@/lib/utils";
-
-const LeagueFluidCursor = dynamic(() => import("@/components/portal/league-fluid-cursor"), {
-  ssr: false,
-});
 
 type LeagueMetric = "overall" | "homework" | "attendance" | "streak";
 
@@ -144,9 +139,7 @@ export function PracticeLeague({
     : 0;
 
   return (
-    <main className="league-fluid-cursor-zone relative isolate -mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
-      <LeagueFluidCursor />
-
+    <main className="relative isolate -mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(circle_at_8%_15%,rgba(255,138,52,0.12),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(110,231,183,0.16),transparent_32%),radial-gradient(circle_at_55%_38%,rgba(91,140,255,0.12),transparent_30%)]" />
         <div className="league-arena-grid absolute inset-0 opacity-35" />
