@@ -25,17 +25,22 @@ export type LeagueEntry = LeagueScore & {
 };
 
 const PRACTICE_PROFILES = [
-  ["Maya R.", "Canada"], ["Ethan W.", "United States"], ["Aisha K.", "United Kingdom"],
-  ["Zayn A.", "UAE"], ["Noah P.", "Canada"], ["Sofia M.", "United States"],
-  ["Aria S.", "United Kingdom"], ["Omar H.", "UAE"], ["Liam C.", "Canada"],
-  ["Nora T.", "United States"], ["Adam J.", "United Kingdom"], ["Layla F.", "UAE"],
-  ["Lucas B.", "Canada"], ["Mila D.", "United States"], ["Rayan N.", "United Kingdom"],
-  ["Sara Q.", "UAE"], ["Leo G.", "Canada"], ["Ivy L.", "United States"],
-  ["Amir Z.", "United Kingdom"], ["Hana V.", "UAE"], ["Theo R.", "Canada"],
-  ["Eva P.", "United States"], ["Yusuf M.", "United Kingdom"], ["Lina A.", "UAE"],
-  ["Finn K.", "Canada"], ["Mia C.", "United States"], ["Ayaan S.", "United Kingdom"],
-  ["Zara H.", "UAE"], ["Kai N.", "Canada"], ["Ella W.", "United States"],
-  ["Idris B.", "United Kingdom"], ["Alina J.", "UAE"],
+  ["Aarav S.", "United States"], ["Anaya P.", "United States"],
+  ["Vihaan R.", "Canada"], ["Isha K.", "United States"],
+  ["Arjun M.", "United Kingdom"], ["Meera N.", "United States"],
+  ["Kabir D.", "Canada"], ["Riya J.", "United States"],
+  ["Advait B.", "UAE"], ["Diya C.", "United States"],
+  ["Reyansh G.", "Canada"], ["Saanvi T.", "United States"],
+  ["Ishaan A.", "United Kingdom"], ["Myra V.", "United States"],
+  ["Dev H.", "Canada"], ["Tara L.", "United States"],
+  ["Ayaan Q.", "UAE"], ["Naina S.", "United States"],
+  ["Rohan P.", "Canada"], ["Kiara M.", "United States"],
+  ["Dhruv N.", "United Kingdom"], ["Avni R.", "United States"],
+  ["Neil K.", "Canada"], ["Siya D.", "United States"],
+  ["Viraj J.", "UAE"], ["Aadhya B.", "United States"],
+  ["Kiaan C.", "Canada"], ["Mira G.", "United States"],
+  ["Arnav T.", "United Kingdom"], ["Navya A.", "United States"],
+  ["Ved V.", "Canada"], ["Prisha H.", "United Kingdom"],
 ] as const;
 
 const AVATAR_TONES = [

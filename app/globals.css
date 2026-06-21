@@ -893,6 +893,21 @@ textarea:focus-visible {
   }
 }
 
+@media (pointer: fine) and (min-width: 1024px) {
+  .league-fluid-cursor-zone.fluid-cursor-ready,
+  .league-fluid-cursor-zone.fluid-cursor-ready * {
+    cursor: none !important;
+  }
+}
+
+.league-arena-grid {
+  background-image:
+    linear-gradient(rgb(110 231 183 / 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(117 167 255 / 0.045) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
 @media print {
   body {
     background: white;
