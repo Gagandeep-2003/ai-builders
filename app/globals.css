@@ -894,8 +894,8 @@ textarea:focus-visible {
 }
 
 @media (pointer: fine) and (min-width: 1024px) {
-  .league-fluid-cursor-zone.fluid-cursor-ready,
-  .league-fluid-cursor-zone.fluid-cursor-ready * {
+  .league-fluid-cursor-active,
+  .league-fluid-cursor-active * {
     cursor: none !important;
   }
 }

@@ -10,7 +10,10 @@ import {
   Flame,
   Globe2,
   Medal,
+  MoveDownRight,
+  MoveUpRight,
   Radio,
+  ShieldCheck,
   Sparkles,
   Target,
   Trophy,
@@ -40,6 +43,7 @@ const countryCodes: Record<string, string> = {
 };
 
 const podiumOrder = [1, 0, 2];
+const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
 
 function metricValue(entry: LeagueEntry, metric: LeagueMetric) {
   if (metric === "homework") return entry.submittedTasks * 60 + entry.reviewedTasks * 20;
@@ -63,6 +67,25 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function benchmarkPulse(entry: LeagueEntry, cycle: number) {
+  if (entry.isStudent) return 0;
+  const seed = Number(entry.id.replace(/\D/g, "")) || 1;
+  const wave = Math.sin(seed * 4.317 + cycle * 2.141);
+  return Math.round(wave * 72);
+}
+
+function badgeCount(entry: LeagueEntry, cycle: number) {
+  const earned = entry.reviewedTasks + entry.completedSessions + Math.floor(entry.currentStreak / 3);
+  if (entry.isStudent) return earned;
+  const seed = Number(entry.id.replace(/\D/g, "")) || 1;
+  return Math.max(1, earned + ((seed + cycle) % 4) - 1);
+}
+
+function displayedStreak(entry: LeagueEntry, cycle: number) {
+  if (entry.isStudent) return entry.currentStreak;
+  return Math.max(0, entry.currentStreak + Math.round(benchmarkPulse(entry, cycle) / 48));
+}
+
 export function PracticeLeague({
   entries,
   studentScore,
@@ -74,20 +97,24 @@ export function PracticeLeague({
 }) {
   const [metric, setMetric] = useState<LeagueMetric>("overall");
   const [country, setCountry] = useState("All");
-  const [paceTick, setPaceTick] = useState(0);
+  const [cycle, setCycle] = useState(() => Math.floor(Date.now() / FIVE_DAYS_MS));
 
   useEffect(() => {
-    const timer = window.setInterval(() => setPaceTick((value) => value + 1), 18000);
+    const timer = window.setInterval(
+      () => setCycle(Math.floor(Date.now() / FIVE_DAYS_MS)),
+      60 * 60 * 1000,
+    );
     return () => window.clearInterval(timer);
   }, []);
 
   const liveMetricValue = (entry: LeagueEntry) => {
     const base = metricValue(entry, metric);
-    if (entry.isStudent || metric === "attendance") return base;
-    const seed = Number(entry.id.replace(/\D/g, "")) || 1;
-    const pulse = ((seed * 7 + paceTick * 5) % 5) - 2;
-    if (metric === "streak") return Math.max(0, base + (pulse > 1 ? 1 : 0));
-    return Math.max(0, base + pulse * (metric === "overall" ? 9 : 4));
+    if (entry.isStudent) return base;
+    const pulse = benchmarkPulse(entry, cycle);
+    if (metric === "attendance") return Math.max(55, Math.min(100, base + Math.round(pulse / 24)));
+    if (metric === "streak") return Math.max(0, base + Math.round(pulse / 48));
+    if (metric === "homework") return Math.max(0, base + Math.round(pulse / 3));
+    return Math.max(0, base + pulse);
   };
 
   const countries = useMemo(
@@ -99,9 +126,9 @@ export function PracticeLeague({
       entries
         .filter((entry) => country === "All" || entry.country === country || entry.isStudent)
         .sort((a, b) => liveMetricValue(b) - liveMetricValue(a) || a.name.localeCompare(b.name)),
-    // The live practice field intentionally changes with each pace tick.
+    // Practice profiles shift on a stable five-day cycle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [country, entries, metric, paceTick],
+    [country, cycle, entries, metric],
   );
   const studentRank = ranked.findIndex((entry) => entry.isStudent) + 1;
   const studentEntry = ranked.find((entry) => entry.isStudent);
@@ -224,7 +251,13 @@ export function PracticeLeague({
                   <p className="mt-1 font-mono text-xs font-bold text-accent">
                     {liveMetricValue(entry)}{metricSuffix(metric)}
                   </p>
-                  <p className="mt-1 text-[0.68rem] uppercase text-text-muted">{countryCodes[entry.country] ?? entry.country}</p>
+                  <div className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-[0.62rem] uppercase text-text-muted">
+                    <span>{countryCodes[entry.country] ?? entry.country}</span>
+                    <span>·</span>
+                    <span>{badgeCount(entry, cycle)} badges</span>
+                    <span>·</span>
+                    <span>{displayedStreak(entry, cycle)} streak</span>
+                  </div>
                 </motion.article>
               );
             })}
@@ -323,12 +356,12 @@ export function PracticeLeague({
               <div>
                 <div className="flex items-center gap-2 font-mono text-[0.65rem] uppercase text-accent">
                   <Radio className="h-3.5 w-3.5" />
-                  Practice pace updates every 18 seconds
+                  Practice field · five-day movement cycle
                 </div>
                 <h2 className="mt-2 font-heading text-3xl font-bold">The field</h2>
               </div>
               <p className="max-w-md text-sm text-text-secondary">
-                Benchmarks are calibrated to your current course stage, so a new student is never compared with a graduate.
+                Benchmark scores move gradually every five days. Your score changes only when you complete real learning actions.
               </p>
             </div>
 
@@ -374,9 +407,17 @@ export function PracticeLeague({
                           <p className="truncate font-heading font-bold">
                             {entry.isStudent ? `${entry.name} · You` : entry.name}
                           </p>
-                          <p className="mt-1 text-xs text-text-muted">
-                            {countryCodes[entry.country] ?? entry.country} · Stage {entry.stage}
-                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
+                            <span>{countryCodes[entry.country] ?? entry.country}</span>
+                            <span className="inline-flex items-center gap-1">
+                              <ShieldCheck className="h-3.5 w-3.5 text-amber-300" />
+                              {badgeCount(entry, cycle)} badges
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Flame className="h-3.5 w-3.5 text-orange-300" />
+                              {displayedStreak(entry, cycle)} streak
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <div className="hidden sm:block">
@@ -393,15 +434,24 @@ export function PracticeLeague({
                             transition={{ duration: 0.7, delay: Math.min(index * 0.018, 0.2) }}
                           />
                         </div>
-                        <div className="mt-2 flex gap-4 text-[0.68rem] text-text-muted">
-                          <span>{entry.submittedTasks} tasks</span>
-                          <span>{entry.currentStreak} streak</span>
-                        </div>
                       </div>
                       <div className="flex items-center justify-between gap-2 sm:justify-end">
-                        <span className="font-mono text-sm font-bold text-accent">
-                          {value}{metricSuffix(metric)}
-                        </span>
+                        <div className="text-right">
+                          <span className="font-mono text-sm font-bold text-accent">
+                            {value}{metricSuffix(metric)}
+                          </span>
+                          {!entry.isStudent && metric === "overall" ? (
+                            <span className={cn(
+                              "mt-1 flex items-center justify-end gap-1 font-mono text-[0.62rem]",
+                              benchmarkPulse(entry, cycle) >= 0 ? "text-emerald-300" : "text-rose-300",
+                            )}>
+                              {benchmarkPulse(entry, cycle) >= 0
+                                ? <MoveUpRight className="h-3 w-3" />
+                                : <MoveDownRight className="h-3 w-3" />}
+                              {Math.abs(benchmarkPulse(entry, cycle))} this cycle
+                            </span>
+                          ) : null}
+                        </div>
                         <ChevronRight className="h-4 w-4 text-text-muted transition group-hover:translate-x-1 group-hover:text-accent" />
                       </div>
                     </motion.article>
