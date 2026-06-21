@@ -5,6 +5,7 @@ export type ResourceType = "pdf" | "link" | "video" | "note";
 export type PasswordRequestStatus = "pending" | "approved" | "rejected" | "used";
 export type RescheduleRequestStatus = "pending" | "approved" | "rejected";
 export type HomeworkKind = "class_challenge" | "home_task";
+export type ReferralStatus = "pending" | "contacted" | "enrolled" | "rewarded" | "closed";
 
 export type HomeworkDetails = {
   moduleNumber: number;
@@ -206,6 +207,20 @@ export type PasswordChangeRequest = {
   requestedAt: string;
   reviewedAt: string;
   usedAt: string;
+};
+
+export type ReferralSubmission = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  referredName: string;
+  referredContact: string;
+  relationship: string;
+  note: string;
+  status: ReferralStatus;
+  adminNote: string;
+  createdAt: string;
+  reviewedAt: string;
 };
 
 export const modules: CourseModule[] = [

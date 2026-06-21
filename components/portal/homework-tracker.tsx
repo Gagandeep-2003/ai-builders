@@ -11,9 +11,11 @@ import { cn } from "@/lib/utils";
 export function HomeworkTracker({
   homework,
   sessions,
+  initialSessionId,
 }: {
   homework: HomeworkItem[];
   sessions: CourseSession[];
+  initialSessionId?: string;
 }) {
   const unlockedSessions = useMemo(() => {
     const access = getSessionAccessBoundary(sessions);
@@ -22,7 +24,10 @@ export function HomeworkTracker({
   const firstSessionWithWork =
     unlockedSessions.find((session) => homework.some((item) => item.sessionId === session.id))?.id ??
     unlockedSessions[0]?.id;
-  const [activeSessionId, setActiveSessionId] = useState(firstSessionWithWork);
+  const initialUnlockedSessionId = unlockedSessions.some((session) => session.id === initialSessionId)
+    ? initialSessionId
+    : firstSessionWithWork;
+  const [activeSessionId, setActiveSessionId] = useState(initialUnlockedSessionId);
   const grouped = useMemo(
     () =>
       unlockedSessions.map((session) => {
@@ -81,7 +86,14 @@ export function HomeworkTracker({
                   return (
                     <button
                       key={session.id}
-                      onClick={() => setActiveSessionId(session.id)}
+                      onClick={() => {
+                        setActiveSessionId(session.id);
+                        window.history.replaceState(
+                          window.history.state,
+                          "",
+                          `/homework?session=${encodeURIComponent(session.id)}`,
+                        );
+                      }}
                       className={cn(
                         "w-full rounded-xl border p-4 text-left transition",
                         isActive

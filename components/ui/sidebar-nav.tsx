@@ -14,6 +14,7 @@ import {
   Compass,
   Files,
   FolderOpen,
+  Gift,
   Home,
   LayoutDashboard,
   LoaderCircle,
@@ -22,6 +23,7 @@ import {
   Menu,
   MessageSquareText,
   Sparkles,
+  Trophy,
   UserRound,
   UsersRound,
   X,
@@ -48,6 +50,8 @@ const navIcons = {
   homework: BookOpenCheck,
   journey: Compass,
   slots: Clock3,
+  league: Trophy,
+  referrals: Gift,
 };
 
 export type NavIconName = keyof typeof navIcons;

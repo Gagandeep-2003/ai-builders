@@ -9,6 +9,7 @@ create type public.resource_type as enum ('pdf', 'link', 'video', 'note');
 create type public.attendance_status as enum ('present', 'absent', 'rescheduled');
 create type public.password_request_status as enum ('pending', 'approved', 'rejected', 'used');
 create type public.reschedule_request_status as enum ('pending', 'approved', 'rejected');
+create type public.referral_status as enum ('pending', 'contacted', 'enrolled', 'rewarded', 'closed');
 
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -216,6 +217,19 @@ create table public.mentor_reminder_deliveries (
   sent_at timestamptz not null default now()
 );
 
+create table public.referrals (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.students(id) on delete cascade,
+  referred_name text not null,
+  referred_contact text not null,
+  relationship text not null,
+  note text,
+  status public.referral_status not null default 'pending',
+  admin_note text,
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz
+);
+
 create index profiles_role_idx on public.profiles (role);
 create index profiles_last_seen_at_idx on public.profiles (last_seen_at desc);
 create index students_user_id_idx on public.students (user_id);
@@ -236,6 +250,8 @@ create index feedback_student_id_idx on public.feedback (student_id);
 create index password_change_requests_student_id_idx on public.password_change_requests (student_id);
 create index password_change_requests_status_idx on public.password_change_requests (status);
 create index announcements_batch_id_idx on public.announcements (batch_id);
+create index referrals_student_id_idx on public.referrals (student_id);
+create index referrals_status_idx on public.referrals (status);
 
 create or replace function private.is_admin()
 returns boolean
@@ -357,6 +373,7 @@ alter table public.feedback enable row level security;
 alter table public.password_change_requests enable row level security;
 alter table public.announcements enable row level security;
 alter table public.mentor_reminder_deliveries enable row level security;
+alter table public.referrals enable row level security;
 
 create policy "profiles_select_self_or_admin"
 on public.profiles for select
@@ -580,6 +597,23 @@ on public.mentor_reminder_deliveries for all
 using (private.is_admin())
 with check (private.is_admin());
 
+create policy "referrals_select_self_or_admin"
+on public.referrals for select
+using (student_id = private.current_student_id() or private.is_admin());
+
+create policy "referrals_insert_self_or_admin"
+on public.referrals for insert
+with check (student_id = private.current_student_id() or private.is_admin());
+
+create policy "referrals_update_admin"
+on public.referrals for update
+using (private.is_admin())
+with check (private.is_admin());
+
+create policy "referrals_delete_admin"
+on public.referrals for delete
+using (private.is_admin());
+
 grant usage on schema public to authenticated;
 grant usage on schema private to authenticated;
 
@@ -600,6 +634,8 @@ grant select, insert, update, delete on public.feedback to authenticated;
 grant select, insert, update, delete on public.password_change_requests to authenticated;
 grant select, insert, update, delete on public.announcements to authenticated;
 grant select, insert, update, delete on public.mentor_reminder_deliveries to authenticated;
+grant select, insert, update, delete on public.referrals to authenticated;
+grant select, insert, update, delete on public.referrals to service_role;
 
 grant execute on function private.is_admin() to authenticated;
 grant execute on function private.current_student_id() to authenticated;

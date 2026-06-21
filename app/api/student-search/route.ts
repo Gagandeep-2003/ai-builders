@@ -89,6 +89,22 @@ export async function GET() {
       keywords: ["profile", "parent", "country", "password", "avatar"],
       priority: 1,
     },
+    {
+      title: "Practice League",
+      eyebrow: "Momentum",
+      description: "See your real points, class streak, homework momentum, and privacy-safe benchmark rankings.",
+      href: "/league",
+      keywords: ["leaderboard", "league", "rank", "points", "streak", "competition"],
+      priority: 4,
+    },
+    {
+      title: "Refer & Earn",
+      eyebrow: "Bonus skill labs",
+      description: "Refer a friend or sibling and track eligibility for bonus skill-lab sessions.",
+      href: "/referrals",
+      keywords: ["referral", "refer", "friend", "sibling", "reward", "bonus classes"],
+      priority: 3,
+    },
   ];
 
   return Response.json({ items });

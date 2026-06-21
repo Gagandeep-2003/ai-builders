@@ -14,6 +14,8 @@ const links: NavLink[] = [
   { href: "/resources", label: "Resources", icon: "folder", priority: true },
   { href: "/class", label: "My Class", icon: "calendar", priority: true },
   { href: "/progress", label: "Progress", icon: "chart" },
+  { href: "/league", label: "Practice League", icon: "league" },
+  { href: "/referrals", label: "Refer & Earn", icon: "referrals" },
   { href: "/profile", label: "Profile", icon: "profile" },
 ];
 

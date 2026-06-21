@@ -226,16 +226,27 @@ export function LandingPage() {
 
       <section className="section-divider py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 max-w-3xl">
+            <p className="font-mono text-xs uppercase text-accent">Visible learning evidence</p>
+            <h2 className="mt-3 font-heading text-3xl font-bold sm:text-4xl">
+              Progress families can actually verify.
+            </h2>
+            <p className="mt-4 leading-7 text-text-secondary">
+              Instead of anonymous marketing quotes, the program is designed around concrete evidence
+              students and parents can inspect inside the portal.
+            </p>
+          </div>
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              "The structure helped my child use AI thoughtfully instead of randomly.",
-              "The portal made it easy to understand what was due and what had improved.",
-              "The final showcase felt like a real product demo, not just a class project.",
-            ].map((quote) => (
-              <article key={quote} className="premium-card rounded-xl p-6">
+              ["Every session leaves evidence", "Tasks, submitted proof, class attendance, and tutor feedback stay connected to the learning journey."],
+              ["Progress is visible, not vague", "Families can see unlocked sessions, completed work, class consistency, and what comes next."],
+              ["The finish is a real showcase", "Students conclude each module with a practical artifact, demo, presentation, or automation they can explain."],
+            ].map(([title, text]) => (
+              <article key={title} className="premium-card rounded-xl p-6">
                 <ShieldCheck className="h-5 w-5 text-accent" />
-                <p className="mt-5 leading-7 text-text-secondary">“{quote}”</p>
-                <p className="mt-5 font-mono text-xs uppercase text-text-muted">Parent testimonial</p>
+                <h3 className="mt-5 font-heading text-xl font-bold">{title}</h3>
+                <p className="mt-3 leading-7 text-text-secondary">{text}</p>
+                <p className="mt-5 font-mono text-xs uppercase text-text-muted">Portal-backed outcome</p>
               </article>
             ))}
           </div>

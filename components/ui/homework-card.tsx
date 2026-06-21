@@ -56,7 +56,7 @@ export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
         </span>
         <div>
           <PendingLink
-            href={`/homework/${homework.id}`}
+            href={`/homework/${homework.id}?fromSession=${encodeURIComponent(homework.sessionId)}`}
             pendingLabel="Opening task..."
             className="button-motion inline-flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2 text-sm font-bold text-accent"
           >

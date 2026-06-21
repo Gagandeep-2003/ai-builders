@@ -1,5 +1,7 @@
 import {
   FolderOpen,
+  Gift,
+  Trophy,
   Video,
   BookOpenCheck,
 } from "lucide-react";
@@ -17,6 +19,7 @@ import {
   getStudentClassEvents,
 } from "@/lib/class-events";
 import { getStudentDashboardData } from "@/lib/data";
+import { calculateLeagueScore } from "@/lib/league";
 import { formatDate } from "@/lib/utils";
 import { formatSessionTime, getNextSession } from "@/lib/time";
 
@@ -38,6 +41,11 @@ export default async function DashboardPage() {
   const moduleCompleted = data.sessions.filter(
     (session) => session.moduleId === currentModule.id && session.status === "completed",
   ).length;
+  const leagueScore = calculateLeagueScore({
+    homework: data.homework,
+    attendance: data.attendance,
+    sessions: data.sessions,
+  });
 
   return (
     <AnimatedPage>
@@ -64,6 +72,47 @@ export default async function DashboardPage() {
           />
         </FadeIn>
       </Stagger>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Link
+          href="/league"
+          className="group relative overflow-hidden rounded-xl border border-accent/25 bg-bg-card p-6 transition hover:-translate-y-0.5 hover:border-accent/50"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_90%_0%,rgba(110,231,183,0.17),transparent_40%)]" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <p className="font-mono text-xs uppercase text-accent">Practice League</p>
+              <h2 className="mt-2 font-heading text-2xl font-bold">{leagueScore.points} momentum points</h2>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                {leagueScore.currentStreak
+                  ? `${leagueScore.currentStreak}-class streak active. See what moves you up next.`
+                  : "Start your class streak and compare progress with privacy-safe benchmark rivals."}
+              </p>
+            </div>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent transition group-hover:scale-105">
+              <Trophy className="h-5 w-5" />
+            </span>
+          </div>
+        </Link>
+        <Link
+          href="/referrals"
+          className="group relative overflow-hidden rounded-xl border border-amber-300/20 bg-bg-card p-6 transition hover:-translate-y-0.5 hover:border-amber-300/40"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_90%_0%,rgba(251,191,36,0.13),transparent_40%)]" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <p className="font-mono text-xs uppercase text-amber-200">Learn together reward</p>
+              <h2 className="mt-2 font-heading text-2xl font-bold">Two bonus skill labs each</h2>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                Refer a friend or sibling. After enrolment and their first session, both of you become eligible.
+              </p>
+            </div>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-amber-300/25 bg-amber-300/10 text-amber-200 transition group-hover:scale-105">
+              <Gift className="h-5 w-5" />
+            </span>
+          </div>
+        </Link>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <section className="premium-card rounded-xl p-6">

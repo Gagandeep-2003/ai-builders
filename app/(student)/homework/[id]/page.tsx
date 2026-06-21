@@ -103,7 +103,10 @@ export default async function HomeworkDetailPage({
 
   return (
     <AnimatedPage>
-      <Link href="/homework" className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent">
+      <Link
+        href={`/homework?session=${encodeURIComponent(homework.sessionId)}`}
+        className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent"
+      >
         <ArrowLeft className="h-4 w-4" />
         Back to homework
       </Link>

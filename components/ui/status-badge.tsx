@@ -15,6 +15,10 @@ const styles: Record<string, string> = {
   approved: "border-success/35 bg-success/10 text-[color:var(--success)]",
   rejected: "border-danger/35 bg-danger/10 text-[color:var(--danger)]",
   used: "border-border bg-white/[0.03] text-text-muted",
+  contacted: "border-info/35 bg-info/10 text-[color:var(--info)]",
+  enrolled: "border-accent/40 bg-accent/10 text-accent",
+  rewarded: "border-success/35 bg-success/10 text-[color:var(--success)] shadow-[0_0_18px_rgba(52,211,153,0.12)]",
+  closed: "border-border bg-white/[0.03] text-text-muted",
 };
 
 export function StatusBadge({

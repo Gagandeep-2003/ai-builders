@@ -25,6 +25,8 @@ import {
   type PasswordRequestStatus,
   type RescheduleRequestStatus,
   type ResourceItem,
+  type ReferralSubmission,
+  type ReferralStatus,
   type AttendanceStatus,
   type ResourceType,
   type SubmissionStatus,
@@ -262,6 +264,23 @@ function mapStudent(row: DbRow): StudentProfile {
     timeZone: text(row, "time_zone", "Asia/Kolkata"),
     batchId: text(row, "batch_id"),
     enrolledAt: text(row, "enrolled_at"),
+  };
+}
+
+function mapReferral(row: DbRow): ReferralSubmission {
+  const student = relation(row, "students");
+  return {
+    id: text(row, "id"),
+    studentId: text(row, "student_id"),
+    studentName: student ? text(student, "full_name") : text(row, "student_name"),
+    referredName: text(row, "referred_name"),
+    referredContact: text(row, "referred_contact"),
+    relationship: text(row, "relationship"),
+    note: text(row, "note"),
+    status: text(row, "status", "pending") as ReferralStatus,
+    adminNote: text(row, "admin_note"),
+    createdAt: text(row, "created_at"),
+    reviewedAt: text(row, "reviewed_at"),
   };
 }
 
@@ -826,6 +845,34 @@ async function getStudentProgressDataImpl() {
 }
 
 export const getStudentProgressData = cache(() => measureServer("student.progress", getStudentProgressDataImpl));
+
+export async function getStudentReferralData(): Promise<ReferralSubmission[]> {
+  const context = await getStudentContextData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("referrals")
+    .select("id, student_id, referred_name, referred_contact, relationship, note, status, admin_note, created_at, reviewed_at")
+    .eq("student_id", context.student.id)
+    .order("created_at", { ascending: false });
+
+  if (error) return [];
+  return data?.map((row) => mapReferral(row)) ?? [];
+}
+
+export async function getAdminReferralData(): Promise<ReferralSubmission[]> {
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("referrals")
+    .select("id, student_id, referred_name, referred_contact, relationship, note, status, admin_note, created_at, reviewed_at, students(full_name)")
+    .order("created_at", { ascending: false });
+
+  if (error) return [];
+  return data?.map((row) => mapReferral(row)) ?? [];
+}
 
 async function getStudentProfileDataImpl() {
   const context = await getStudentContextData();
