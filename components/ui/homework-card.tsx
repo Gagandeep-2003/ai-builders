@@ -9,7 +9,9 @@ import type { HomeworkItem } from "@/lib/course-data";
 export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
   const tone = getDueTone(homework.dueDate, homework.status);
   const progressLabel =
-    homework.status !== "pending"
+    homework.status === "revision_requested"
+      ? "Mentor changes requested"
+      : homework.status !== "pending"
       ? "Complete"
       : homework.startedAt
         ? "In progress"

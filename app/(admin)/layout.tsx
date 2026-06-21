@@ -44,7 +44,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         day: "2-digit",
       }) === todayKey;
   }).length;
-  const pendingHomework = data.homework.filter((item) => item.status === "submitted").length;
+  const pendingHomework = data.homework.reduce(
+    (count, item) => count + (item.submissions?.filter((submission) => submission.status === "submitted").length ?? 0),
+    0,
+  );
   const pendingReschedules = data.rescheduleRequests.filter((request) => request.status === "pending").length;
   const pendingPasswords = data.passwordRequests.filter((request) => request.status === "pending").length;
   const onlineStudents = data.students.filter((student) => {

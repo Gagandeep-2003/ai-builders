@@ -11,6 +11,7 @@ import { AnnouncementCard } from "@/components/ui/announcement-card";
 import { HomeworkCard } from "@/components/ui/homework-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { AchievementStrip } from "@/components/portal/achievement-strip";
 import { StatCard } from "@/components/ui/stat-card";
 import {
   daysUntilClassEvent,
@@ -18,16 +19,19 @@ import {
   getNextClassEvent,
   getStudentClassEvents,
 } from "@/lib/class-events";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentAchievementData, getStudentDashboardData } from "@/lib/data";
+import { calculateBadgeProgress } from "@/lib/achievements";
 import { calculateLeagueScore } from "@/lib/league";
 import { formatDate } from "@/lib/utils";
 import { formatSessionTime, getNextSession } from "@/lib/time";
 
 export default async function DashboardPage() {
-  const data = await getStudentDashboardData();
+  const [data, achievements] = await Promise.all([getStudentDashboardData(), getStudentAchievementData()]);
   const now = new Date();
   const completed = data.sessions.filter((session) => session.status === "completed").length;
-  const pendingHomework = data.homework.filter((item) => item.status === "pending");
+  const pendingHomework = data.homework.filter(
+    (item) => item.status === "pending" || item.status === "revision_requested",
+  );
   const classEvents = getStudentClassEvents({
     student: data.student,
     batch: data.batch,
@@ -42,6 +46,13 @@ export default async function DashboardPage() {
     (session) => session.moduleId === currentModule.id && session.status === "completed",
   ).length;
   const leagueScore = calculateLeagueScore({
+    homework: data.homework,
+    attendance: data.attendance,
+    sessions: data.sessions,
+  });
+  const badgeProgress = calculateBadgeProgress({
+    definitions: achievements.definitions,
+    awards: achievements.awards,
     homework: data.homework,
     attendance: data.attendance,
     sessions: data.sessions,
@@ -73,6 +84,8 @@ export default async function DashboardPage() {
         </FadeIn>
       </Stagger>
 
+      <AchievementStrip awards={achievements.awards} progress={badgeProgress} title="Latest achievements" />
+
       <section className="grid gap-4 lg:grid-cols-2">
         <Link
           href="/league"
@@ -81,12 +94,12 @@ export default async function DashboardPage() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_90%_0%,rgba(110,231,183,0.17),transparent_40%)]" />
           <div className="relative flex items-start justify-between gap-4">
             <div>
-              <p className="font-mono text-xs uppercase text-accent">Practice League</p>
+              <p className="font-mono text-xs uppercase text-accent">AI Builders League</p>
               <h2 className="mt-2 font-heading text-2xl font-bold">{leagueScore.points} momentum points</h2>
               <p className="mt-2 text-sm leading-6 text-text-secondary">
                 {leagueScore.currentStreak
                   ? `${leagueScore.currentStreak}-class streak active. See what moves you up next.`
-                  : "Start your class streak and compare progress with privacy-safe benchmark rivals."}
+                  : "Start your class streak and begin moving through the AI Builders League."}
               </p>
             </div>
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent transition group-hover:scale-105">

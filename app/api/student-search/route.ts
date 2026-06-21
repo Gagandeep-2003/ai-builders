@@ -90,9 +90,9 @@ export async function GET() {
       priority: 1,
     },
     {
-      title: "Practice League",
+      title: "AI Builders League",
       eyebrow: "Momentum",
-      description: "See your real points, class streak, homework momentum, and privacy-safe benchmark rankings.",
+      description: "See your points, class streak, homework momentum, and current AI Builders League position.",
       href: "/league",
       keywords: ["leaderboard", "league", "rank", "points", "streak", "competition"],
       priority: 4,

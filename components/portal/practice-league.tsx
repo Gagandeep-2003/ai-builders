@@ -8,7 +8,7 @@ import {
   ChevronRight,
   Flame,
   Globe2,
-  Medal,
+  Info,
   MoveDownRight,
   MoveUpRight,
   Radio,
@@ -16,7 +16,6 @@ import {
   Sparkles,
   Target,
   Trophy,
-  UsersRound,
 } from "lucide-react";
 import type { LeagueEntry, LeagueScore } from "@/lib/league";
 import { cn } from "@/lib/utils";
@@ -69,9 +68,9 @@ function benchmarkPulse(entry: LeagueEntry, cycle: number) {
   return Math.round(wave * 72);
 }
 
-function badgeCount(entry: LeagueEntry, cycle: number) {
+function badgeCount(entry: LeagueEntry, cycle: number, earnedBadgeCount: number) {
   const earned = entry.reviewedTasks + entry.completedSessions + Math.floor(entry.currentStreak / 3);
-  if (entry.isStudent) return earned;
+  if (entry.isStudent) return earnedBadgeCount;
   const seed = Number(entry.id.replace(/\D/g, "")) || 1;
   return Math.max(1, earned + ((seed + cycle) % 4) - 1);
 }
@@ -85,10 +84,12 @@ export function PracticeLeague({
   entries,
   studentScore,
   unlockedTasks,
+  earnedBadgeCount,
 }: {
   entries: LeagueEntry[];
   studentScore: LeagueScore;
   unlockedTasks: number;
+  earnedBadgeCount: number;
 }) {
   const [metric, setMetric] = useState<LeagueMetric>("overall");
   const [country, setCountry] = useState("All");
@@ -164,7 +165,14 @@ export function PracticeLeague({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent" />
               </span>
-              Live practice league
+              Live AI Builders League
+              <span
+                title="The surrounding competitors are privacy-safe benchmark profiles calibrated to your course stage."
+                className="inline-flex cursor-help text-text-muted"
+                aria-label="League benchmark information"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </span>
             </div>
             <h1 className="mt-5 max-w-2xl font-heading text-5xl font-extrabold leading-[0.96] sm:text-6xl lg:text-7xl">
               Learn.
@@ -173,8 +181,8 @@ export function PracticeLeague({
               </span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-text-secondary sm:text-lg">
-              Your position is powered by real learning activity. The surrounding field uses simulated,
-              privacy-safe benchmark profiles so progress feels competitive without exposing another student.
+              Your position is powered by real learning activity. Complete meaningful work, protect your
+              class streak, and keep moving through the field.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
               <div>
@@ -247,7 +255,7 @@ export function PracticeLeague({
                   <div className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-[0.62rem] uppercase text-text-muted">
                     <span>{countryCodes[entry.country] ?? entry.country}</span>
                     <span>·</span>
-                    <span>{badgeCount(entry, cycle)} badges</span>
+                    <span>{badgeCount(entry, cycle, earnedBadgeCount)} badges</span>
                     <span>·</span>
                     <span>{displayedStreak(entry, cycle)} streak</span>
                   </div>
@@ -349,7 +357,7 @@ export function PracticeLeague({
               <div>
                 <div className="flex items-center gap-2 font-mono text-[0.65rem] uppercase text-accent">
                   <Radio className="h-3.5 w-3.5" />
-                  Practice field · five-day movement cycle
+                  League movement · five-day cycle
                 </div>
                 <h2 className="mt-2 font-heading text-3xl font-bold">The field</h2>
               </div>
@@ -404,7 +412,7 @@ export function PracticeLeague({
                             <span>{countryCodes[entry.country] ?? entry.country}</span>
                             <span className="inline-flex items-center gap-1">
                               <ShieldCheck className="h-3.5 w-3.5 text-amber-300" />
-                              {badgeCount(entry, cycle)} badges
+                              {badgeCount(entry, cycle, earnedBadgeCount)} badges
                             </span>
                             <span className="inline-flex items-center gap-1">
                               <Flame className="h-3.5 w-3.5 text-orange-300" />
@@ -456,19 +464,6 @@ export function PracticeLeague({
         </div>
       </section>
 
-      <footer className="flex flex-col gap-3 border-y border-border/70 bg-bg-card/35 px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-        <div className="flex items-center gap-3">
-          <UsersRound className="h-5 w-5 text-accent" />
-          <div>
-            <p className="font-heading font-bold">Privacy-safe by design</p>
-            <p className="text-xs text-text-secondary">Only your own activity is real and personally identifiable.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 font-mono text-[0.65rem] uppercase text-text-muted">
-          <Medal className="h-4 w-4 text-amber-300" />
-          {ranked.length} calibrated profiles
-        </div>
-      </footer>
     </main>
   );
 }

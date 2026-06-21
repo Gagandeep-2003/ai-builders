@@ -4,11 +4,20 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PrintButton } from "@/components/portal/print-button";
 import { ProgressRing } from "@/components/portal/progress-ring";
-import { getStudentProgressData } from "@/lib/data";
+import { AchievementGallery } from "@/components/portal/achievement-gallery";
+import { calculateBadgeProgress } from "@/lib/achievements";
+import { getStudentAchievementData, getStudentProgressData } from "@/lib/data";
 import { formatDate, percent } from "@/lib/utils";
 
 export default async function ProgressPage() {
-  const data = await getStudentProgressData();
+  const [data, achievements] = await Promise.all([getStudentProgressData(), getStudentAchievementData()]);
+  const badgeProgress = calculateBadgeProgress({
+    definitions: achievements.definitions,
+    awards: achievements.awards,
+    homework: data.homework,
+    attendance: data.attendance,
+    sessions: data.sessions,
+  });
   const completed = data.sessions.filter((session) => session.status === "completed").length;
   const completion = percent(completed, data.sessions.length);
   const attendanceSummary = ["present", "absent", "rescheduled"].map((status) => ({
@@ -20,7 +29,7 @@ export default async function ProgressPage() {
     return {
       module: `M${module.orderIndex}`,
       total: items.length,
-      completed: items.filter((item) => item.status !== "pending").length,
+      completed: items.filter((item) => item.status === "submitted" || item.status === "reviewed").length,
     };
   });
 
@@ -67,6 +76,10 @@ export default async function ProgressPage() {
           <h2 className="font-heading text-2xl font-bold">Homework completion</h2>
           <HomeworkBarChart data={homeworkByModule} />
         </section>
+      </div>
+
+      <div id="achievements" className="scroll-mt-8">
+        <AchievementGallery progress={badgeProgress} awards={achievements.awards} />
       </div>
 
       <section>

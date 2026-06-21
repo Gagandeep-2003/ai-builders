@@ -1,11 +1,13 @@
 export type Role = "student" | "admin";
-export type SubmissionStatus = "pending" | "submitted" | "reviewed";
+export type SubmissionStatus = "pending" | "submitted" | "revision_requested" | "reviewed";
 export type AttendanceStatus = "present" | "absent" | "rescheduled";
 export type ResourceType = "pdf" | "link" | "video" | "note";
 export type PasswordRequestStatus = "pending" | "approved" | "rejected" | "used";
 export type RescheduleRequestStatus = "pending" | "approved" | "rejected";
 export type HomeworkKind = "class_challenge" | "home_task";
 export type ReferralStatus = "pending" | "contacted" | "enrolled" | "rewarded" | "closed";
+export type BadgeCategory = "curriculum" | "homework" | "attendance" | "streak" | "mentor";
+export type BadgeRarity = "common" | "rare" | "epic" | "legendary";
 
 export type HomeworkDetails = {
   moduleNumber: number;
@@ -100,6 +102,8 @@ export type HomeworkItem = {
   moduleId: string;
   status: SubmissionStatus;
   notes?: string;
+  mentorFeedback?: string;
+  reviewedAt?: string;
   startedAt?: string;
   submittedAt?: string;
   timeSpentSeconds?: number;
@@ -130,6 +134,42 @@ export type HomeworkSubmissionSummary = {
   viewportWidth?: number;
   viewportHeight?: number;
   language?: string;
+  mentorFeedback?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+};
+
+export type BadgeDefinition = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  iconKey: string;
+  color: string;
+  category: BadgeCategory;
+  rarity: BadgeRarity;
+  target: number;
+  mentorAwarded: boolean;
+  sortOrder: number;
+};
+
+export type StudentBadge = {
+  id: string;
+  studentId: string;
+  badgeId: string;
+  source: "automatic" | "mentor";
+  mentorNote: string;
+  awardedAt: string;
+  seenAt: string;
+  definition: BadgeDefinition;
+};
+
+export type BadgeProgress = {
+  definition: BadgeDefinition;
+  current: number;
+  target: number;
+  earned: boolean;
+  percent: number;
 };
 
 export type ResourceItem = {

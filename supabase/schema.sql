@@ -3,7 +3,7 @@ create extension if not exists pgcrypto with schema extensions;
 create schema if not exists private;
 
 create type public.app_role as enum ('student', 'admin');
-create type public.submission_status as enum ('pending', 'submitted', 'reviewed');
+create type public.submission_status as enum ('pending', 'submitted', 'revision_requested', 'reviewed');
 create type public.homework_kind as enum ('class_challenge', 'home_task');
 create type public.resource_type as enum ('pdf', 'link', 'video', 'note');
 create type public.attendance_status as enum ('present', 'absent', 'rescheduled');
@@ -106,8 +106,37 @@ create table public.submissions (
   started_at timestamptz,
   submitted_at timestamptz,
   reviewed_at timestamptz,
+  reviewed_by uuid references public.profiles(id) on delete set null,
+  mentor_feedback text,
   created_at timestamptz not null default now(),
   unique (homework_id, student_id)
+);
+
+create table public.badge_definitions (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  description text not null,
+  icon_key text not null,
+  color text not null,
+  category text not null check (category in ('curriculum', 'homework', 'attendance', 'streak', 'mentor')),
+  rarity text not null check (rarity in ('common', 'rare', 'epic', 'legendary')),
+  target integer not null default 1 check (target > 0),
+  mentor_awarded boolean not null default false,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table public.student_badges (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.students(id) on delete cascade,
+  badge_id uuid not null references public.badge_definitions(id) on delete cascade,
+  source text not null check (source in ('automatic', 'mentor')),
+  awarded_by uuid references public.profiles(id) on delete set null,
+  mentor_note text,
+  awarded_at timestamptz not null default now(),
+  seen_at timestamptz,
+  unique (student_id, badge_id)
 );
 
 create table public.submission_evidence (
@@ -239,6 +268,8 @@ create index sessions_module_id_idx on public.sessions (module_id);
 create index homework_batch_id_idx on public.homework (batch_id);
 create index homework_assigned_student_id_idx on public.homework (assigned_student_id);
 create index submissions_student_id_idx on public.submissions (student_id);
+create index student_badges_student_id_idx on public.student_badges (student_id);
+create index student_badges_seen_at_idx on public.student_badges (student_id, seen_at);
 create index submission_evidence_student_id_idx on public.submission_evidence (student_id);
 create index resources_module_id_idx on public.resources (module_id);
 create index attendance_student_id_idx on public.attendance (student_id);
@@ -364,6 +395,8 @@ alter table public.students enable row level security;
 alter table public.sessions enable row level security;
 alter table public.homework enable row level security;
 alter table public.submissions enable row level security;
+alter table public.badge_definitions enable row level security;
+alter table public.student_badges enable row level security;
 alter table public.submission_evidence enable row level security;
 alter table public.resources enable row level security;
 alter table public.attendance enable row level security;
@@ -475,6 +508,24 @@ with check (student_id = private.current_student_id() or private.is_admin());
 create policy "submissions_delete_admin"
 on public.submissions for delete
 using (private.is_admin());
+
+create policy "badge_definitions_select_authenticated"
+on public.badge_definitions for select
+using (auth.uid() is not null);
+
+create policy "badge_definitions_write_admin"
+on public.badge_definitions for all
+using (private.is_admin())
+with check (private.is_admin());
+
+create policy "student_badges_select_self_or_admin"
+on public.student_badges for select
+using (student_id = private.current_student_id() or private.is_admin());
+
+create policy "student_badges_write_admin"
+on public.student_badges for all
+using (private.is_admin())
+with check (private.is_admin());
 
 create policy "submission_evidence_select_self_or_admin"
 on public.submission_evidence for select
@@ -625,6 +676,8 @@ grant select, insert, update, delete on public.students to authenticated;
 grant select, insert, update, delete on public.sessions to authenticated;
 grant select, insert, update, delete on public.homework to authenticated;
 grant select, insert, update, delete on public.submissions to authenticated;
+grant select, insert, update, delete on public.badge_definitions to authenticated;
+grant select, insert, update, delete on public.student_badges to authenticated;
 grant select, insert, update, delete on public.submission_evidence to authenticated;
 grant select, insert, update, delete on public.resources to authenticated;
 grant select, insert, update, delete on public.attendance to authenticated;

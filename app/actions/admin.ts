@@ -651,6 +651,72 @@ export async function saveFeedbackAction(formData: FormData) {
   revalidatePath("/progress");
 }
 
+export async function reviewHomeworkSubmissionAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) return;
+  const homeworkId = requiredValue(formData, "homeworkId");
+  const studentId = requiredValue(formData, "studentId");
+  const decision = requiredValue(formData, "decision");
+  const mentorFeedback = requiredValue(formData, "mentorFeedback");
+  if (!homeworkId || !studentId || !["approved", "revision_requested"].includes(decision)) return;
+  if (decision === "revision_requested" && !mentorFeedback) return;
+
+  const { data: userData } = await supabase.auth.getUser();
+  await supabase
+    .from("submissions")
+    .update({
+      status: decision === "approved" ? "reviewed" : "revision_requested",
+      mentor_feedback: mentorFeedback || null,
+      reviewed_by: userData.user?.id ?? null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("homework_id", homeworkId)
+    .eq("student_id", studentId)
+    .in("status", ["submitted", "reviewed", "revision_requested"]);
+
+  for (const path of ["/admin", "/admin/homework", "/admin/progress", "/dashboard", "/homework", `/homework/${homeworkId}`, "/progress", "/league"]) {
+    revalidatePath(path);
+  }
+}
+
+export async function awardMentorBadgeAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) return;
+  const studentId = requiredValue(formData, "studentId");
+  const badgeId = requiredValue(formData, "badgeId");
+  const mentorNote = requiredValue(formData, "mentorNote");
+  if (!studentId || !badgeId) return;
+
+  const [{ data: definition }, { data: userData }] = await Promise.all([
+    supabase.from("badge_definitions").select("id, mentor_awarded").eq("id", badgeId).maybeSingle(),
+    supabase.auth.getUser(),
+  ]);
+  if (!definition?.mentor_awarded) return;
+
+  await supabase.from("student_badges").upsert(
+    {
+      student_id: studentId,
+      badge_id: badgeId,
+      source: "mentor",
+      awarded_by: userData.user?.id ?? null,
+      mentor_note: mentorNote || null,
+      awarded_at: new Date().toISOString(),
+      seen_at: null,
+    },
+    { onConflict: "student_id,badge_id" },
+  );
+  for (const path of ["/admin/progress", "/dashboard", "/progress", "/journey", "/league"]) revalidatePath(path);
+}
+
+export async function revokeMentorBadgeAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) return;
+  const awardId = requiredValue(formData, "awardId");
+  if (!awardId) return;
+  await supabase.from("student_badges").delete().eq("id", awardId).eq("source", "mentor");
+  for (const path of ["/admin/progress", "/dashboard", "/progress", "/journey", "/league"]) revalidatePath(path);
+}
+
 export async function postAnnouncementAction(formData: FormData) {
   const supabase = await getAdminClient();
   if (!supabase) {

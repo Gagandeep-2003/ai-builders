@@ -31,11 +31,14 @@ import {
   type ResourceType,
   type SubmissionStatus,
   type StudentProfile,
+  type BadgeDefinition,
+  type StudentBadge,
 } from "@/lib/course-data";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { getAuthIdentity } from "@/lib/auth";
 import { filterUnlockedHomework, filterUnlockedResources } from "@/lib/content-access";
+import { badgeCatalog } from "@/lib/achievements";
 import { getCourseworkDetail } from "@/lib/coursework-details";
 import { normalizeMeetLink } from "@/lib/meet-links";
 import { measureServer } from "@/lib/performance";
@@ -95,6 +98,10 @@ export type AdminShellData = Pick<
 >;
 
 export type MentorScheduleData = Pick<AdminData, "students" | "batches" | "rescheduleRequests">;
+export type AchievementData = {
+  definitions: BadgeDefinition[];
+  awards: StudentBadge[];
+};
 
 function curriculumWithStatus(batch = demoBatch): CurriculumSession[] {
   return applySessionStatuses(sessions, batch);
@@ -267,6 +274,37 @@ function mapStudent(row: DbRow): StudentProfile {
   };
 }
 
+function mapBadgeDefinition(row: DbRow): BadgeDefinition {
+  return {
+    id: text(row, "id"),
+    slug: text(row, "slug"),
+    name: text(row, "name"),
+    description: text(row, "description"),
+    iconKey: text(row, "icon_key", "award"),
+    color: text(row, "color", "#6ee7b7"),
+    category: text(row, "category", "curriculum") as BadgeDefinition["category"],
+    rarity: text(row, "rarity", "common") as BadgeDefinition["rarity"],
+    target: num(row, "target", 1),
+    mentorAwarded: Boolean(row.mentor_awarded),
+    sortOrder: num(row, "sort_order"),
+  };
+}
+
+function mapStudentBadge(row: DbRow): StudentBadge | null {
+  const definition = relation(row, "badge_definitions");
+  if (!definition) return null;
+  return {
+    id: text(row, "id"),
+    studentId: text(row, "student_id"),
+    badgeId: text(row, "badge_id"),
+    source: text(row, "source", "automatic") as StudentBadge["source"],
+    mentorNote: text(row, "mentor_note"),
+    awardedAt: text(row, "awarded_at"),
+    seenAt: text(row, "seen_at"),
+    definition: mapBadgeDefinition(definition),
+  };
+}
+
 function mapReferral(row: DbRow): ReferralSubmission {
   const student = relation(row, "students");
   return {
@@ -340,6 +378,9 @@ function mapHomework(row: DbRow, currentStudentId?: string): HomeworkItem {
       status: text(item, "status", "pending") as SubmissionStatus,
       startedAt: itemStartedAt || undefined,
       submittedAt: itemSubmittedAt || undefined,
+      mentorFeedback: text(item, "mentor_feedback") || undefined,
+      reviewedAt: text(item, "reviewed_at") || undefined,
+      reviewedBy: text(item, "reviewed_by") || undefined,
       timeSpentSeconds:
         itemStartedAt && itemSubmittedAt
           ? Math.max(0, Math.round((new Date(itemSubmittedAt).getTime() - new Date(itemStartedAt).getTime()) / 1000))
@@ -375,6 +416,8 @@ function mapHomework(row: DbRow, currentStudentId?: string): HomeworkItem {
     moduleId: session ? text(session, "module_id", "m1") : "m1",
     status: (submission ? text(submission, "status", "pending") : "pending") as SubmissionStatus,
     notes: submission ? text(submission, "notes") || undefined : undefined,
+    mentorFeedback: submission ? text(submission, "mentor_feedback") || undefined : undefined,
+    reviewedAt: submission ? text(submission, "reviewed_at") || undefined : undefined,
     startedAt: startedAt || undefined,
     submittedAt: submittedAt || undefined,
     timeSpentSeconds,
@@ -591,7 +634,7 @@ export async function getCurriculum(batch = demoBatch): Promise<{
 const studentSelect =
   "id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at), batches(id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order))";
 const homeworkSelect =
-  "id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, notes, started_at, submitted_at)";
+  "id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, notes, started_at, submitted_at, reviewed_at, reviewed_by, mentor_feedback)";
 const rescheduleSelect =
   "id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)";
 
@@ -846,6 +889,48 @@ async function getStudentProgressDataImpl() {
 
 export const getStudentProgressData = cache(() => measureServer("student.progress", getStudentProgressDataImpl));
 
+async function getStudentAchievementDataImpl(): Promise<AchievementData> {
+  const context = await getStudentContextData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { definitions: badgeCatalog, awards: [] };
+  const [{ data: definitionRows }, { data: awardRows }] = await Promise.all([
+    supabase.from("badge_definitions").select("*").order("sort_order"),
+    supabase
+      .from("student_badges")
+      .select("id, student_id, badge_id, source, mentor_note, awarded_at, seen_at, badge_definitions(*)")
+      .eq("student_id", context.student.id)
+      .order("awarded_at", { ascending: false }),
+  ]);
+  return {
+    definitions: definitionRows?.length ? definitionRows.map(mapBadgeDefinition) : badgeCatalog,
+    awards: (awardRows ?? []).map(mapStudentBadge).filter((item): item is StudentBadge => Boolean(item)),
+  };
+}
+
+export const getStudentAchievementData = cache(() =>
+  measureServer("student.achievements", getStudentAchievementDataImpl),
+);
+
+async function getAdminAchievementDataImpl(): Promise<AchievementData> {
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { definitions: badgeCatalog, awards: [] };
+  const [{ data: definitionRows }, { data: awardRows }] = await Promise.all([
+    supabase.from("badge_definitions").select("*").order("sort_order"),
+    supabase
+      .from("student_badges")
+      .select("id, student_id, badge_id, source, mentor_note, awarded_at, seen_at, badge_definitions(*)")
+      .order("awarded_at", { ascending: false }),
+  ]);
+  return {
+    definitions: definitionRows?.length ? definitionRows.map(mapBadgeDefinition) : badgeCatalog,
+    awards: (awardRows ?? []).map(mapStudentBadge).filter((item): item is StudentBadge => Boolean(item)),
+  };
+}
+
+export const getAdminAchievementData = cache(() =>
+  measureServer("admin.achievements", getAdminAchievementDataImpl),
+);
+
 export async function getStudentReferralData(): Promise<ReferralSubmission[]> {
   const context = await getStudentContextData();
   const supabase = await createServerSupabaseClient();
@@ -1046,7 +1131,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
       .order("session_number", { ascending: true }),
     supabase
       .from("homework")
-      .select("id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, notes, started_at, submitted_at)")
+      .select(homeworkSelect)
       .order("created_at", { ascending: false }),
     supabase
       .from("resources")

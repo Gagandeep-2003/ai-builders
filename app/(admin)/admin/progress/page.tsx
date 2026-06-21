@@ -5,8 +5,9 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { filterUnlockedHomework, getSessionAccessBoundary } from "@/lib/content-access";
 import type { HomeworkItem, StudentProfile } from "@/lib/course-data";
-import { getAdminData } from "@/lib/data";
+import { getAdminAchievementData, getAdminData } from "@/lib/data";
 import { applySessionStatuses, formatSessionTime, getNextSession } from "@/lib/time";
+import { StudentBadgeManager } from "@/components/admin/student-badge-manager";
 
 function isHomeworkAssignedToStudent(homework: HomeworkItem, student: StudentProfile) {
   return (
@@ -21,7 +22,7 @@ function getStudentSubmission(homework: HomeworkItem, studentId: string) {
 }
 
 export default async function AdminProgressPage() {
-  const data = await getAdminData();
+  const [data, achievements] = await Promise.all([getAdminData(), getAdminAchievementData()]);
   const summaries = data.students
     .map((student) => {
       const batch = data.batches.find((item) => item.id === student.batchId);
@@ -137,6 +138,11 @@ export default async function AdminProgressPage() {
                       label="Unlocked session completion"
                     />
                   </div>
+                  <StudentBadgeManager
+                    studentId={summary.student.id}
+                    definitions={achievements.definitions}
+                    awards={achievements.awards.filter((award) => award.studentId === summary.student.id)}
+                  />
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">

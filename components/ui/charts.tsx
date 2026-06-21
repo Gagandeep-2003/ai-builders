@@ -35,8 +35,8 @@ export function AttendanceDonut({
   }
 
   return (
-    <div className="h-64">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-64 min-w-0">
+      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
         <PieChart>
           <Pie data={data} innerRadius={58} outerRadius={86} dataKey="value" paddingAngle={4}>
             {data.map((entry, index) => (
@@ -69,8 +69,8 @@ export function HomeworkBarChart({
   }
 
   return (
-    <div className="h-64">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-64 min-w-0">
+      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
         <BarChart data={data}>
           <XAxis dataKey="module" stroke="#8888A0" tickLine={false} axisLine={false} />
           <YAxis stroke="#55556A" tickLine={false} axisLine={false} allowDecimals={false} />

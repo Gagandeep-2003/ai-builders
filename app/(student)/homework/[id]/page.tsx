@@ -81,7 +81,7 @@ export default async function HomeworkDetailPage({
     (data.sessions.find((session) => session.id === homework.sessionId)?.globalNumber ?? 1) / 8,
   );
   const sessionNumber = data.sessions.find((session) => session.id === homework.sessionId)?.sessionNumber ?? 1;
-  const isCompleted = homework.status !== "pending";
+  const isCompleted = homework.status === "submitted" || homework.status === "reviewed";
   const hasStaleTiming =
     isCompleted && typeof homework.timeSpentSeconds === "number" && !isTrustedTaskDuration(homework.timeSpentSeconds);
   const displayTimeSpent = hasStaleTiming ? "Needs restart" : formatDuration(homework.timeSpentSeconds);
@@ -168,6 +168,18 @@ export default async function HomeworkDetailPage({
           </div>
         </div>
       </section>
+
+      {homework.mentorFeedback ? (
+        <section className={`rounded-xl border p-5 ${homework.status === "revision_requested" ? "border-danger/30 bg-danger/5" : "border-accent/25 bg-accent/5"}`}>
+          <p className={`font-mono text-xs uppercase ${homework.status === "revision_requested" ? "text-danger" : "text-accent"}`}>
+            {homework.status === "revision_requested" ? "Mentor requested changes" : "Mentor feedback"}
+          </p>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-secondary">{homework.mentorFeedback}</p>
+          {homework.status === "revision_requested" ? (
+            <p className="mt-3 text-sm font-semibold text-text-primary">Update your work below, then submit it again for review.</p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="premium-card overflow-hidden rounded-xl p-0">
         <div className="relative overflow-hidden border-b border-border/70 p-6">

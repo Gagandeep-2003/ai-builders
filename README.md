@@ -108,6 +108,23 @@ This adds:
 - admin approval/rejection for password changes
 - a safe database function that only marks an already-approved password request as used
 
+## Achievements And Homework Reviews
+
+Run this migration before using mentor reviews or student badges:
+
+```txt
+supabase/achievements-and-reviews-migration.sql
+```
+
+It adds:
+
+- approve or request-changes homework reviews with mentor feedback
+- automatic curriculum, homework, attendance, and streak badges
+- a curated set of mentor-awarded badges
+- one-time badge unlock celebrations
+- row-level security so students can only read their own awards
+- scheduled badge reconciliation through the mentor reminder job
+
 ## Curriculum And Homework
 
 The PDF-based syllabus lives in:

@@ -4,7 +4,8 @@ import { StudentStrandsSearch } from "@/components/portal/student-strands-search
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar-nav";
 import { getNextClassEvent, getStudentClassEvents } from "@/lib/class-events";
-import { getStudentShellData } from "@/lib/data";
+import { getStudentAchievementData, getStudentShellData } from "@/lib/data";
+import { BadgeCelebration } from "@/components/portal/badge-celebration";
 
 const links: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard", priority: true },
@@ -14,15 +15,16 @@ const links: NavLink[] = [
   { href: "/resources", label: "Resources", icon: "folder", priority: true },
   { href: "/class", label: "My Class", icon: "calendar", priority: true },
   { href: "/progress", label: "Progress", icon: "chart" },
-  { href: "/league", label: "Practice League", icon: "league" },
+  { href: "/league", label: "AI Builders League", icon: "league" },
   { href: "/referrals", label: "Refer & Earn", icon: "referrals" },
   { href: "/profile", label: "Profile", icon: "profile" },
 ];
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   await requireStudentAccess();
-  const data = await getStudentShellData();
-  const pendingHomework = data.homework.filter((item) => item.status === "pending").length;
+  const [data, achievements] = await Promise.all([getStudentShellData(), getStudentAchievementData()]);
+  const unseenBadge = achievements.awards.find((award) => !award.seenAt);
+  const pendingHomework = data.homework.filter((item) => item.status === "pending" || item.status === "revision_requested").length;
   const nextClassEvent = getNextClassEvent(
     getStudentClassEvents({
       student: data.student,
@@ -47,6 +49,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
     <div className="min-h-screen">
       <CardBorderGlow />
       <StudentStrandsSearch studentName={data.student.fullName} />
+      <BadgeCelebration key={unseenBadge?.id ?? "no-unseen-badge"} award={unseenBadge} />
       <PortalAutoSync />
       <SidebarNav links={links} badges={badges} />
       <div className="px-4 py-20 sm:px-6 lg:ml-72 lg:px-10 lg:py-10">

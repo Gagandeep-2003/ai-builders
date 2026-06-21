@@ -348,6 +348,11 @@ async function runMentorReminders(request: Request) {
     );
   }
 
+  const badgeRefresh = await supabase.rpc("refresh_all_student_badges");
+  if (badgeRefresh.error && badgeRefresh.error.code !== "PGRST202") {
+    warnings.push(`Achievement refresh skipped: ${badgeRefresh.error.message}`);
+  }
+
   const students = (studentData as unknown as StudentRow[]).map(mapStudent);
   const batches = (batchData as unknown as BatchRow[]).map(mapBatch);
   const sessions: CourseSession[] = (sessionData as unknown as SessionRow[])

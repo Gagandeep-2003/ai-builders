@@ -32,7 +32,7 @@ export function HomeworkTracker({
     () =>
       unlockedSessions.map((session) => {
         const items = homework.filter((item) => item.sessionId === session.id);
-        const completed = items.filter((item) => item.status !== "pending").length;
+        const completed = items.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
         return {
           session,
           items,
@@ -43,7 +43,7 @@ export function HomeworkTracker({
     [homework, unlockedSessions],
   );
   const active = grouped.find((item) => item.session.id === activeSessionId) ?? grouped[0];
-  const overallCompleted = homework.filter((item) => item.status !== "pending").length;
+  const overallCompleted = homework.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
   const moduleGroups = useMemo(
     () =>
       [1, 2, 3].map((moduleNumber) => ({

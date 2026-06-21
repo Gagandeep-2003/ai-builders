@@ -293,6 +293,9 @@ export async function markHomeworkSubmittedById(homeworkId: string) {
         status: "submitted",
         started_at: existing.started_at ?? now,
         submitted_at: now,
+        reviewed_at: null,
+        reviewed_by: null,
+        mentor_feedback: null,
       })
       .eq("id", existing.id);
   } else {
@@ -387,6 +390,9 @@ export async function markHomeworkSubmittedWithEvidence(
         status: "submitted",
         started_at: existing.started_at ?? now,
         submitted_at: now,
+        reviewed_at: null,
+        reviewed_by: null,
+        mentor_feedback: null,
         notes: getSubmissionNotesForClientInfo(existing.notes, clientInfo),
       })
       .eq("id", existing.id);
@@ -407,6 +413,9 @@ export async function markHomeworkSubmittedWithEvidence(
       status: "submitted",
       started_at: now,
       submitted_at: now,
+      reviewed_at: null,
+      reviewed_by: null,
+      mentor_feedback: null,
       notes: getSubmissionNotesForClientInfo(null, clientInfo),
     });
 
@@ -454,6 +463,8 @@ export async function resetHomeworkProgress(homeworkId: string) {
       started_at: null,
       submitted_at: null,
       reviewed_at: null,
+      reviewed_by: null,
+      mentor_feedback: null,
     })
     .eq("homework_id", homeworkId)
     .eq("student_id", context.studentId)

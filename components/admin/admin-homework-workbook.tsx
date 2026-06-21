@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, FileText, MonitorSmartphone, Paperclip, UserRound } from "lucide-react";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { HomeworkReviewForm } from "@/components/admin/homework-review-form";
 import type { Batch, CourseSession, HomeworkItem, StudentProfile } from "@/lib/course-data";
 import { formatDuration, formatHomeworkKind } from "@/lib/homework-utils";
 import { cn, formatDate } from "@/lib/utils";
@@ -210,7 +211,7 @@ export function AdminHomeworkWorkbook({
                                     <span>Completed {submission?.submittedAt ? formatDate(submission.submittedAt) : "not yet"}</span>
                                     <span>Time {formatDuration(submission?.timeSpentSeconds)}</span>
                                   </div>
-                                  {submission && ["submitted", "reviewed"].includes(submission.status) ? (
+                                  {submission && ["submitted", "revision_requested", "reviewed"].includes(submission.status) ? (
                                     <div className="mt-4 rounded-xl border border-accent/20 bg-accent/5 p-3">
                                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="flex items-center gap-2">
@@ -299,6 +300,20 @@ export function AdminHomeworkWorkbook({
                                         </div>
                                       ) : null}
                                     </div>
+                                  ) : null}
+                                  {submission?.mentorFeedback ? (
+                                    <div className="mt-3 rounded-xl border border-info/25 bg-info/5 p-3">
+                                      <p className="font-mono text-[10px] uppercase text-info">Current mentor feedback</p>
+                                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">{submission.mentorFeedback}</p>
+                                    </div>
+                                  ) : null}
+                                  {submission && ["submitted", "revision_requested", "reviewed"].includes(submission.status) ? (
+                                    <HomeworkReviewForm
+                                      homeworkId={item.id}
+                                      studentId={selectedStudent.id}
+                                      initialFeedback={submission.mentorFeedback}
+                                      reviewed={submission.status === "reviewed"}
+                                    />
                                   ) : null}
                                 </div>
                                 <StatusBadge status={status} />

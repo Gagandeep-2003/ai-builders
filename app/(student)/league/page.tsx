@@ -1,11 +1,11 @@
 import { AnimatedPage } from "@/components/ui/animated";
 import { PracticeLeague } from "@/components/portal/practice-league";
 import { getSessionAccessBoundary } from "@/lib/content-access";
-import { getStudentProgressData } from "@/lib/data";
+import { getStudentAchievementData, getStudentProgressData } from "@/lib/data";
 import { buildPracticeLeague, calculateLeagueScore } from "@/lib/league";
 
 export default async function LeaguePage() {
-  const data = await getStudentProgressData();
+  const [data, achievements] = await Promise.all([getStudentProgressData(), getStudentAchievementData()]);
   const access = getSessionAccessBoundary(data.sessions);
   const unlockedSessions = data.sessions.filter(
     (session) => session.globalNumber <= access.maxUnlockedGlobalNumber,
@@ -28,6 +28,7 @@ export default async function LeaguePage() {
         entries={entries}
         studentScore={score}
         unlockedTasks={data.homework.length}
+        earnedBadgeCount={achievements.awards.length}
       />
     </AnimatedPage>
   );

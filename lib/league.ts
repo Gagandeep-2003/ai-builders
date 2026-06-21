@@ -71,7 +71,7 @@ export function calculateLeagueScore({
   attendance: AttendanceItem[];
   sessions: Array<CourseSession & { status?: "completed" | "current" | "locked" }>;
 }): LeagueScore {
-  const submittedTasks = homework.filter((item) => item.status !== "pending").length;
+  const submittedTasks = homework.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
   const reviewedTasks = homework.filter((item) => item.status === "reviewed").length;
   const presentClasses = attendance.filter((item) => item.status === "present").length;
   const countedAttendance = attendance.filter((item) => item.status !== "rescheduled");

@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 const styles: Record<string, string> = {
   pending: "border-accent-warm/35 bg-accent-warm/10 text-[color:var(--accent-warm)] shadow-[0_0_18px_rgba(245,158,11,0.12)]",
   submitted: "border-info/35 bg-info/10 text-[color:var(--info)] shadow-[0_0_18px_rgba(96,165,250,0.12)]",
+  revision_requested: "border-danger/35 bg-danger/10 text-[color:var(--danger)] shadow-[0_0_18px_rgba(251,113,133,0.12)]",
   reviewed: "border-success/35 bg-success/10 text-[color:var(--success)] shadow-[0_0_18px_rgba(52,211,153,0.12)]",
   present: "border-success/35 bg-success/10 text-[color:var(--success)] shadow-[0_0_18px_rgba(52,211,153,0.12)]",
   absent: "border-danger/35 bg-danger/10 text-[color:var(--danger)] shadow-[0_0_18px_rgba(251,113,133,0.12)]",
@@ -38,7 +39,7 @@ export function StatusBadge({
         className,
       )}
     >
-      {label ?? status}
+      {label ?? status.replaceAll("_", " ")}
     </span>
   );
 }

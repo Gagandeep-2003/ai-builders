@@ -918,3 +918,92 @@ textarea:focus-visible {
     box-shadow: none;
   }
 }
+@keyframes badge-ray-spin {
+  to { transform: rotate(360deg); }
+}
+
+.badge-rays {
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      currentColor 0deg 7deg,
+      transparent 7deg 20deg
+    );
+  opacity: 0.13;
+  filter: blur(1px);
+  mask-image: radial-gradient(circle, black 0 16%, transparent 66%);
+}
+
+.league-cloud-loading {
+  position: relative;
+  min-height: min(72vh, 720px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(110, 231, 183, 0.1), transparent 24%),
+    var(--bg-base);
+}
+
+.league-cloud {
+  position: absolute;
+  inset-block: -15%;
+  width: 72%;
+  opacity: 0;
+  filter: blur(34px) saturate(1.15);
+  background:
+    radial-gradient(circle at 20% 32%, rgba(110, 231, 183, 0.72) 0 9%, transparent 26%),
+    radial-gradient(circle at 48% 53%, rgba(16, 185, 129, 0.58) 0 13%, transparent 31%),
+    radial-gradient(circle at 72% 24%, rgba(45, 212, 191, 0.5) 0 10%, transparent 28%),
+    radial-gradient(circle at 65% 78%, rgba(6, 95, 70, 0.68) 0 14%, transparent 34%);
+  animation: league-cloud-part 620ms cubic-bezier(.22,.8,.24,1) both;
+}
+
+.league-cloud-left { left: -16%; transform-origin: left center; }
+.league-cloud-right { right: -16%; scale: -1 1; transform-origin: right center; }
+
+.league-cloud-core {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 1rem;
+  text-align: center;
+  animation: league-core-reveal 480ms ease-out both;
+}
+
+.league-cloud-pulse {
+  margin-inline: auto;
+  height: 3rem;
+  width: 3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 231, 183, 0.7);
+  box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.25);
+  animation: league-pulse 700ms ease-out infinite;
+}
+
+@keyframes league-cloud-part {
+  0% { opacity: 0; transform: translateX(0) scale(1.08); }
+  24% { opacity: .8; }
+  100% { opacity: 0; transform: translateX(var(--cloud-travel, -24%)) scale(1.18); }
+}
+
+.league-cloud-right { --cloud-travel: 24%; }
+
+@keyframes league-core-reveal {
+  from { opacity: 0; transform: scale(.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes league-pulse {
+  to { box-shadow: 0 0 0 22px rgba(110, 231, 183, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .league-cloud,
+  .league-cloud-core,
+  .league-cloud-pulse,
+  .badge-rays {
+    animation: none !important;
+  }
+  .league-cloud { display: none; }
+}
