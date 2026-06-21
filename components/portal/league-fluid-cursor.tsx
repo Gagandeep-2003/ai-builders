@@ -70,24 +70,6 @@ export default function LeagueFluidCursor() {
       className="pointer-events-none fixed inset-y-0 left-72 right-0 z-[65] overflow-hidden"
       aria-hidden="true"
     >
-      <svg className="absolute h-0 w-0" aria-hidden="true">
-        <filter id="league-fluid-wobble" x="-30%" y="-30%" width="160%" height="160%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.008 0.012"
-            numOctaves="2"
-            seed="7"
-            result="noise"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="noise"
-            scale="7"
-            xChannelSelector="R"
-            yChannelSelector="B"
-          />
-        </filter>
-      </svg>
       <div
         ref={lensRef}
         className={`league-fluid-lens ${visible ? "is-visible" : ""}`}
