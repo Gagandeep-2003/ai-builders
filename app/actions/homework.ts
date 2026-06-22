@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getAuthIdentity } from "@/lib/auth";
 
 type SubmissionClientInfo = {
   userAgent?: string;
@@ -37,15 +38,13 @@ async function getStudentContext() {
   const supabase = await createServerSupabaseClient();
   if (!supabase) return null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const identity = await getAuthIdentity();
+  if (!identity) return null;
 
   const { data: student } = await supabase
     .from("students")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", identity.userId)
     .single();
 
   if (!student) return null;
@@ -230,14 +229,6 @@ export async function markHomeworkStarted(homeworkId: string) {
   if (!context) return;
 
   const now = new Date().toISOString();
-  const expiredCleanup = await context.supabase
-    .from("submission_evidence")
-    .delete()
-    .eq("student_id", context.studentId)
-    .lt("expires_at", now);
-  if (expiredCleanup.error?.message.includes("expires_at")) {
-    await context.supabase.from("submission_evidence").delete().eq("student_id", context.studentId).is("screen_image", null).is("camera_image", null);
-  }
   const { data: existing } = await context.supabase
     .from("submissions")
     .select("id, started_at, notes")
@@ -261,7 +252,6 @@ export async function markHomeworkStarted(homeworkId: string) {
     });
   }
 
-  revalidatePath("/homework");
 }
 
 export async function markHomeworkSubmitted(formData: FormData) {

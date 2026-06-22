@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Camera, CheckCircle2, CircleHelp, FileText, MonitorUp, Paperclip, Play, ShieldCheck, Timer, X } from "lucide-react";
 import { markHomeworkStarted, markHomeworkSubmittedWithEvidence, resetHomeworkProgress } from "@/app/actions/homework";
@@ -187,6 +188,7 @@ function TaskCelebration({
 
 export function HomeworkDocumentViewer({
   homeworkId,
+  sessionId,
   src,
   title,
   initialStartedAt,
@@ -194,12 +196,14 @@ export function HomeworkDocumentViewer({
   completed,
 }: {
   homeworkId: string;
+  sessionId: string;
   src: string;
   title: string;
   initialStartedAt?: string;
   initialTimeSpentSeconds?: number;
   completed: boolean;
 }) {
+  const router = useRouter();
   const [startedAt, setStartedAt] = useState(initialStartedAt ?? "");
   const [isCompleted, setIsCompleted] = useState(completed);
   const [completedSeconds, setCompletedSeconds] = useState(initialTimeSpentSeconds);
@@ -246,6 +250,7 @@ export function HomeworkDocumentViewer({
         await resetHomeworkProgress(homeworkId);
       }
       await markHomeworkStarted(homeworkId);
+      router.prefetch(`/homework?session=${encodeURIComponent(sessionId)}`);
     });
   }
 
@@ -336,6 +341,7 @@ export function HomeworkDocumentViewer({
       setCompletedSeconds(elapsedSeconds);
       setCelebration("completed");
       setProofOpen(false);
+      router.prefetch(`/homework?session=${encodeURIComponent(sessionId)}`);
 
       if (result.evidenceSaved && result.evidenceImagesSaved) {
         setSaveNotice(

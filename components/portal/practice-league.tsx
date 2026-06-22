@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BookOpenCheck,
@@ -17,9 +18,14 @@ import {
   Target,
   Trophy,
 } from "lucide-react";
-import { LeagueCloudReveal } from "@/components/portal/league-cloud-reveal";
+import { LeagueEntryTransition } from "@/components/portal/league-entry-transition";
 import type { LeagueEntry, LeagueScore } from "@/lib/league";
 import { cn } from "@/lib/utils";
+
+const Aurora = dynamic(
+  () => import("@/components/ui/aurora").then((module) => module.Aurora),
+  { ssr: false },
+);
 
 type LeagueMetric = "overall" | "homework" | "attendance" | "streak";
 
@@ -95,6 +101,7 @@ export function PracticeLeague({
   const [metric, setMetric] = useState<LeagueMetric>("overall");
   const [country, setCountry] = useState("All");
   const [cycle, setCycle] = useState(() => Math.floor(Date.now() / FIVE_DAYS_MS));
+  const standingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = window.setInterval(
@@ -140,10 +147,26 @@ export function PracticeLeague({
     ? Math.round((studentScore.submittedTasks / unlockedTasks) * 100)
     : 0;
 
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      standingsRef.current
+        ?.querySelector<HTMLElement>('[data-current-student="true"]')
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [country, metric]);
+
   return (
     <main className="relative isolate -mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
-      <LeagueCloudReveal />
+      <LeagueEntryTransition />
       <div className="pointer-events-none absolute inset-0 -z-10">
+        <Aurora
+          className="absolute inset-x-0 top-0 h-[42rem] opacity-70"
+          colorStops={["#7cff67", "#B497CF", "#5227FF"]}
+          amplitude={1}
+          blend={0.5}
+          speed={1}
+        />
         <div className="absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(circle_at_8%_15%,rgba(255,138,52,0.12),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(110,231,183,0.16),transparent_32%),radial-gradient(circle_at_55%_38%,rgba(91,140,255,0.12),transparent_30%)]" />
         <div className="league-arena-grid absolute inset-0 opacity-35" />
       </div>
@@ -368,7 +391,20 @@ export function PracticeLeague({
               </p>
             </div>
 
-            <div className="mt-3">
+            <div className="relative mt-3">
+              <div className="pointer-events-none absolute inset-x-0 top-11 z-20 h-8 bg-gradient-to-b from-bg-base to-transparent" />
+              <div className="sticky top-0 z-30 hidden grid-cols-[3.2rem_1fr_minmax(8rem,0.75fr)_auto] gap-3 border-y border-border bg-bg-base/95 px-2 py-3 font-mono text-[0.62rem] uppercase text-text-muted backdrop-blur sm:grid">
+                <span>Rank</span>
+                <span>Builder</span>
+                <span>Momentum</span>
+                <span className="text-right">Score</span>
+              </div>
+              <div
+                ref={standingsRef}
+                className="scrollbar-soft max-h-[68vh] min-h-[22rem] overflow-y-auto overscroll-contain pr-1"
+                tabIndex={0}
+                aria-label="AI Builders League standings"
+              >
               <AnimatePresence mode="popLayout">
                 {rest.map((entry, index) => {
                   const value = liveMetricValue(entry);
@@ -377,6 +413,7 @@ export function PracticeLeague({
                     <motion.article
                       layout
                       key={`${metric}-${country}-${entry.id}`}
+                      data-current-student={entry.isStudent ? "true" : undefined}
                       className={cn(
                         "group relative grid min-h-[5.3rem] items-center gap-3 border-b border-border/65 px-2 py-3 sm:grid-cols-[3.2rem_1fr_minmax(8rem,0.75fr)_auto]",
                         entry.isStudent && "bg-accent/[0.075]",
@@ -461,6 +498,8 @@ export function PracticeLeague({
                   );
                 })}
               </AnimatePresence>
+              </div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-gradient-to-t from-bg-base to-transparent" />
             </div>
           </div>
         </div>

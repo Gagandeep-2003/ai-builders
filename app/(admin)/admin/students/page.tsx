@@ -1,10 +1,10 @@
 import { StudentManager } from "@/components/admin/student-manager";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getAdminData } from "@/lib/data";
+import { getAdminStudentsData } from "@/lib/data";
 
 export default async function AdminStudentsPage() {
-  const data = await getAdminData();
+  const data = await getAdminStudentsData();
 
   return (
     <AnimatedPage>

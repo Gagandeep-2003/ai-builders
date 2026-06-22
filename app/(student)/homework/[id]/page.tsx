@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, ClipboardList, FileCheck2, Lightbulb, Sparkles } from "lucide-react";
 import { HomeworkDocumentViewer } from "@/components/portal/homework-document-viewer";
@@ -6,7 +5,8 @@ import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ToolLinkChip } from "@/components/ui/tool-link-chip";
-import { getStudentHomeworkData } from "@/lib/data";
+import { PendingLink } from "@/components/ui/pending-link";
+import { getStudentHomeworkDetailData } from "@/lib/data";
 import { formatDuration, formatHomeworkKind, getGoogleDocEmbedUrl, isTrustedTaskDuration } from "@/lib/homework-utils";
 import { formatDate } from "@/lib/utils";
 
@@ -71,8 +71,8 @@ export default async function HomeworkDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await getStudentHomeworkData();
-  const homework = data.homework.find((item) => item.id === id);
+  const data = await getStudentHomeworkDetailData(id);
+  const homework = data.homework;
 
   if (!homework) notFound();
 
@@ -103,13 +103,14 @@ export default async function HomeworkDetailPage({
 
   return (
     <AnimatedPage>
-      <Link
+      <PendingLink
         href={`/homework?session=${encodeURIComponent(homework.sessionId)}`}
+        pendingLabel="Returning..."
         className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to homework
-      </Link>
+      </PendingLink>
 
       <PageHeader
         title={homework.title}
@@ -258,6 +259,7 @@ export default async function HomeworkDetailPage({
 
       <HomeworkDocumentViewer
         homeworkId={homework.id}
+        sessionId={homework.sessionId}
         src={homework.contentUrl ? embedUrl : ""}
         title={homework.title}
         initialStartedAt={homework.startedAt}

@@ -4,7 +4,7 @@ import { StudentStrandsSearch } from "@/components/portal/student-strands-search
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar-nav";
 import { getNextClassEvent, getStudentClassEvents } from "@/lib/class-events";
-import { getStudentAchievementData, getStudentShellData } from "@/lib/data";
+import { getStudentShellData } from "@/lib/data";
 import { BadgeCelebration } from "@/components/portal/badge-celebration";
 
 const links: NavLink[] = [
@@ -22,9 +22,7 @@ const links: NavLink[] = [
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   await requireStudentAccess();
-  const [data, achievements] = await Promise.all([getStudentShellData(), getStudentAchievementData()]);
-  const unseenBadge = achievements.awards.find((award) => !award.seenAt);
-  const pendingHomework = data.homework.filter((item) => item.status === "pending" || item.status === "revision_requested").length;
+  const data = await getStudentShellData();
   const nextClassEvent = getNextClassEvent(
     getStudentClassEvents({
       student: data.student,
@@ -34,7 +32,9 @@ export default async function StudentLayout({ children }: { children: React.Reac
     }),
   );
   const badges: Partial<Record<string, NavBadge>> = {
-    "/homework": pendingHomework ? { count: pendingHomework, tone: "warm", label: "Homework pending" } : undefined,
+    "/homework": data.pendingHomeworkCount
+      ? { count: data.pendingHomeworkCount, tone: "warm", label: "Homework pending" }
+      : undefined,
     "/class": nextClassEvent ? {
       count: 1,
       tone: nextClassEvent.kind !== "regular" ? "accent" : "info",
@@ -49,7 +49,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
     <div className="min-h-screen">
       <CardBorderGlow />
       <StudentStrandsSearch studentName={data.student.fullName} />
-      <BadgeCelebration key={unseenBadge?.id ?? "no-unseen-badge"} award={unseenBadge} />
+      <BadgeCelebration key={data.unseenBadge?.id ?? "no-unseen-badge"} award={data.unseenBadge} />
       <PortalAutoSync />
       <SidebarNav links={links} badges={badges} />
       <div className="px-4 py-20 sm:px-6 lg:ml-72 lg:px-10 lg:py-10">

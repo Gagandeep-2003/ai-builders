@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { ChevronDown, PencilLine, Plus, Trash2, UserRound } from "lucide-react";
+import { useActionState, useMemo, useState } from "react";
+import { ChevronDown, PencilLine, Plus, Search, Trash2, UserRound } from "lucide-react";
 import {
   createStudentAction,
   removeStudentAction,
@@ -319,6 +319,21 @@ export function StudentManager({
     initialAdminActionState,
   );
   const [showCreate, setShowCreate] = useState(students.length === 0);
+  const [query, setQuery] = useState("");
+  const [batchId, setBatchId] = useState("all");
+  const filteredStudents = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return students.filter((student) => {
+      const matchesBatch = batchId === "all" || student.batchId === batchId;
+      const matchesQuery = !normalized || [
+        student.fullName,
+        student.email,
+        student.country,
+        student.timeZone,
+      ].some((value) => value.toLowerCase().includes(normalized));
+      return matchesBatch && matchesQuery;
+    });
+  }, [batchId, query, students]);
 
   return (
     <div className="space-y-6">
@@ -357,22 +372,59 @@ export function StudentManager({
       </section>
 
       <section className="premium-card rounded-xl p-5">
-        <div>
+        <div className="sticky top-0 z-20 -mx-2 border-b border-border/70 bg-bg-card/95 px-2 pb-5 backdrop-blur">
           <p className="font-mono text-xs uppercase text-accent">Student directory</p>
           <h2 className="mt-2 font-heading text-2xl font-bold">Edit existing students</h2>
           <p className="mt-2 text-sm text-text-secondary">
             Open a student to change profile details, timezone, module, weekly classes, Meet links, or password.
           </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_16rem_auto] md:items-center">
+            <label className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+              <span className="sr-only">Search students</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search name, email, country, or timezone"
+                className={`${inputClass} pl-10`}
+              />
+            </label>
+            <label>
+              <span className="sr-only">Filter by schedule</span>
+              <select
+                value={batchId}
+                onChange={(event) => setBatchId(event.target.value)}
+                className={inputClass}
+              >
+                <option value="all">All schedules</option>
+                {batches.map((batch) => (
+                  <option key={batch.id} value={batch.id}>{batch.name}</option>
+                ))}
+              </select>
+            </label>
+            <p className="font-mono text-xs uppercase text-text-muted md:text-right">
+              {filteredStudents.length} of {students.length}
+            </p>
+          </div>
         </div>
-        <div className="mt-5 grid gap-3">
-          {students.map((student) => (
-            <StudentEditor
-              key={student.id}
-              student={student}
-              batch={batches.find((batch) => batch.id === student.batchId)}
-              modules={modules}
-            />
-          ))}
+        <div className="scrollbar-soft mt-5 max-h-[65vh] overflow-y-auto overscroll-contain pr-2">
+          <div className="grid gap-3">
+            {filteredStudents.map((student) => (
+              <StudentEditor
+                key={student.id}
+                student={student}
+                batch={batches.find((batch) => batch.id === student.batchId)}
+                modules={modules}
+              />
+            ))}
+          </div>
+          {filteredStudents.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-10 text-center">
+              <UserRound className="mx-auto h-8 w-8 text-text-muted" />
+              <p className="mt-3 font-heading font-bold">No students match this view</p>
+              <p className="mt-1 text-sm text-text-secondary">Try another name, country, or schedule.</p>
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

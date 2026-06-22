@@ -89,8 +89,15 @@ export type StudentContextData = Pick<
 
 export type StudentShellData = StudentContextData & Pick<
   DashboardData,
-  "homework" | "rescheduleRequests"
->;
+  "rescheduleRequests"
+> & {
+  pendingHomeworkCount: number;
+  unseenBadge?: StudentBadge;
+};
+
+export type StudentHomeworkDetailData = StudentContextData & {
+  homework?: HomeworkItem;
+};
 
 export type AdminShellData = Pick<
   AdminData,
@@ -98,6 +105,7 @@ export type AdminShellData = Pick<
 >;
 
 export type MentorScheduleData = Pick<AdminData, "students" | "batches" | "rescheduleRequests">;
+export type AdminStudentsData = Pick<AdminData, "students" | "batches" | "modules">;
 export type AchievementData = {
   definitions: BadgeDefinition[];
   awards: StudentBadge[];
@@ -635,22 +643,29 @@ const studentSelect =
   "id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at), batches(id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order))";
 const homeworkSelect =
   "id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, notes, started_at, submitted_at, reviewed_at, reviewed_by, mentor_feedback)";
+const shellHomeworkSelect =
+  "id, session_id, batch_id, assigned_student_id, submissions(student_id, status)";
 const rescheduleSelect =
   "id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)";
+
+const getCachedStudentRow = unstable_cache(
+  async (userId: string) => {
+    const supabase = createServiceRoleSupabaseClient();
+    if (!supabase) return null;
+    const { data } = await supabase
+      .from("students")
+      .select(studentSelect)
+      .eq("user_id", userId)
+      .maybeSingle();
+    return data;
+  },
+  ["student-context-row"],
+  { revalidate: 30, tags: ["student-context"] },
+);
 
 async function getStudentContextImpl(): Promise<StudentContextData> {
   const fallback = fallbackDashboardData();
   if (!isSupabaseConfigured()) {
-    return {
-      student: fallback.student,
-      batch: fallback.batch,
-      modules: fallback.modules,
-      sessions: fallback.sessions,
-    };
-  }
-
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
     return {
       student: fallback.student,
       batch: fallback.batch,
@@ -672,15 +687,36 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
     };
   }
 
-  const { data: ownedStudentRow } = await supabase
-    .from("students")
-    .select(studentSelect)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  let studentRow = ownedStudentRow;
+  let studentRow = await getCachedStudentRow(userId);
 
   if (!studentRow) {
+    const supabase = await createServerSupabaseClient();
+    if (!supabase) {
+      return {
+        student: fallback.student,
+        batch: fallback.batch,
+        modules: fallback.modules,
+        sessions: fallback.sessions,
+      };
+    }
+    const { data: ownedStudentRow } = await supabase
+      .from("students")
+      .select(studentSelect)
+      .eq("user_id", userId)
+      .maybeSingle();
+    studentRow = ownedStudentRow;
+  }
+
+  if (!studentRow) {
+    const supabase = await createServerSupabaseClient();
+    if (!supabase) {
+      return {
+        student: fallback.student,
+        batch: fallback.batch,
+        modules: fallback.modules,
+        sessions: fallback.sessions,
+      };
+    }
     const { data: firstStudentRow } = await supabase
       .from("students")
       .select(studentSelect)
@@ -814,9 +850,14 @@ async function getStudentHomeworkDataImpl() {
   const data = emptyStudentData(context);
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { ...data, homework: filterUnlockedHomework(demoHomework, context.sessions) };
+  const unlockedSessionIds = context.sessions
+    .filter((session) => session.status !== "locked")
+    .map((session) => session.id);
+  if (!unlockedSessionIds.length) return { ...data, homework: [] };
   const { data: rows } = await supabase
     .from("homework")
     .select(homeworkSelect)
+    .in("session_id", unlockedSessionIds)
     .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
     .order("due_date", { ascending: true });
   return {
@@ -829,6 +870,32 @@ async function getStudentHomeworkDataImpl() {
 }
 
 export const getStudentHomeworkData = cache(() => measureServer("student.homework", getStudentHomeworkDataImpl));
+
+async function getStudentHomeworkDetailDataImpl(homeworkId: string): Promise<StudentHomeworkDetailData> {
+  const context = await getStudentContextData();
+  const sessionById = new Map(context.sessions.map((session) => [session.id, session]));
+  const fallbackHomework = filterUnlockedHomework(demoHomework, context.sessions)
+    .find((item) => item.id === homeworkId);
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { ...context, homework: fallbackHomework };
+
+  const { data: row } = await supabase
+    .from("homework")
+    .select(homeworkSelect)
+    .eq("id", homeworkId)
+    .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
+    .maybeSingle();
+
+  if (!row) return { ...context };
+  const homework = mapHomework(row, context.student.id);
+  const session = sessionById.get(homework.sessionId);
+  if (!session || session.status === "locked") return { ...context };
+  return { ...context, homework };
+}
+
+export const getStudentHomeworkDetailData = cache((homeworkId: string) =>
+  measureServer("student.homework-detail", () => getStudentHomeworkDetailDataImpl(homeworkId)),
+);
 
 async function getStudentResourcesDataImpl() {
   const context = await getStudentContextData();
@@ -979,17 +1046,54 @@ async function getStudentProfileDataImpl() {
 export const getStudentProfileData = cache(() => measureServer("student.profile", getStudentProfileDataImpl));
 
 async function getStudentShellDataImpl(): Promise<StudentShellData> {
-  const [homeworkData, classData] = await Promise.all([
-    getStudentHomeworkData(),
-    getStudentClassData(),
+  const context = await getStudentContextData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    return {
+      ...context,
+      pendingHomeworkCount: filterUnlockedHomework(demoHomework, context.sessions)
+        .filter((item) => item.status === "pending" || item.status === "revision_requested").length,
+      rescheduleRequests: [],
+    };
+  }
+  const unlockedSessionIds = context.sessions
+    .filter((session) => session.status !== "locked")
+    .map((session) => session.id);
+  const homeworkQuery = unlockedSessionIds.length
+    ? supabase
+        .from("homework")
+        .select(shellHomeworkSelect)
+        .in("session_id", unlockedSessionIds)
+        .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
+    : Promise.resolve({ data: [] });
+  const [{ data: homeworkRows }, { data: rescheduleRows }, { data: unseenRows }] = await Promise.all([
+    homeworkQuery,
+    supabase
+      .from("class_reschedule_requests")
+      .select(rescheduleSelect)
+      .eq("student_id", context.student.id)
+      .order("requested_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("student_badges")
+      .select("id, student_id, badge_id, source, mentor_note, awarded_at, seen_at, badge_definitions(*)")
+      .eq("student_id", context.student.id)
+      .is("seen_at", null)
+      .order("awarded_at", { ascending: true })
+      .limit(1),
   ]);
+  const pendingHomeworkCount = (homeworkRows ?? []).filter((row) => {
+    const submission = relationRows(row, "submissions")
+      .find((item) => text(item, "student_id") === context.student.id);
+    const status = submission ? text(submission, "status", "pending") : "pending";
+    return status === "pending" || status === "revision_requested";
+  }).length;
+  const unseenBadge = unseenRows?.[0] ? mapStudentBadge(unseenRows[0]) ?? undefined : undefined;
   return {
-    student: homeworkData.student,
-    batch: homeworkData.batch,
-    modules: homeworkData.modules,
-    sessions: homeworkData.sessions,
-    homework: homeworkData.homework,
-    rescheduleRequests: classData.rescheduleRequests,
+    ...context,
+    pendingHomeworkCount,
+    rescheduleRequests: rescheduleRows?.map((row) => mapRescheduleRequest(row)) ?? [],
+    unseenBadge,
   };
 }
 
@@ -1092,6 +1196,41 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
 }
 
 export const getAdminShellData = cache(() => measureServer("admin.shell", getAdminShellDataImpl));
+
+async function getAdminStudentsDataImpl(): Promise<AdminStudentsData> {
+  if (!isSupabaseConfigured()) {
+    const fallback = fallbackAdminData();
+    return { students: fallback.students, batches: fallback.batches, modules: fallback.modules };
+  }
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    const fallback = fallbackAdminData();
+    return { students: fallback.students, batches: fallback.batches, modules: fallback.modules };
+  }
+  const [{ data: studentRows }, { data: batchRows }, { data: moduleRows }] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
+      .order("enrolled_at", { ascending: false }),
+    supabase
+      .from("batches")
+      .select("id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, students(id), batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order)")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("modules")
+      .select("id, title, description, order_index, session_count")
+      .order("order_index", { ascending: true }),
+  ]);
+  return {
+    students: studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
+    batches: batchRows?.map((row) => mapBatch(row, relationRows(row, "students").length)) ?? [demoBatch],
+    modules: moduleRows?.map((row) => mapModule(row)) ?? modules,
+  };
+}
+
+export const getAdminStudentsData = cache(() =>
+  measureServer("admin.students", getAdminStudentsDataImpl),
+);
 
 async function getAdminDataImpl(): Promise<AdminData> {
   if (!isSupabaseConfigured()) return fallbackAdminData();

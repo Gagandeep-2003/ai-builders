@@ -89,11 +89,20 @@ export function SidebarNav({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState("");
+  const [showNavigationPending, setShowNavigationPending] = useState(false);
   const navigationPending = Boolean(
     navigatingTo &&
       pathname !== navigatingTo &&
       !pathname.startsWith(`${navigatingTo}/`),
   );
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setShowNavigationPending(navigationPending),
+      navigationPending ? 120 : 0,
+    );
+    return () => window.clearTimeout(timer);
+  }, [navigationPending]);
 
   useEffect(() => {
     if (typeof performance === "undefined") return;
@@ -153,7 +162,7 @@ export function SidebarNav({
             >
               <Icon className="h-4 w-4" />
               <span className="min-w-0 flex-1 truncate">{link.label}</span>
-              {navigationPending && navigatingTo === link.href ? (
+              {showNavigationPending && navigatingTo === link.href ? (
                 <LoaderCircle className="h-3.5 w-3.5 animate-spin text-accent" />
               ) : null}
               {badge && badge.count > 0 ? (
@@ -189,7 +198,7 @@ export function SidebarNav({
 
   return (
     <>
-      {navigationPending ? (
+      {showNavigationPending ? (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-1 overflow-hidden bg-accent/10">
           <div className="h-full w-1/3 animate-[navigation-progress_0.9s_ease-in-out_infinite] bg-accent shadow-[0_0_18px_rgba(110,231,183,0.75)]" />
         </div>

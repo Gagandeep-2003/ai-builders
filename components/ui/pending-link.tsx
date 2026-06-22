@@ -1,10 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { useLinkStatus } from "next/link";
 import { LoaderCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
+
+function PendingLinkContent({
+  children,
+  pendingLabel,
+}: {
+  children: React.ReactNode;
+  pendingLabel: string;
+}) {
+  const { pending } = useLinkStatus();
+  return pending ? (
+    <>
+      <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden />
+      <span>{pendingLabel}</span>
+    </>
+  ) : children;
+}
 
 export function PendingLink({
   href,
@@ -17,25 +32,13 @@ export function PendingLink({
   pendingLabel?: string;
   className?: string;
 }) {
-  const router = useRouter();
-  const [pending, setPending] = useState(false);
-
   return (
     <Link
       href={href}
       prefetch
-      onMouseEnter={() => router.prefetch(href)}
-      onFocus={() => router.prefetch(href)}
-      onClick={() => setPending(true)}
-      aria-busy={pending}
-      className={cn(
-        "button-motion inline-flex items-center justify-center gap-2",
-        pending && "pointer-events-none opacity-70",
-        className,
-      )}
+      className={cn("button-motion inline-flex items-center justify-center gap-2", className)}
     >
-      {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-      {pending ? pendingLabel : children}
+      <PendingLinkContent pendingLabel={pendingLabel}>{children}</PendingLinkContent>
     </Link>
   );
 }
