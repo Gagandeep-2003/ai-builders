@@ -946,75 +946,163 @@ textarea:focus-visible {
   height: 100%;
 }
 
-.league-pixel-transition {
+.paint-container {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+}
+
+.metallic-brand-mask {
+  position: absolute;
+  inset: 12%;
+  z-index: 1;
+  display: block;
+  -webkit-mask: url("/ai-builders-mark.svg") center / contain no-repeat;
+  mask: url("/ai-builders-mark.svg") center / contain no-repeat;
+}
+
+.league-aperture {
   position: absolute;
   inset: 0;
   z-index: 70;
   min-height: min(78vh, 760px);
   overflow: hidden;
   pointer-events: none;
-  background: #08080d;
-  animation: league-pixel-shell-exit 650ms steps(1, end) both;
+  background: #070b0a;
+  isolation: isolate;
+  animation: league-aperture-shell 760ms ease-out both;
 }
 
-.league-pixel-grid {
+.league-aperture::before {
+  content: "";
   position: absolute;
   inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(rgba(110, 231, 183, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(110, 231, 183, 0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at center, black, transparent 72%);
+  animation: league-aperture-grid 650ms ease-out both;
+}
+
+.league-aperture-panel {
+  position: absolute;
   z-index: 2;
-  display: grid;
+  width: 52%;
+  height: 52%;
+  background:
+    radial-gradient(circle at var(--panel-x) var(--panel-y), rgba(110, 231, 183, 0.14), transparent 42%),
+    linear-gradient(145deg, #101b18, #070a09 65%);
+  box-shadow: inset 0 0 0 1px rgba(110, 231, 183, 0.08);
+  will-change: transform, opacity;
 }
 
-.league-pixel {
-  min-width: 0;
-  min-height: 0;
-  background: linear-gradient(145deg, #0b211b, #6ee7b7 130%);
-  transform-origin: center;
-  animation: league-pixel-disappear 180ms steps(1, end) both;
+.league-aperture-panel-tl { left: 0; top: 0; --panel-x: 100%; --panel-y: 100%; animation: aperture-tl 720ms cubic-bezier(.64,0,.25,1) both; }
+.league-aperture-panel-tr { right: 0; top: 0; --panel-x: 0%; --panel-y: 100%; animation: aperture-tr 720ms cubic-bezier(.64,0,.25,1) both; }
+.league-aperture-panel-bl { left: 0; bottom: 0; --panel-x: 100%; --panel-y: 0%; animation: aperture-bl 720ms cubic-bezier(.64,0,.25,1) both; }
+.league-aperture-panel-br { right: 0; bottom: 0; --panel-x: 0%; --panel-y: 0%; animation: aperture-br 720ms cubic-bezier(.64,0,.25,1) both; }
+
+.league-aperture-scan {
+  position: absolute;
+  z-index: 4;
+  left: 7%;
+  right: 7%;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #6ee7b7 24%, white 50%, #6ee7b7 76%, transparent);
+  box-shadow: 0 0 20px 4px rgba(110, 231, 183, 0.3);
+  animation: league-aperture-scan 620ms ease-in-out both;
 }
 
-.league-pixel-title {
+.league-aperture-core {
   position: absolute;
   inset: 0;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: #d8fff0;
-  animation: league-pixel-title-exit 420ms ease-in both;
+  z-index: 5;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  animation: league-aperture-core 600ms cubic-bezier(.2,.8,.2,1) both;
 }
 
-.league-pixel-mark {
-  height: 0.65rem;
-  width: 0.65rem;
+.league-aperture-logo {
+  box-shadow: 0 0 44px rgba(110, 231, 183, 0.24);
+}
+
+.league-aperture-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   border-radius: 50%;
-  background: #6ee7b7;
-  box-shadow: 0 0 22px rgba(110, 231, 183, 0.9);
+  border: 1px solid rgba(110, 231, 183, 0.28);
+  transform: translate(-50%, -50%);
 }
 
-@keyframes league-pixel-disappear {
-  0%, 45% { opacity: 1; transform: scale(1.02); }
-  100% { opacity: 0; transform: scale(0); }
+.league-aperture-ring-outer {
+  height: 11rem;
+  width: 11rem;
+  border-style: dashed;
+  animation: league-aperture-ring 5s linear infinite;
 }
 
-@keyframes league-pixel-title-exit {
-  0%, 48% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(0.96); }
+.league-aperture-ring-inner {
+  height: 8.5rem;
+  width: 8.5rem;
+  box-shadow: 0 0 50px rgba(110, 231, 183, 0.08);
+  animation: league-aperture-ring 3.5s linear infinite reverse;
 }
 
-@keyframes league-pixel-shell-exit {
-  0%, 96% { visibility: visible; background: #08080d; }
-  100% { visibility: hidden; background: transparent; }
+.league-aperture-copy {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.league-aperture-copy strong {
+  display: block;
+  margin-top: 0.3rem;
+  font-family: var(--font-plus-jakarta), sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0;
+}
+
+.league-aperture-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  color: #6ee7b7;
+}
+
+.league-aperture-live i {
+  height: 0.42rem;
+  width: 0.42rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 12px currentColor;
+}
+
+@keyframes aperture-tl { 0%, 24% { transform: translate(0); } 100% { transform: translate(-104%, -104%) rotate(-3deg); opacity: 0; } }
+@keyframes aperture-tr { 0%, 24% { transform: translate(0); } 100% { transform: translate(104%, -104%) rotate(3deg); opacity: 0; } }
+@keyframes aperture-bl { 0%, 24% { transform: translate(0); } 100% { transform: translate(-104%, 104%) rotate(3deg); opacity: 0; } }
+@keyframes aperture-br { 0%, 24% { transform: translate(0); } 100% { transform: translate(104%, 104%) rotate(-3deg); opacity: 0; } }
+@keyframes league-aperture-grid { 0%, 45% { opacity: 0.8; transform: scale(1); } 100% { opacity: 0; transform: scale(1.16); } }
+@keyframes league-aperture-scan { 0% { opacity: 0; transform: scaleX(0); } 24% { opacity: 1; transform: scaleX(1); } 72% { opacity: 1; transform: translateY(-8rem) scaleX(1); } 100% { opacity: 0; transform: translateY(-11rem) scaleX(0.8); } }
+@keyframes league-aperture-core { 0% { opacity: 0; transform: scale(0.72); filter: blur(8px); } 24%, 55% { opacity: 1; transform: scale(1); filter: blur(0); } 100% { opacity: 0; transform: scale(1.12); filter: blur(5px); } }
+@keyframes league-aperture-ring { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes league-aperture-shell { 0%, 94% { visibility: visible; background: #070b0a; } 100% { visibility: hidden; background: transparent; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .league-aperture {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .league-pixel-transition {
-    display: none;
-  }
   .badge-rays {
     animation: none !important;
   }

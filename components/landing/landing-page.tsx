@@ -10,9 +10,9 @@ import {
   Code2,
   Layers3,
   ShieldCheck,
-  Sparkles,
   Workflow,
 } from "lucide-react";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { AnimatePresence, motion } from "framer-motion";
 import { modules } from "@/lib/course-data";
 
@@ -37,9 +37,7 @@ export function LandingPage() {
       <nav className="sticky top-0 z-40 border-b border-border/60 bg-bg-base/78 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
-              <Sparkles className="h-5 w-5" />
-            </span>
+            <BrandMark className="h-10 w-10" />
             <span>
               <span className="block font-heading text-sm font-bold">AI Builders</span>
               <span className="block font-mono text-[10px] uppercase text-text-muted">

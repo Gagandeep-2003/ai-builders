@@ -22,7 +22,6 @@ import {
   Megaphone,
   Menu,
   MessageSquareText,
-  Sparkles,
   Trophy,
   UserRound,
   UsersRound,
@@ -30,6 +29,7 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/utils";
 
@@ -120,9 +120,7 @@ export function SidebarNav({
   const nav = (
     <aside className="flex h-full w-72 flex-col border-r border-border/70 bg-bg-base/90 px-4 py-5 backdrop-blur-xl">
       <div className="flex items-center gap-3 px-2">
-        <span className="grid h-10 w-10 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
-          <Sparkles className="h-5 w-5" />
-        </span>
+        <BrandMark className="h-10 w-10" />
         <div className="min-w-0 flex-1">
           <p className="font-heading text-sm font-bold">AI Builders</p>
           <p className="font-mono text-[11px] uppercase text-text-muted">Summer Bootcamp</p>

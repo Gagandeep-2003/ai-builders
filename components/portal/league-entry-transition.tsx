@@ -1,43 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
-const GRID_SIZE = 9;
-const PIXELS = GRID_SIZE * GRID_SIZE;
-
-function seededDelay(index: number) {
-  return ((index * 37) % PIXELS) * 4;
-}
+import { useEffect, useState } from "react";
+import { BrandMark } from "@/components/ui/brand-mark";
 
 export function LeagueEntryTransition() {
   const [visible, setVisible] = useState(true);
-  const pixels = useMemo(() => Array.from({ length: PIXELS }, (_, index) => index), []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(false), 650);
+    const timer = window.setTimeout(() => setVisible(false), 760);
     return () => window.clearTimeout(timer);
   }, []);
 
   if (!visible) return null;
 
   return (
-    <div className="league-pixel-transition" role="status" aria-label="Opening AI Builders League">
-      <div className="league-pixel-title">
-        <span className="league-pixel-mark" />
-        <span>AI Builders League</span>
-      </div>
-      <div
-        className="league-pixel-grid"
-        style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))` }}
-        aria-hidden="true"
-      >
-        {pixels.map((pixel) => (
-          <span
-            key={pixel}
-            className="league-pixel"
-            style={{ animationDelay: `${80 + seededDelay(pixel)}ms` }}
-          />
-        ))}
+    <div className="league-aperture" role="status" aria-label="Opening AI Builders League">
+      <div className="league-aperture-panel league-aperture-panel-tl" aria-hidden="true" />
+      <div className="league-aperture-panel league-aperture-panel-tr" aria-hidden="true" />
+      <div className="league-aperture-panel league-aperture-panel-bl" aria-hidden="true" />
+      <div className="league-aperture-panel league-aperture-panel-br" aria-hidden="true" />
+      <div className="league-aperture-scan" aria-hidden="true" />
+      <div className="league-aperture-core">
+        <span className="league-aperture-ring league-aperture-ring-outer" aria-hidden="true" />
+        <span className="league-aperture-ring league-aperture-ring-inner" aria-hidden="true" />
+        <BrandMark className="league-aperture-logo h-16 w-16" />
+        <div className="league-aperture-copy">
+          <span className="league-aperture-live"><i /> Live field synchronized</span>
+          <strong>AI Builders League</strong>
+        </div>
       </div>
     </div>
   );
