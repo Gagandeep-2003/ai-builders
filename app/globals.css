@@ -1143,10 +1143,10 @@ textarea:focus-visible {
 }
 
 .league-eye-transition {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 70;
-  min-height: min(78vh, 760px);
+  height: 100dvh;
   overflow: hidden;
   pointer-events: none;
   display: grid;
@@ -1154,6 +1154,12 @@ textarea:focus-visible {
   background: #120f17;
   isolation: isolate;
   animation: league-eye-shell 1200ms cubic-bezier(.2,.78,.2,1) both;
+}
+
+@media (min-width: 1024px) {
+  .league-eye-transition {
+    left: 18rem;
+  }
 }
 
 .league-eye-transition::before {

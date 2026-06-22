@@ -164,7 +164,7 @@ export function PracticeLeague({
   return (
     <main className="league-experience relative isolate -mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
       <LeagueEntryTransition />
-      <div className="league-ribbons-layer pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div className="league-ribbons-layer pointer-events-none absolute inset-0 z-50 overflow-hidden">
         <Ribbons
           baseThickness={30}
           colors={RIBBON_COLORS}
