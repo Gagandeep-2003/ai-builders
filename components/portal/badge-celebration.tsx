@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { acknowledgeBadgeAction } from "@/app/actions/achievements";
@@ -8,15 +8,50 @@ import { BadgeMedallion } from "@/components/portal/badge-medallion";
 import type { StudentBadge } from "@/lib/course-data";
 
 export function BadgeCelebration({ award }: { award?: StudentBadge }) {
-  const [visible, setVisible] = useState(Boolean(award));
+  const [visible, setVisible] = useState(false);
+  const acknowledgementStarted = useRef(false);
   const [, startTransition] = useTransition();
-  if (!award) return null;
-  const currentAward = award;
+
+  useEffect(() => {
+    if (!award || acknowledgementStarted.current) return;
+    acknowledgementStarted.current = true;
+
+    const storageKey = `ai-builders-achievement-seen:${award.id}`;
+    let alreadyShown = false;
+    try {
+      alreadyShown = window.localStorage.getItem(storageKey) === "1";
+    } catch {
+      // Storage can be unavailable in strict privacy modes.
+    }
+
+    let revealTimer: number | undefined;
+    if (!alreadyShown) {
+      try {
+        window.localStorage.setItem(storageKey, "1");
+      } catch {
+        // The database acknowledgement remains the source of truth.
+      }
+      revealTimer = window.setTimeout(() => setVisible(true), 0);
+    }
+
+    startTransition(async () => {
+      const result = await acknowledgeBadgeAction(award.id);
+      if (!result.ok) {
+        console.error("Achievement acknowledgement will be retried on a future visit.");
+      }
+    });
+
+    return () => {
+      if (revealTimer !== undefined) window.clearTimeout(revealTimer);
+    };
+  }, [award]);
 
   function close() {
     setVisible(false);
-    startTransition(() => acknowledgeBadgeAction(currentAward.id));
   }
+
+  if (!award) return null;
+  const currentAward = award;
 
   return (
     <AnimatePresence>

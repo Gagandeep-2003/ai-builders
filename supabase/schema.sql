@@ -325,6 +325,23 @@ as $$
   limit 1;
 $$;
 
+create or replace function public.acknowledge_student_badge(target_award_id uuid)
+returns void
+language sql
+security definer
+set search_path = public, private
+as $$
+  update public.student_badges
+  set seen_at = coalesce(seen_at, now())
+  where id = target_award_id
+    and exists (
+      select 1
+      from public.students
+      where students.id = student_badges.student_id
+        and students.user_id = auth.uid()
+    );
+$$;
+
 create or replace function public.update_own_student_contact(
   parent_name_input text,
   parent_email_input text,
@@ -693,5 +710,6 @@ grant select, insert, update, delete on public.referrals to service_role;
 grant execute on function private.is_admin() to authenticated;
 grant execute on function private.current_student_id() to authenticated;
 grant execute on function private.current_student_batch_id() to authenticated;
+grant execute on function public.acknowledge_student_badge(uuid) to authenticated;
 grant execute on function public.update_own_student_contact(text, text, text) to authenticated;
 grant execute on function public.mark_password_request_used(uuid) to authenticated;
