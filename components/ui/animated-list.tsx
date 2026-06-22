@@ -4,6 +4,27 @@ import { motion, useInView } from "framer-motion";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
+function scrollItemInsideList(
+  list: HTMLDivElement,
+  item: HTMLElement,
+  block: "center" | "nearest",
+) {
+  const itemTop = item.offsetTop;
+  const itemBottom = itemTop + item.offsetHeight;
+  const visibleTop = list.scrollTop;
+  const visibleBottom = visibleTop + list.clientHeight;
+
+  if (block === "nearest" && itemTop >= visibleTop && itemBottom <= visibleBottom) return;
+
+  const nextTop = block === "center"
+    ? itemTop - list.clientHeight / 2 + item.offsetHeight / 2
+    : itemTop < visibleTop
+      ? itemTop
+      : itemBottom - list.clientHeight;
+
+  list.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+}
+
 function AnimatedItem({
   children,
   index,
@@ -95,7 +116,7 @@ export function AnimatedList<T>({
   useEffect(() => {
     if (!keyboardNav || selectedIndex < 0 || !listRef.current) return;
     const selectedItem = listRef.current.querySelector<HTMLElement>(`[data-index="${selectedIndex}"]`);
-    selectedItem?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (selectedItem) scrollItemInsideList(listRef.current, selectedItem, "nearest");
     setKeyboardNav(false);
   }, [keyboardNav, selectedIndex]);
 
@@ -103,9 +124,9 @@ export function AnimatedList<T>({
     const currentIndex = selectedItemAttribute ? items.findIndex(selectedItemAttribute) : -1;
     if (currentIndex < 0) return;
     const frame = requestAnimationFrame(() => {
-      listRef.current
-        ?.querySelector<HTMLElement>(`[data-index="${currentIndex}"]`)
-        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+      const list = listRef.current;
+      const selectedItem = list?.querySelector<HTMLElement>(`[data-index="${currentIndex}"]`);
+      if (list && selectedItem) scrollItemInsideList(list, selectedItem, "center");
     });
     return () => cancelAnimationFrame(frame);
   }, [items, selectedItemAttribute]);

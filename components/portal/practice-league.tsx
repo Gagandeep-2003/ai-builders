@@ -162,9 +162,9 @@ export function PracticeLeague({
     : 0;
 
   return (
-    <main className="relative isolate -mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
+    <main className="league-experience relative isolate -mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
       <LeagueEntryTransition />
-      <div className="league-ribbons-layer pointer-events-none absolute inset-0 z-40 overflow-hidden">
+      <div className="league-ribbons-layer pointer-events-none absolute inset-0 z-0 overflow-hidden">
         <Ribbons
           baseThickness={30}
           colors={RIBBON_COLORS}
@@ -177,7 +177,7 @@ export function PracticeLeague({
       </div>
       <div className="pointer-events-none absolute inset-0 -z-10">
         <Aurora
-          className="absolute inset-x-0 top-0 h-[42rem] opacity-70"
+          className="league-aurora absolute inset-x-0 top-0 h-[42rem]"
           colorStops={["#7cff67", "#B497CF", "#5227FF"]}
           amplitude={1}
           blend={0.5}
@@ -187,7 +187,7 @@ export function PracticeLeague({
         <div className="league-arena-grid absolute inset-0 opacity-35" />
       </div>
 
-      <header className="relative min-h-[34rem] overflow-hidden border-y border-border/70 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+      <header className="relative z-10 min-h-[34rem] overflow-hidden border-y border-border/70 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
         <motion.div
           className="absolute right-[8%] top-12 h-72 w-72 rounded-full border border-accent/15"
           animate={{ rotate: 360 }}
@@ -200,7 +200,7 @@ export function PracticeLeague({
         />
 
         <div className="relative grid min-h-[27rem] gap-10 lg:grid-cols-[1fr_0.82fr] lg:items-center">
-          <div className="max-w-3xl">
+          <div className="league-glass league-glass-copy max-w-3xl px-5 py-6 sm:px-7 sm:py-8">
             <div className="flex items-center gap-3 font-mono text-[0.68rem] uppercase text-accent">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
@@ -245,7 +245,7 @@ export function PracticeLeague({
             </div>
           </div>
 
-          <div className="relative mx-auto h-[23rem] w-full max-w-[31rem]" aria-label="League podium">
+          <div className="league-glass league-glass-podium relative mx-auto h-[23rem] w-full max-w-[31rem]" aria-label="League podium">
             <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-accent/20" />
             <div className="absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-400/15" />
             {podiumOrder.map((podiumIndex, visualIndex) => {
@@ -311,7 +311,7 @@ export function PracticeLeague({
         </div>
       </header>
 
-      <section className="border-b border-border/70 bg-bg-base/55 px-5 py-5 backdrop-blur-md sm:px-8 lg:px-12">
+      <section className="league-glass-bar relative z-10 border-b border-border/70 px-5 py-5 sm:px-8 lg:px-12">
         <div className="flex gap-8 overflow-x-auto pb-1">
           {[
             ["Submit task", "+60", BookOpenCheck],
@@ -329,9 +329,9 @@ export function PracticeLeague({
         </div>
       </section>
 
-      <section className="px-5 py-10 sm:px-8 lg:px-12">
+      <section className="relative z-10 px-5 py-10 sm:px-8 lg:px-12">
         <div className="grid gap-8 xl:grid-cols-[18rem_1fr]">
-          <aside className="space-y-8 xl:sticky xl:top-8 xl:self-start">
+          <aside className="league-glass league-glass-controls space-y-8 p-5 xl:sticky xl:top-8 xl:self-start">
             <div>
               <p className="font-mono text-[0.65rem] uppercase text-accent">Race controls</p>
               <h2 className="mt-2 font-heading text-3xl font-bold">Change the lens</h2>
@@ -393,7 +393,7 @@ export function PracticeLeague({
             </div>
           </aside>
 
-          <div>
+          <div className="league-glass league-glass-standings p-4 sm:p-5">
             <div className="flex flex-col gap-3 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <div className="flex items-center gap-2 font-mono text-[0.65rem] uppercase text-accent">
@@ -409,7 +409,7 @@ export function PracticeLeague({
 
             <div className="relative mt-3">
               <div className="pointer-events-none absolute inset-x-0 top-11 z-20 h-8 bg-gradient-to-b from-bg-base to-transparent" />
-              <div className="sticky top-0 z-30 hidden grid-cols-[3.2rem_1fr_minmax(8rem,0.75fr)_auto] gap-3 border-y border-border bg-bg-base/95 px-2 py-3 font-mono text-[0.62rem] uppercase text-text-muted backdrop-blur sm:grid">
+              <div className="league-standings-heading sticky top-0 z-30 hidden grid-cols-[3.2rem_1fr_minmax(8rem,0.75fr)_auto] gap-3 border-y border-border px-2 py-3 font-mono text-[0.62rem] uppercase text-text-muted sm:grid">
                 <span>Rank</span>
                 <span>Builder</span>
                 <span>Momentum</span>
@@ -429,8 +429,8 @@ export function PracticeLeague({
                       data-current-student={entry.isStudent ? "true" : undefined}
                       className={cn(
                         "group relative grid min-h-[5.3rem] items-center gap-3 border-b border-border/65 px-2 py-3 transition-colors sm:grid-cols-[3.2rem_1fr_minmax(8rem,0.75fr)_auto]",
-                        entry.isStudent && "bg-accent/[0.075]",
-                        selected && !entry.isStudent && "bg-white/[0.025]",
+                        entry.isStudent && "league-row-current",
+                        selected && !entry.isStudent && "league-row-selected",
                       )}
                     >
                       {entry.isStudent ? (

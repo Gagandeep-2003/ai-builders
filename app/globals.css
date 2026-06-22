@@ -979,8 +979,167 @@ textarea:focus-visible {
 }
 
 .league-ribbons-layer {
-  opacity: 0.72;
+  opacity: 0.48;
   mix-blend-mode: screen;
+}
+
+.league-aurora {
+  opacity: 0.58;
+}
+
+.league-experience {
+  --league-glass-fill: rgba(8, 10, 16, 0.58);
+  --league-glass-fill-soft: rgba(8, 10, 16, 0.42);
+  --league-glass-edge: rgba(255, 255, 255, 0.2);
+  --league-glass-highlight: rgba(255, 255, 255, 0.32);
+  --league-glass-shadow: rgba(0, 0, 0, 0.34);
+  --text-secondary: #b9bac9;
+  --text-muted: #8d8fa4;
+}
+
+.league-glass {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--league-glass-edge);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.13), transparent 34%),
+    linear-gradient(165deg, var(--league-glass-fill), var(--league-glass-fill-soft));
+  box-shadow:
+    inset 0 1px 0 var(--league-glass-highlight),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.055),
+    0 18px 48px var(--league-glass-shadow);
+  backdrop-filter: blur(18px) saturate(138%);
+  -webkit-backdrop-filter: blur(18px) saturate(138%);
+}
+
+.league-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(110, 231, 183, 0.16), transparent 28%),
+    radial-gradient(circle at 92% 100%, rgba(117, 167, 255, 0.12), transparent 30%);
+  opacity: 0.78;
+}
+
+.league-glass::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: calc(18px - 1px);
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset -1px 0 0 rgba(110, 231, 183, 0.06);
+}
+
+.league-glass-copy {
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.22);
+}
+
+.league-glass-podium {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.1), transparent 36%),
+    linear-gradient(165deg, rgba(7, 9, 15, 0.48), rgba(7, 9, 15, 0.28));
+}
+
+.league-glass-bar {
+  background:
+    linear-gradient(90deg, rgba(8, 10, 16, 0.78), rgba(8, 10, 16, 0.56));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px) saturate(135%);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+}
+
+.league-glass-controls,
+.league-glass-standings {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.09), transparent 32%),
+    linear-gradient(165deg, rgba(8, 10, 16, 0.68), rgba(8, 10, 16, 0.48));
+}
+
+.league-standings-heading {
+  background: rgba(8, 10, 16, 0.82);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+}
+
+.league-row-current {
+  background: rgba(110, 231, 183, 0.12);
+}
+
+.league-row-selected {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+[data-theme="light"] .league-experience {
+  --league-glass-fill: rgba(255, 255, 255, 0.72);
+  --league-glass-fill-soft: rgba(241, 250, 246, 0.58);
+  --league-glass-edge: rgba(255, 255, 255, 0.88);
+  --league-glass-highlight: rgba(255, 255, 255, 0.98);
+  --league-glass-shadow: rgba(31, 68, 55, 0.16);
+  --text-secondary: #40534b;
+  --text-muted: #64776f;
+}
+
+[data-theme="light"] .league-aurora {
+  opacity: 0.38;
+  filter: saturate(0.86) brightness(1.04);
+}
+
+[data-theme="light"] .league-ribbons-layer {
+  opacity: 0.26;
+  mix-blend-mode: multiply;
+}
+
+[data-theme="light"] .league-glass {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.2) 38%, transparent 52%),
+    linear-gradient(165deg, var(--league-glass-fill), var(--league-glass-fill-soft));
+  box-shadow:
+    inset 0 1px 0 var(--league-glass-highlight),
+    inset 0 -1px 0 rgba(4, 120, 87, 0.08),
+    0 18px 45px var(--league-glass-shadow);
+  backdrop-filter: blur(20px) saturate(118%);
+  -webkit-backdrop-filter: blur(20px) saturate(118%);
+}
+
+[data-theme="light"] .league-glass-copy {
+  text-shadow: none;
+}
+
+[data-theme="light"] .league-glass-podium,
+[data-theme="light"] .league-glass-controls,
+[data-theme="light"] .league-glass-standings {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.16) 38%, transparent 54%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.72), rgba(237, 248, 243, 0.58));
+}
+
+[data-theme="light"] .league-glass-bar {
+  background: rgba(249, 253, 251, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(4, 120, 87, 0.1);
+}
+
+[data-theme="light"] .league-standings-heading {
+  background: rgba(249, 253, 251, 0.9);
+}
+
+[data-theme="light"] .league-row-current {
+  background: rgba(4, 120, 87, 0.1);
+}
+
+[data-theme="light"] .league-row-selected {
+  background: rgba(4, 120, 87, 0.055);
 }
 
 .league-eye-transition {
