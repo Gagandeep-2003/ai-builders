@@ -31,6 +31,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { playLeagueEntrySound } from "@/lib/league-audio";
 import { cn } from "@/lib/utils";
 
 const navIcons = {
@@ -144,6 +145,9 @@ export function SidebarNav({
               onMouseEnter={() => router.prefetch(link.href)}
               onFocus={() => router.prefetch(link.href)}
               onClick={() => {
+                if (link.href === "/league" && pathname !== "/league") {
+                  playLeagueEntrySound();
+                }
                 if (typeof performance !== "undefined") {
                   performance.clearMarks("portal-navigation-start");
                   performance.mark("portal-navigation-start");

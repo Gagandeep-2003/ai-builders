@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { playLeagueEntrySound } from "@/lib/league-audio";
 
 const EvilEye = dynamic(
   () => import("@/components/ui/evil-eye").then((module) => module.EvilEye),
@@ -15,6 +16,7 @@ export function LeagueEntryTransition() {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    playLeagueEntrySound();
     const storedStart = Number(sessionStorage.getItem(INTRO_KEY));
     const now = Date.now();
     const start = storedStart > 0 && now - storedStart < INTRO_DURATION
