@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import {
   BookOpenCheck,
   CheckCircle2,
@@ -19,11 +19,17 @@ import {
   Trophy,
 } from "lucide-react";
 import { LeagueEntryTransition } from "@/components/portal/league-entry-transition";
+import { AnimatedList } from "@/components/ui/animated-list";
 import type { LeagueEntry, LeagueScore } from "@/lib/league";
 import { cn } from "@/lib/utils";
 
 const Aurora = dynamic(
   () => import("@/components/ui/aurora").then((module) => module.Aurora),
+  { ssr: false },
+);
+
+const Ribbons = dynamic(
+  () => import("@/components/ui/ribbons").then((module) => module.Ribbons),
   { ssr: false },
 );
 
@@ -45,6 +51,15 @@ const countryCodes: Record<string, string> = {
 
 const podiumOrder = [1, 0, 2];
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+const RIBBON_COLORS = ["#6ee7b7", "#38bdf8", "#ff9c52"];
+
+function leagueEntryKey(entry: LeagueEntry) {
+  return entry.id;
+}
+
+function isCurrentStudent(entry: LeagueEntry) {
+  return entry.isStudent;
+}
 
 function metricValue(entry: LeagueEntry, metric: LeagueMetric) {
   if (metric === "homework") return entry.submittedTasks * 60 + entry.reviewedTasks * 20;
@@ -101,7 +116,6 @@ export function PracticeLeague({
   const [metric, setMetric] = useState<LeagueMetric>("overall");
   const [country, setCountry] = useState("All");
   const [cycle, setCycle] = useState(() => Math.floor(Date.now() / FIVE_DAYS_MS));
-  const standingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = window.setInterval(
@@ -147,18 +161,20 @@ export function PracticeLeague({
     ? Math.round((studentScore.submittedTasks / unlockedTasks) * 100)
     : 0;
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      standingsRef.current
-        ?.querySelector<HTMLElement>('[data-current-student="true"]')
-        ?.scrollIntoView({ block: "center", behavior: "smooth" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [country, metric]);
-
   return (
     <main className="relative isolate -mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
       <LeagueEntryTransition />
+      <div className="league-ribbons-layer pointer-events-none absolute inset-0 z-40 overflow-hidden">
+        <Ribbons
+          baseThickness={30}
+          colors={RIBBON_COLORS}
+          speedMultiplier={0.5}
+          maxAge={500}
+          enableFade={false}
+          enableShaderEffect={false}
+          offsetFactor={0.02}
+        />
+      </div>
       <div className="pointer-events-none absolute inset-0 -z-10">
         <Aurora
           className="absolute inset-x-0 top-0 h-[42rem] opacity-70"
@@ -399,29 +415,23 @@ export function PracticeLeague({
                 <span>Momentum</span>
                 <span className="text-right">Score</span>
               </div>
-              <div
-                ref={standingsRef}
-                className="scrollbar-soft max-h-[68vh] min-h-[22rem] overflow-y-auto overscroll-contain pr-1"
-                tabIndex={0}
-                aria-label="AI Builders League standings"
-              >
-              <AnimatePresence mode="popLayout">
-                {rest.map((entry, index) => {
+              <AnimatedList
+                items={rest}
+                getItemKey={leagueEntryKey}
+                selectedItemAttribute={isCurrentStudent}
+                className="league-standings-list"
+                listClassName="max-h-[68vh] min-h-[22rem] overflow-y-auto overscroll-contain pr-1"
+                renderItem={(entry, index, selected) => {
                   const value = liveMetricValue(entry);
                   const rank = index + 4;
                   return (
-                    <motion.article
-                      layout
-                      key={`${metric}-${country}-${entry.id}`}
+                    <article
                       data-current-student={entry.isStudent ? "true" : undefined}
                       className={cn(
-                        "group relative grid min-h-[5.3rem] items-center gap-3 border-b border-border/65 px-2 py-3 sm:grid-cols-[3.2rem_1fr_minmax(8rem,0.75fr)_auto]",
+                        "group relative grid min-h-[5.3rem] items-center gap-3 border-b border-border/65 px-2 py-3 transition-colors sm:grid-cols-[3.2rem_1fr_minmax(8rem,0.75fr)_auto]",
                         entry.isStudent && "bg-accent/[0.075]",
+                        selected && !entry.isStudent && "bg-white/[0.025]",
                       )}
-                      initial={{ opacity: 0, x: -18 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 18 }}
-                      transition={{ delay: Math.min(index * 0.018, 0.22) }}
                     >
                       {entry.isStudent ? (
                         <motion.span
@@ -494,12 +504,10 @@ export function PracticeLeague({
                         </div>
                         <ChevronRight className="h-4 w-4 text-text-muted transition group-hover:translate-x-1 group-hover:text-accent" />
                       </div>
-                    </motion.article>
+                    </article>
                   );
-                })}
-              </AnimatePresence>
-              </div>
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-gradient-to-t from-bg-base to-transparent" />
+                }}
+              />
             </div>
           </div>
         </div>

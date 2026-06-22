@@ -1,33 +1,52 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { BrandMark } from "@/components/ui/brand-mark";
+
+const EvilEye = dynamic(
+  () => import("@/components/ui/evil-eye").then((module) => module.EvilEye),
+  { ssr: false },
+);
+
+const INTRO_DURATION = 1200;
+const INTRO_KEY = "ai-builders-league-intro-start";
 
 export function LeagueEntryTransition() {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(false), 760);
+    const storedStart = Number(sessionStorage.getItem(INTRO_KEY));
+    const now = Date.now();
+    const start = storedStart > 0 && now - storedStart < INTRO_DURATION
+      ? storedStart
+      : now;
+    sessionStorage.setItem(INTRO_KEY, String(start));
+    const timeLeft = Math.max(0, INTRO_DURATION - (now - start));
+    const timer = window.setTimeout(() => setVisible(false), timeLeft);
     return () => window.clearTimeout(timer);
   }, []);
 
   if (!visible) return null;
 
   return (
-    <div className="league-aperture" role="status" aria-label="Opening AI Builders League">
-      <div className="league-aperture-panel league-aperture-panel-tl" aria-hidden="true" />
-      <div className="league-aperture-panel league-aperture-panel-tr" aria-hidden="true" />
-      <div className="league-aperture-panel league-aperture-panel-bl" aria-hidden="true" />
-      <div className="league-aperture-panel league-aperture-panel-br" aria-hidden="true" />
-      <div className="league-aperture-scan" aria-hidden="true" />
-      <div className="league-aperture-core">
-        <span className="league-aperture-ring league-aperture-ring-outer" aria-hidden="true" />
-        <span className="league-aperture-ring league-aperture-ring-inner" aria-hidden="true" />
-        <BrandMark className="league-aperture-logo h-16 w-16" />
-        <div className="league-aperture-copy">
-          <span className="league-aperture-live"><i /> Live field synchronized</span>
-          <strong>AI Builders League</strong>
-        </div>
+    <div className="league-eye-transition" role="status" aria-label="Opening AI Builders League">
+      <div className="league-eye-stage">
+        <EvilEye
+          eyeColor="#FF6F37"
+          intensity={1.5}
+          pupilSize={0.6}
+          irisWidth={0.25}
+          glowIntensity={0.35}
+          scale={0.8}
+          noiseScale={1}
+          pupilFollow={1}
+          flameSpeed={1}
+          backgroundColor="#120F17"
+        />
+      </div>
+      <div className="league-eye-copy">
+        <span>League signal acquired</span>
+        <strong>AI Builders League</strong>
       </div>
     </div>
   );
