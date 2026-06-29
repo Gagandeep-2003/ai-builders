@@ -11,6 +11,7 @@ begin
     'students',
     'batches',
     'batch_class_slots',
+    'batch_pauses',
     'sessions',
     'modules',
     'class_reschedule_requests',

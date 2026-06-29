@@ -114,8 +114,9 @@ export function getSessionClassSlot(session: CourseSession, batch: Batch): Batch
   if (slots.length === 0 || !batch.startDate) return null;
 
   let matchedCount = 0;
-  for (let dayOffset = 0; dayOffset < 240; dayOffset += 1) {
+  for (let dayOffset = 0; dayOffset < 730; dayOffset += 1) {
     const date = addDays(batch.startDate, dayOffset);
+    if (isBatchPausedOnDate(batch, date)) continue;
     const dayOfWeek = dayOfWeekForDateKey(date);
     const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeek);
 
@@ -135,8 +136,9 @@ export function getSessionScheduleDate(session: CourseSession, batch: Batch) {
   if (slots.length === 0 || !batch.startDate) return session.date;
 
   let matchedCount = 0;
-  for (let dayOffset = 0; dayOffset < 240; dayOffset += 1) {
+  for (let dayOffset = 0; dayOffset < 730; dayOffset += 1) {
     const date = addDays(batch.startDate, dayOffset);
+    if (isBatchPausedOnDate(batch, date)) continue;
     const dayOfWeek = dayOfWeekForDateKey(date);
     const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeek);
 
@@ -149,6 +151,29 @@ export function getSessionScheduleDate(session: CourseSession, batch: Batch) {
   }
 
   return session.date;
+}
+
+export function isDateWithinBatchPauses(batch: Pick<Batch, "pauses">, dateKey: string) {
+  return batch.pauses.some(
+    (pause) => dateKey >= pause.startsOn && dateKey < pause.resumesOn,
+  );
+}
+
+export function isBatchPausedOnDate(batch: Batch, dateKey: string) {
+  return isDateWithinBatchPauses(batch, dateKey);
+}
+
+export function getBatchPauseState(batch: Batch, now = new Date()) {
+  const dateKey = dateKeyInTimeZone(now, batch.timeZone || DEFAULT_TIME_ZONE);
+  const ordered = [...batch.pauses].sort((a, b) => a.startsOn.localeCompare(b.startsOn));
+
+  return {
+    active: ordered.find(
+      (pause) => dateKey >= pause.startsOn && dateKey < pause.resumesOn,
+    ),
+    upcoming: ordered.find((pause) => pause.startsOn > dateKey),
+    dateKey,
+  };
 }
 
 export function getSessionDateTimes(session: CourseSession, batch: Batch) {
@@ -220,16 +245,19 @@ export function formatInTimeZone(
   }).format(value);
 }
 
-function zonedDateKey(date: Date, timeZone: string) {
-  return formatInTimeZone(date, timeZone, {
+export function dateKeyInTimeZone(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  });
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function isSameZonedDay(first: Date, second: Date, timeZone: string) {
-  return zonedDateKey(first, timeZone) === zonedDateKey(second, timeZone);
+  return dateKeyInTimeZone(first, timeZone) === dateKeyInTimeZone(second, timeZone);
 }
 
 export function formatSessionTime(

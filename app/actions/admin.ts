@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createServerSupabaseClient,
@@ -11,7 +11,12 @@ import { normalizeMeetLink } from "@/lib/meet-links";
 import { getAdminData, getMentorScheduleData } from "@/lib/data";
 import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
 import { getBookedSlots } from "@/lib/slot-availability";
-import { getSessionScheduleDate } from "@/lib/time";
+import {
+  dateKeyInTimeZone,
+  getSessionScheduleDate,
+  isBatchPausedOnDate,
+  zonedDateTimeToUtc,
+} from "@/lib/time";
 
 export type AdminActionState = {
   status: "idle" | "success" | "error";
@@ -97,6 +102,118 @@ function revalidateStudentManagement() {
   revalidatePath("/dashboard");
   revalidatePath("/class");
   revalidatePath("/profile");
+}
+
+function revalidateBatchSchedule() {
+  updateTag("student-context");
+  updateTag("batch-pauses");
+  revalidatePath("/admin");
+  revalidatePath("/admin/students");
+  revalidatePath("/admin/attendance");
+  revalidatePath("/admin/progress");
+  revalidatePath("/admin/slots");
+  revalidatePath("/dashboard");
+  revalidatePath("/class");
+  revalidatePath("/curriculum");
+  revalidatePath("/progress");
+}
+
+export async function createBatchPauseAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const supabase = await getAdminClient();
+  if (!supabase) return { status: "error", message: "Admin access could not be verified." };
+
+  const batchId = requiredValue(formData, "batchId");
+  const startsOn = requiredValue(formData, "startsOn");
+  const resumesOn = requiredValue(formData, "resumesOn");
+  const reason = requiredValue(formData, "reason") || "Student vacation";
+
+  if (!batchId || !startsOn || !resumesOn || resumesOn <= startsOn) {
+    return {
+      status: "error",
+      message: "Choose a pause start and a later resume date.",
+    };
+  }
+
+  const { data: batch } = await supabase
+    .from("batches")
+    .select("time_zone")
+    .eq("id", batchId)
+    .maybeSingle();
+  const today = dateKeyInTimeZone(new Date(), batch?.time_zone || "Asia/Kolkata");
+  if (startsOn < today) {
+    return {
+      status: "error",
+      message: "A new pause cannot begin in the past. Choose today or a future date.",
+    };
+  }
+
+  const { data: overlapping } = await supabase
+    .from("batch_pauses")
+    .select("id")
+    .eq("batch_id", batchId)
+    .lt("starts_on", resumesOn)
+    .gt("resumes_on", startsOn)
+    .limit(1);
+
+  if (overlapping?.length) {
+    return {
+      status: "error",
+      message: "This schedule already has a pause overlapping those dates.",
+    };
+  }
+
+  const { error } = await supabase.from("batch_pauses").insert({
+    batch_id: batchId,
+    starts_on: startsOn,
+    resumes_on: resumesOn,
+    reason,
+  });
+
+  if (error) {
+    return {
+      status: "error",
+      message: error.code === "42P01" || error.code === "PGRST205"
+        ? "Run supabase/batch-pauses-migration.sql in Supabase first."
+        : error.message,
+    };
+  }
+
+  revalidateBatchSchedule();
+  return {
+    status: "success",
+    message: "Schedule paused. Remaining sessions and reminders have shifted automatically.",
+  };
+}
+
+export async function endBatchPauseAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) return;
+
+  const pauseId = requiredValue(formData, "pauseId");
+  const { data: pause } = await supabase
+    .from("batch_pauses")
+    .select("starts_on, resumes_on, batches(time_zone)")
+    .eq("id", pauseId)
+    .maybeSingle();
+
+  if (!pause) return;
+
+  const batchRelation = pause.batches;
+  const batchTimeZone = Array.isArray(batchRelation)
+    ? String(batchRelation[0]?.time_zone ?? "Asia/Kolkata")
+    : String((batchRelation as { time_zone?: string } | null)?.time_zone ?? "Asia/Kolkata");
+  const today = dateKeyInTimeZone(new Date(), batchTimeZone);
+
+  if (pause.starts_on < today && today < pause.resumes_on) {
+    await supabase.from("batch_pauses").update({ resumes_on: today }).eq("id", pauseId);
+  } else {
+    await supabase.from("batch_pauses").delete().eq("id", pauseId);
+  }
+
+  revalidateBatchSchedule();
 }
 
 function getHomeworkTarget(formData: FormData) {
@@ -818,6 +935,20 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
     const batchForStudent = adminData.batches.find((item) => item.id === request.batch_id);
     if (!student || !batchForStudent) redirect("/admin/attendance?reschedule=invalid");
 
+    const requestedStart = zonedDateTimeToUtc(
+      request.requested_date,
+      normalizeClockTime(String(request.requested_start_time)),
+      request.requested_time_zone,
+    );
+    if (
+      isBatchPausedOnDate(
+        batchForStudent,
+        dateKeyInTimeZone(requestedStart, batchForStudent.timeZone),
+      )
+    ) {
+      redirect("/admin/attendance?reschedule=batch-paused");
+    }
+
     if (
       originalDate &&
       !adminData.sessions.some(
@@ -846,6 +977,8 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
     const validSlots = getStudentRescheduleOptions(student.timeZone, {
       bookedSlots: getBookedSlots(mentorSchedule.batches, mentorSchedule.students),
       requests: mentorSchedule.rescheduleRequests.filter((item) => item.id !== requestId),
+      excludedPauses: batchForStudent.pauses,
+      excludedPauseTimeZone: batchForStudent.timeZone,
     });
     if (!validSlots.some((option) => option.value === requestSlot)) {
       redirect("/admin/attendance?reschedule=slot-taken");

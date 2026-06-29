@@ -12,6 +12,7 @@ import { HomeworkCard } from "@/components/ui/homework-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { AchievementStrip } from "@/components/portal/achievement-strip";
+import { BatchPauseNotice } from "@/components/portal/batch-pause-notice";
 import { StatCard } from "@/components/ui/stat-card";
 import {
   daysUntilClassEvent,
@@ -64,6 +65,8 @@ export default async function DashboardPage() {
         title={`Welcome back, ${data.student.fullName.split(" ")[0]} 👋`}
         subtitle={`Today is ${formatDate(new Date(), { weekday: "long" })}. Your next class is ${nextClassEvent?.kind === "makeup" ? "a make-up class" : nextClassEvent?.kind === "rescheduled" ? "a rescheduled class" : nextSession.title} at ${nextClassEvent ? formatClassEventTime(nextClassEvent, data.student.timeZone) : formatSessionTime(nextSession, data.batch, data.student.timeZone)}.`}
       />
+
+      <BatchPauseNotice batch={data.batch} />
 
       <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <FadeIn>

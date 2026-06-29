@@ -14,6 +14,7 @@ import {
   type AttendanceItem,
   type Batch,
   type BatchClassSlot,
+  type BatchPause,
   type ClassJoinEvent,
   type ClassRescheduleRequest,
   type CourseModule,
@@ -242,6 +243,26 @@ function mapBatchClassSlot(row: DbRow, batchId: string): BatchClassSlot {
   };
 }
 
+function mapBatchPause(row: DbRow): BatchPause {
+  return {
+    id: text(row, "id"),
+    batchId: text(row, "batch_id"),
+    startsOn: text(row, "starts_on"),
+    resumesOn: text(row, "resumes_on"),
+    reason: text(row, "reason"),
+    createdAt: text(row, "created_at"),
+  };
+}
+
+function attachBatchPauses(batch: Batch, rows: DbRow[] | null | undefined): Batch {
+  return {
+    ...batch,
+    pauses: (rows ?? [])
+      .filter((row) => text(row, "batch_id") === batch.id)
+      .map(mapBatchPause),
+  };
+}
+
 function mapBatch(row: DbRow, studentsCount = 0): Batch {
   const id = text(row, "id");
   const classSlots = relationRows(row, "batch_class_slots").map((slot) =>
@@ -261,6 +282,7 @@ function mapBatch(row: DbRow, studentsCount = 0): Batch {
     moduleId: text(row, "module_id"),
     studentsCount,
     classSlots,
+    pauses: relationRows(row, "batch_pauses").map(mapBatchPause),
   };
 }
 
@@ -663,6 +685,20 @@ const getCachedStudentRow = unstable_cache(
   { revalidate: 30, tags: ["student-context"] },
 );
 
+const getCachedBatchPauseRows = unstable_cache(
+  async (batchId: string) => {
+    const supabase = createServiceRoleSupabaseClient();
+    if (!supabase) return [];
+    const { data } = await supabase
+      .from("batch_pauses")
+      .select("id, batch_id, starts_on, resumes_on, reason, created_at")
+      .eq("batch_id", batchId);
+    return data ?? [];
+  },
+  ["batch-pause-rows"],
+  { revalidate: 30, tags: ["batch-pauses"] },
+);
+
 async function getStudentContextImpl(): Promise<StudentContextData> {
   const fallback = fallbackDashboardData();
   if (!isSupabaseConfigured()) {
@@ -738,7 +774,9 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
   const effectiveStudent = applyStudentContactOverride(mapStudent(studentRow), userMetadata);
 
   const batchRow = relation(studentRow, "batches");
-  const effectiveBatch = batchRow ? mapBatch(batchRow) : fallback.batch;
+  let effectiveBatch = batchRow ? mapBatch(batchRow) : fallback.batch;
+  const pauseRows = effectiveBatch.id ? await getCachedBatchPauseRows(effectiveBatch.id) : [];
+  effectiveBatch = attachBatchPauses(effectiveBatch, pauseRows);
   const curriculum = await getCurriculum(effectiveBatch);
 
   return {
@@ -1135,6 +1173,7 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
     { data: attendanceRows },
     { data: rescheduleRequestRows },
     { data: passwordRequestRows },
+    { data: pauseRows },
   ] = await Promise.all([
     supabase
       .from("students")
@@ -1165,6 +1204,9 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
       .select("id, student_id, status, reason, admin_note, requested_at, reviewed_at, used_at, students(full_name)")
       .order("requested_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("batch_pauses")
+      .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
   ]);
 
   const mappedSessions = (sessionRows ?? [])
@@ -1178,7 +1220,10 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
 
   return {
     students: studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
-    batches: batchRows?.map((row) => mapBatch(row, relationRows(row, "students").length)) ?? [demoBatch],
+    batches: batchRows?.map((row) => attachBatchPauses(
+      mapBatch(row, relationRows(row, "students").length),
+      pauseRows,
+    )) ?? [demoBatch],
     sessions: mappedSessions.length ? mappedSessions : sessions,
     homework: homeworkRows?.map((row) => {
       const mapped = mapHomework(row);
@@ -1207,7 +1252,7 @@ async function getAdminStudentsDataImpl(): Promise<AdminStudentsData> {
     const fallback = fallbackAdminData();
     return { students: fallback.students, batches: fallback.batches, modules: fallback.modules };
   }
-  const [{ data: studentRows }, { data: batchRows }, { data: moduleRows }] = await Promise.all([
+  const [{ data: studentRows }, { data: batchRows }, { data: moduleRows }, { data: pauseRows }] = await Promise.all([
     supabase
       .from("students")
       .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
@@ -1220,10 +1265,16 @@ async function getAdminStudentsDataImpl(): Promise<AdminStudentsData> {
       .from("modules")
       .select("id, title, description, order_index, session_count")
       .order("order_index", { ascending: true }),
+    supabase
+      .from("batch_pauses")
+      .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
   ]);
   return {
     students: studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
-    batches: batchRows?.map((row) => mapBatch(row, relationRows(row, "students").length)) ?? [demoBatch],
+    batches: batchRows?.map((row) => attachBatchPauses(
+      mapBatch(row, relationRows(row, "students").length),
+      pauseRows,
+    )) ?? [demoBatch],
     modules: moduleRows?.map((row) => mapModule(row)) ?? modules,
   };
 }
@@ -1251,6 +1302,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
     { data: classJoinEventRows },
     { data: rescheduleRequestRows },
     { data: passwordRequestRows },
+    { data: pauseRows },
   ] = await Promise.all([
     supabase
       .from("students")
@@ -1302,6 +1354,9 @@ async function getAdminDataImpl(): Promise<AdminData> {
       .select("id, student_id, status, reason, admin_note, requested_at, reviewed_at, used_at, students(full_name)")
       .order("requested_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("batch_pauses")
+      .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
   ]);
 
   if (!moduleRows || !sessionRows) return fallbackAdminData();
@@ -1318,7 +1373,10 @@ async function getAdminDataImpl(): Promise<AdminData> {
   return {
     students: studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
     batches:
-      batchRows?.map((row) => mapBatch(row, relationRows(row, "students").length)) ?? [demoBatch],
+      batchRows?.map((row) => attachBatchPauses(
+        mapBatch(row, relationRows(row, "students").length),
+        pauseRows,
+      )) ?? [demoBatch],
     modules: mappedModules,
     sessions: mappedSessions,
     homework:
@@ -1398,7 +1456,7 @@ async function getMentorScheduleDataImpl(): Promise<MentorScheduleData> {
     };
   }
 
-  const [{ data: studentRows }, { data: batchRows }, { data: requestRows }] = await Promise.all([
+  const [{ data: studentRows }, { data: batchRows }, { data: requestRows }, { data: pauseRows }] = await Promise.all([
     supabase
       .from("students")
       .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)"),
@@ -1409,11 +1467,17 @@ async function getMentorScheduleDataImpl(): Promise<MentorScheduleData> {
       .from("class_reschedule_requests")
       .select("id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)")
       .in("status", ["pending", "approved"]),
+    supabase
+      .from("batch_pauses")
+      .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
   ]);
 
   return {
     students: studentRows?.map((row) => mapStudent(row)) ?? [],
-    batches: batchRows?.map((row) => mapBatch(row, relationRows(row, "students").length)) ?? [],
+    batches: batchRows?.map((row) => attachBatchPauses(
+      mapBatch(row, relationRows(row, "students").length),
+      pauseRows,
+    )) ?? [],
     rescheduleRequests: requestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
   };
 }

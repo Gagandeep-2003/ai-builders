@@ -48,6 +48,15 @@ type BatchRow = {
   batch_class_slots: SlotRow[];
 };
 
+type PauseRow = {
+  id: string;
+  batch_id: string;
+  starts_on: string;
+  resumes_on: string;
+  reason: string | null;
+  created_at: string;
+};
+
 type SessionRow = {
   id: string;
   module_id: string;
@@ -104,7 +113,7 @@ function mapStudent(row: StudentRow): StudentProfile {
   };
 }
 
-function mapBatch(row: BatchRow): Batch {
+function mapBatch(row: BatchRow, pauses: PauseRow[] = []): Batch {
   return {
     id: row.id,
     name: row.name,
@@ -128,6 +137,16 @@ function mapBatch(row: BatchRow): Batch {
         endTime: slot.end_time,
         meetLink: normalizeMeetLink(slot.meet_link),
         sortOrder: slot.sort_order,
+      })),
+    pauses: pauses
+      .filter((pause) => pause.batch_id === row.id)
+      .map((pause) => ({
+        id: pause.id,
+        batchId: pause.batch_id,
+        startsOn: pause.starts_on,
+        resumesOn: pause.resumes_on,
+        reason: pause.reason ?? "",
+        createdAt: pause.created_at,
       })),
   };
 }
@@ -266,6 +285,7 @@ async function runMentorReminders(request: Request) {
     batchResult,
     sessionResult,
     requestResult,
+    pauseResult,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -280,6 +300,9 @@ async function runMentorReminders(request: Request) {
       .from("class_reschedule_requests")
       .select("id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at")
       .eq("status", "approved"),
+    supabase
+      .from("batch_pauses")
+      .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
   ]);
 
   let studentData: unknown = studentResult.data;
@@ -354,7 +377,11 @@ async function runMentorReminders(request: Request) {
   }
 
   const students = (studentData as unknown as StudentRow[]).map(mapStudent);
-  const batches = (batchData as unknown as BatchRow[]).map(mapBatch);
+  const pauseData = pauseResult.error ? [] : (pauseResult.data as unknown as PauseRow[]);
+  if (pauseResult.error) {
+    warnings.push("Batch pauses are unavailable until the pause migration is installed.");
+  }
+  const batches = (batchData as unknown as BatchRow[]).map((batch) => mapBatch(batch, pauseData));
   const sessions: CourseSession[] = (sessionData as unknown as SessionRow[])
     .sort((a, b) => moduleOrder(a) - moduleOrder(b) || a.session_number - b.session_number)
     .map((session, index) => ({

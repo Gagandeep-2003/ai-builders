@@ -9,6 +9,8 @@ import {
   formatInTimeZone,
   getSessionDateTimes,
   getSessionScheduleDate,
+  dateKeyInTimeZone,
+  isBatchPausedOnDate,
   zonedDateTimeToUtc,
 } from "@/lib/time";
 
@@ -126,13 +128,16 @@ export function getStudentClassEvents({
 
   const makeupEvents: ClassEvent[] = requests
     .filter((request) => request.status === "approved")
-    .map((request) => {
+    .flatMap((request) => {
       const schedule = getRescheduleRequestDateTimes(request);
+      if (isBatchPausedOnDate(batch, dateKeyInTimeZone(schedule.startsAt, batch.timeZone))) {
+        return [];
+      }
       const kind = getRescheduleRequestKind(request);
       const originalSession = request.originalDate
         ? sessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)
         : undefined;
-      return {
+      return [{
         id: `${kind}-${request.id}`,
         kind,
         startsAt: schedule.startsAt,
@@ -150,7 +155,7 @@ export function getStudentClassEvents({
             : "One-off class added by admin"),
         status: schedule.endsAt.getTime() <= now.getTime() ? "completed" : "current",
         tag: getClassEventLabel({ kind }),
-      };
+      }];
     });
 
   return [...regularEvents, ...makeupEvents].sort(
@@ -223,6 +228,9 @@ export function getAdminClassEvents({
       if (!batch || !student) return [];
 
       const schedule = getRescheduleRequestDateTimes(request);
+      if (isBatchPausedOnDate(batch, dateKeyInTimeZone(schedule.startsAt, batch.timeZone))) {
+        return [];
+      }
       const kind = getRescheduleRequestKind(request);
       const originalSession = request.originalDate
         ? sessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)

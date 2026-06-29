@@ -49,6 +49,8 @@ export default async function AdminAttendancePage({
   const rescheduleNotice =
     params?.reschedule === "slot-taken"
       ? "That time is no longer free. Ask the student to choose another available slot."
+      : params?.reschedule === "batch-paused"
+        ? "That date falls inside this student's scheduled break. Choose a date after classes resume."
       : params?.reschedule === "invalid-original"
         ? "The original class date does not match this student's schedule."
         : params?.reschedule === "updated"

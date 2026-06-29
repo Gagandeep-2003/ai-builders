@@ -1,10 +1,14 @@
-import type { ClassRescheduleRequest } from "@/lib/course-data";
+import type { BatchPause, ClassRescheduleRequest } from "@/lib/course-data";
 import {
   availabilityBucket,
-  getAvailabilitySlots,
   type BookedSlot,
 } from "@/lib/slot-availability";
-import { ADMIN_TIME_ZONE, zonedDateTimeToUtc } from "@/lib/time";
+import {
+  ADMIN_TIME_ZONE,
+  dateKeyInTimeZone,
+  isDateWithinBatchPauses,
+  zonedDateTimeToUtc,
+} from "@/lib/time";
 
 const dayFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
@@ -14,17 +18,6 @@ const dayFormatter = new Intl.DateTimeFormat("en-US", {
 
 function toDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
-}
-
-function dateKeyInTimeZone(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function addDays(date: Date, days: number) {
@@ -68,20 +61,18 @@ export function getStudentRescheduleOptions(
     requests = [],
     daysAhead = 21,
     now = new Date(),
+    excludedPauses = [],
+    excludedPauseTimeZone = ADMIN_TIME_ZONE,
   }: {
     bookedSlots?: BookedSlot[];
     requests?: ClassRescheduleRequest[];
     daysAhead?: number;
     now?: Date;
+    excludedPauses?: BatchPause[];
+    excludedPauseTimeZone?: string;
   } = {},
 ) {
   const today = new Date(`${dateKeyInTimeZone(now, ADMIN_TIME_ZONE)}T00:00:00.000Z`);
-  const availableWeeklySlots = new Set(
-    getAvailabilitySlots(bookedSlots)
-      .flatMap((day) => day.slots)
-      .filter((slot) => slot.status === "available")
-      .map((slot) => `${slot.dayIndex}-${slot.startMinutes}`),
-  );
   const reservedRequests = requests
     .filter((request) => request.status === "pending" || request.status === "approved")
     .map((request) => ({
@@ -113,8 +104,26 @@ export function getStudentRescheduleOptions(
       const endTime = addOneHour(startTime);
       const startUtc = zonedDateTimeToUtc(dateKey, startTime, ADMIN_TIME_ZONE);
       const endUtc = zonedDateTimeToUtc(dateKey, endTime, ADMIN_TIME_ZONE);
+      if (
+        isDateWithinBatchPauses(
+          { pauses: excludedPauses },
+          dateKeyInTimeZone(startUtc, excludedPauseTimeZone),
+        )
+      ) continue;
       const [hour, minute] = startTime.split(":").map(Number);
-      if (!availableWeeklySlots.has(`${dayIndex}-${hour * 60 + minute}`)) continue;
+      const startMinutes = hour * 60 + minute;
+      const endMinutes = startMinutes + 60;
+      const recurringConflict = bookedSlots.some(
+        (booking) =>
+          booking.istDayIndex === dayIndex &&
+          startMinutes < booking.endMinutes &&
+          booking.startMinutes < endMinutes &&
+          !isDateWithinBatchPauses(
+            booking,
+            dateKeyInTimeZone(startUtc, booking.sourceTimeZone),
+          ),
+      );
+      if (recurringConflict) continue;
       if (
         reservedRequests.some((request) =>
           overlaps(startUtc, endUtc, request.startsAt, request.endsAt),

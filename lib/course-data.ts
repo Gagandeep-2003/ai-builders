@@ -73,6 +73,16 @@ export type Batch = {
   moduleId: string;
   studentsCount: number;
   classSlots: BatchClassSlot[];
+  pauses: BatchPause[];
+};
+
+export type BatchPause = {
+  id: string;
+  batchId: string;
+  startsOn: string;
+  resumesOn: string;
+  reason: string;
+  createdAt: string;
 };
 
 export type BatchClassSlot = {
@@ -416,6 +426,7 @@ export const demoBatch: Batch = {
       sortOrder: 2,
     },
   ],
+  pauses: [],
 };
 
 export const demoHomework: HomeworkItem[] = [

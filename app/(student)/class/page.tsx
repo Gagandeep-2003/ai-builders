@@ -1,6 +1,7 @@
 import { CalendarPlus, CheckCircle2, CircleDot } from "lucide-react";
 import { requestClassRescheduleAction } from "@/app/actions/class";
 import { ClassLiveCard } from "@/components/portal/class-live-card";
+import { BatchPauseNotice } from "@/components/portal/batch-pause-notice";
 import { MakeupClassCard } from "@/components/portal/makeup-class-card";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
@@ -57,6 +58,8 @@ export default async function ClassPage({
   const rescheduleOptions = getStudentRescheduleOptions(data.student.timeZone, {
     bookedSlots: getBookedSlots(mentorSchedule.batches, mentorSchedule.students),
     requests: mentorSchedule.rescheduleRequests,
+    excludedPauses: data.batch.pauses,
+    excludedPauseTimeZone: data.batch.timeZone,
   });
   const pendingRequest = data.rescheduleRequests.find((request) => request.status === "pending");
   const originalClassOptions = data.sessions
@@ -75,6 +78,7 @@ export default async function ClassPage({
         title="My Class"
         subtitle="Your batch schedule, live class link, and upcoming session timeline."
       />
+      <BatchPauseNotice batch={data.batch} />
       {join === "attendance-error" ? (
         <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-rose-200">
           We could not sync your attendance. Please try joining again or message your tutor.

@@ -1,4 +1,4 @@
-import type { Batch, StudentProfile } from "@/lib/course-data";
+import type { Batch, BatchPause, StudentProfile } from "@/lib/course-data";
 import { ADMIN_TIME_ZONE, formatInTimeZone, zonedDateTimeToUtc } from "@/lib/time";
 
 export type AvailabilityDay = {
@@ -19,6 +19,7 @@ export type BookedSlot = {
   startMinutes: number;
   endMinutes: number;
   timeLabel: string;
+  pauses: BatchPause[];
 };
 
 export type SlotStatus = "available" | "booked" | "blocked";
@@ -176,6 +177,7 @@ export function getBookedSlots(batches: Batch[], students: StudentProfile[]) {
         startMinutes,
         endMinutes,
         timeLabel: formatRange(startMinutes, endMinutes),
+        pauses: batch.pauses,
       };
     });
   });

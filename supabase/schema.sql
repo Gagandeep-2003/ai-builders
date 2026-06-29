@@ -55,6 +55,19 @@ create table public.batch_class_slots (
   created_at timestamptz not null default now()
 );
 
+create table public.batch_pauses (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid not null references public.batches(id) on delete cascade,
+  starts_on date not null,
+  resumes_on date not null,
+  reason text not null default '',
+  created_at timestamptz not null default now(),
+  constraint batch_pauses_valid_range check (resumes_on > starts_on)
+);
+
+create index batch_pauses_batch_dates_idx
+  on public.batch_pauses(batch_id, starts_on, resumes_on);
+
 create table public.students (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references public.profiles(id) on delete cascade,
@@ -408,6 +421,7 @@ alter table public.profiles enable row level security;
 alter table public.modules enable row level security;
 alter table public.batches enable row level security;
 alter table public.batch_class_slots enable row level security;
+alter table public.batch_pauses enable row level security;
 alter table public.students enable row level security;
 alter table public.sessions enable row level security;
 alter table public.homework enable row level security;
@@ -492,6 +506,15 @@ using (batch_id = private.current_student_batch_id() or private.is_admin());
 
 create policy "batch_class_slots_write_admin"
 on public.batch_class_slots for all
+using (private.is_admin())
+with check (private.is_admin());
+
+create policy "batch_pauses_select_student_batch_or_admin"
+on public.batch_pauses for select
+using (batch_id = private.current_student_batch_id() or private.is_admin());
+
+create policy "batch_pauses_write_admin"
+on public.batch_pauses for all
 using (private.is_admin())
 with check (private.is_admin());
 
@@ -689,6 +712,7 @@ grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.modules to authenticated;
 grant select, insert, update, delete on public.batches to authenticated;
 grant select, insert, update, delete on public.batch_class_slots to authenticated;
+grant select, insert, update, delete on public.batch_pauses to authenticated;
 grant select, insert, update, delete on public.students to authenticated;
 grant select, insert, update, delete on public.sessions to authenticated;
 grant select, insert, update, delete on public.homework to authenticated;

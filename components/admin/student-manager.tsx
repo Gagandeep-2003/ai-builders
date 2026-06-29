@@ -1,8 +1,10 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { ChevronDown, PencilLine, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { CalendarRange, ChevronDown, PauseCircle, PencilLine, PlayCircle, Plus, Search, Trash2, UserRound } from "lucide-react";
 import {
+  createBatchPauseAction,
+  endBatchPauseAction,
   createStudentAction,
   removeStudentAction,
   updateStudentAction,
@@ -317,6 +319,7 @@ function StudentEditor({
           Save all student changes
         </SubmitButton>
       </form>
+      {batch ? <BatchPauseManager batch={batch} /> : null}
       <form action={removeStudentAction} className="border-t border-border/70 p-4">
         <input type="hidden" name="studentId" value={student.id} />
         <SubmitButton
@@ -328,6 +331,102 @@ function StudentEditor({
         </SubmitButton>
       </form>
     </details>
+  );
+}
+
+function formatPauseDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00.000Z`));
+}
+
+function BatchPauseManager({ batch }: { batch: Batch }) {
+  const [state, action] = useActionState(createBatchPauseAction, initialAdminActionState);
+  const today = new Date().toISOString().slice(0, 10);
+  const relevantPauses = batch.pauses
+    .filter((pause) => pause.resumesOn > today)
+    .sort((a, b) => a.startsOn.localeCompare(b.startsOn));
+
+  return (
+    <section className="border-t border-border/70 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-accent-warm/25 bg-accent-warm/10 text-accent-warm">
+          <PauseCircle className="h-4 w-4" />
+        </span>
+        <div>
+          <h3 className="font-heading font-bold">Pause this schedule</h3>
+          <p className="mt-1 text-sm leading-6 text-text-secondary">
+            Use this for vacations or longer breaks. No classes, joins, attendance penalties, or reminders occur during the pause; remaining sessions move forward automatically.
+          </p>
+        </div>
+      </div>
+
+      {batch.studentsCount > 1 ? (
+        <p className="mt-3 rounded-lg border border-accent-warm/25 bg-accent-warm/10 p-3 text-xs text-text-secondary">
+          This is a shared schedule. Pausing it affects all {batch.studentsCount} students assigned to it.
+        </p>
+      ) : null}
+
+      {relevantPauses.length ? (
+        <div className="mt-4 grid gap-2">
+          {relevantPauses.map((pause) => {
+            const active = pause.startsOn <= today && today < pause.resumesOn;
+            return (
+              <div key={pause.id} className="flex flex-col gap-3 rounded-lg border border-accent-warm/20 bg-bg-elevated p-3 sm:flex-row sm:items-center">
+                <CalendarRange className="h-4 w-4 shrink-0 text-accent-warm" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold">
+                    {active ? "Paused now" : "Upcoming pause"} · {formatPauseDate(pause.startsOn)} to {formatPauseDate(pause.resumesOn)}
+                  </p>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    Classes resume on {formatPauseDate(pause.resumesOn)} · {pause.reason || "Student vacation"}
+                  </p>
+                </div>
+                <form action={endBatchPauseAction}>
+                  <input type="hidden" name="pauseId" value={pause.id} />
+                  <SubmitButton
+                    pendingLabel={active ? "Resuming..." : "Cancelling..."}
+                    className="rounded-lg border border-border px-3 py-2 text-xs font-bold text-text-secondary hover:border-accent/40 hover:text-text-primary"
+                  >
+                    <PlayCircle className="h-4 w-4" />
+                    {active ? "Resume now" : "Cancel pause"}
+                  </SubmitButton>
+                </form>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <form action={action} className="mt-4 grid gap-3 md:grid-cols-2">
+        <input type="hidden" name="batchId" value={batch.id} />
+        <Field label={`Pause starts · ${batch.timeZone}`}>
+          <input name="startsOn" type="date" min={today} required className={inputClass} />
+        </Field>
+        <Field label={`Classes resume · ${batch.timeZone}`}>
+          <input name="resumesOn" type="date" min={today} required className={inputClass} />
+        </Field>
+        <div className="md:col-span-2">
+          <Field label="Reason shown to the student">
+            <input name="reason" placeholder="Family vacation" className={inputClass} />
+          </Field>
+        </div>
+        <p className="text-xs leading-5 text-text-muted md:col-span-2">
+          The resume date is the first date classes are active again. Any weekly class dates inside this range are skipped and appended to the end of the course.
+        </p>
+        <div className="md:col-span-2"><ActionNotice state={state} /></div>
+        <SubmitButton
+          pendingLabel="Pausing schedule..."
+          className="rounded-lg border border-accent-warm/30 bg-accent-warm/10 px-4 py-2.5 text-sm font-bold text-accent-warm md:col-span-2"
+        >
+          <PauseCircle className="h-4 w-4" />
+          Schedule pause
+        </SubmitButton>
+      </form>
+    </section>
   );
 }
 
