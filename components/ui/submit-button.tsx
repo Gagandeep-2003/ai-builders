@@ -9,17 +9,23 @@ export function SubmitButton({
   pendingLabel = "Saving...",
   className,
   disabled,
+  name,
+  value,
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
   className?: string;
   disabled?: boolean;
+  name?: string;
+  value?: string;
 }) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
+      name={name}
+      value={value}
       disabled={disabled || pending}
       className={cn(
         "button-motion inline-flex items-center justify-center gap-2 disabled:cursor-wait disabled:opacity-60",

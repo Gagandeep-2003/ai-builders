@@ -7,10 +7,32 @@ import {
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { formatRescheduleRequestTime, getRescheduleRequestKind } from "@/lib/class-events";
 import { getAdminData } from "@/lib/data";
 import { ADMIN_TIME_ZONE, commonTimeZones, formatSessionTime, getSessionScheduleDate } from "@/lib/time";
 
+function SchedulerField({
+  label,
+  hint,
+  children,
+  className = "",
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <label className={`space-y-2 ${className}`}>
+      <span className="block font-mono text-[11px] uppercase tracking-[0.12em] text-text-muted">
+        {label}
+      </span>
+      {children}
+      {hint ? <span className="block text-xs leading-5 text-text-muted">{hint}</span> : null}
+    </label>
+  );
+}
 export default async function AdminAttendancePage({
   searchParams,
 }: {
@@ -51,80 +73,118 @@ export default async function AdminAttendancePage({
               Add an extra make-up class, or replace exactly one regular occurrence. Weekly classes after it continue normally.
             </p>
           </div>
-          <form action={createAdminRescheduleAction} className="grid gap-3 md:grid-cols-2">
-            <select
-              name="requestType"
-              defaultValue="makeup"
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+          <form action={createAdminRescheduleAction} className="grid gap-4 md:grid-cols-2">
+            <SchedulerField label="Class action">
+              <select
+                name="requestType"
+                defaultValue="makeup"
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              >
+                <option value="makeup">Additional make-up class</option>
+                <option value="reschedule">Replace one regular class</option>
+              </select>
+            </SchedulerField>
+            <SchedulerField label="Student">
+              <select
+                name="studentId"
+                required
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              >
+                <option value="">Select student</option>
+                {data.students.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.fullName}
+                  </option>
+                ))}
+              </select>
+            </SchedulerField>
+            <SchedulerField
+              label="Timezone used below"
+              hint="The new date, start time, and end time must all be entered in this timezone."
             >
-              <option value="makeup">Additional make-up class</option>
-              <option value="reschedule">Replace one regular class</option>
-            </select>
-            <select
-              name="studentId"
-              required
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              <select
+                name="requestedTimeZone"
+                defaultValue={ADMIN_TIME_ZONE}
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              >
+                {commonTimeZones.map((timeZone) => (
+                  <option key={timeZone} value={timeZone}>
+                    {timeZone}
+                  </option>
+                ))}
+              </select>
+            </SchedulerField>
+            <SchedulerField label="New class date" hint="Date of the make-up or replacement class.">
+              <input
+                name="requestedDate"
+                type="date"
+                required
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              />
+            </SchedulerField>
+            <SchedulerField
+              label="Original class date · replacements only"
+              hint="Leave blank for an additional make-up. Fill only when replacing one regular class."
             >
-              <option value="">Select student</option>
-              {data.students.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.fullName}
-                </option>
-              ))}
-            </select>
-            <select
-              name="requestedTimeZone"
-              defaultValue={ADMIN_TIME_ZONE}
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              <input
+                name="originalDate"
+                type="date"
+                title="Required only when replacing one regular class"
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              />
+            </SchedulerField>
+            <SchedulerField label="New class start time">
+              <input
+                name="requestedStartTime"
+                type="time"
+                required
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              />
+            </SchedulerField>
+            <SchedulerField label="New class end time">
+              <input
+                name="requestedEndTime"
+                type="time"
+                required
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              />
+            </SchedulerField>
+            <SchedulerField
+              label="Google Meet link · optional"
+              hint="Leave blank to reuse the student's regular batch Meet link."
+              className="md:col-span-2"
             >
-              {commonTimeZones.map((timeZone) => (
-                <option key={timeZone} value={timeZone}>
-                  {timeZone}
-                </option>
-              ))}
-            </select>
-            <input
-              name="requestedDate"
-              type="date"
-              required
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-            />
-            <input
-              name="originalDate"
-              type="date"
-              title="Required when replacing one regular class"
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-            />
-            <input
-              name="requestedStartTime"
-              type="time"
-              required
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-            />
-            <input
-              name="requestedEndTime"
-              type="time"
-              required
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-            />
-            <input
-              name="meetLink"
-              placeholder="Meet link, blank reuses batch link"
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm md:col-span-2"
-            />
-            <input
-              name="reason"
-              placeholder="Reason, for example: make-up class for missed Thursday"
-              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm md:col-span-2"
-            />
-            <textarea
-              name="adminNote"
-              placeholder="Student-visible note"
-              className="min-h-20 rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm md:col-span-2"
-            />
-            <button className="button-motion rounded-xl bg-accent px-5 py-3 font-bold text-bg-base md:col-span-2">
+              <input
+                name="meetLink"
+                type="url"
+                placeholder="https://meet.google.com/..."
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              />
+            </SchedulerField>
+            <SchedulerField label="Reason" className="md:col-span-2">
+              <input
+                name="reason"
+                placeholder="For example: make-up class for missed Thursday"
+                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              />
+            </SchedulerField>
+            <SchedulerField
+              label="Student-visible note · optional"
+              hint="This message appears in the student's portal."
+              className="md:col-span-2"
+            >
+              <textarea
+                name="adminNote"
+                placeholder="Add any instruction the student should see"
+                className="min-h-20 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+              />
+            </SchedulerField>
+            <SubmitButton
+              pendingLabel="Adding class..."
+              className="rounded-xl bg-accent px-5 py-3 font-bold text-bg-base md:col-span-2"
+            >
               Add one-off class
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </section>
@@ -157,39 +217,51 @@ export default async function AdminAttendancePage({
                     </p>
                     {request.reason ? <p className="mt-2 text-sm text-text-muted">{request.reason}</p> : null}
                   </div>
-                  <form action={reviewRescheduleRequestAction} className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto]">
+                  <form action={reviewRescheduleRequestAction} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto_auto] xl:items-end">
                     <input type="hidden" name="requestId" value={request.id} />
-                    <input
-                      name="originalDate"
-                      type="date"
-                      defaultValue={request.originalDate ?? ""}
-                      title="Set this to replace that regular class; leave blank for an additional make-up"
-                      className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-                    />
-                    <input
-                      name="meetLink"
-                      placeholder="Meet link, blank reuses batch link"
-                      className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-                    />
-                    <input
-                      name="adminNote"
-                      placeholder="Admin note"
-                      className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-                    />
-                    <button
+                    <SchedulerField
+                      label="Original date · optional"
+                      hint="Leave blank to keep this as an additional class."
+                    >
+                      <input
+                        name="originalDate"
+                        type="date"
+                        defaultValue={request.originalDate ?? ""}
+                        title="Fill only to replace one regular class"
+                        className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+                      />
+                    </SchedulerField>
+                    <SchedulerField label="Meet link · optional" hint="Blank reuses the regular batch link.">
+                      <input
+                        name="meetLink"
+                        type="url"
+                        placeholder="https://meet.google.com/..."
+                        className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+                      />
+                    </SchedulerField>
+                    <SchedulerField label="Student-visible admin note · optional">
+                      <input
+                        name="adminNote"
+                        placeholder="Message shown to the student"
+                        className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
+                      />
+                    </SchedulerField>
+                    <SubmitButton
                       name="status"
                       value="approved"
-                      className="button-motion rounded-xl bg-accent px-4 py-3 font-bold text-bg-base"
+                      pendingLabel="Approving..."
+                      className="rounded-xl bg-accent px-4 py-3 font-bold text-bg-base"
                     >
                       Approve
-                    </button>
-                    <button
+                    </SubmitButton>
+                    <SubmitButton
                       name="status"
                       value="rejected"
-                      className="button-motion rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 font-bold text-rose-100"
+                      pendingLabel="Rejecting..."
+                      className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 font-bold text-rose-100"
                     >
                       Reject
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </article>

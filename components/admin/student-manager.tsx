@@ -77,24 +77,44 @@ function ScheduleFields({
 }) {
   const firstSlot = batch?.classSlots[0];
   const secondSlot = batch?.classSlots[1];
+  const [classCount, setClassCount] = useState<1 | 2>(
+    batch ? (secondSlot ? 2 : 1) : 2,
+  );
+
+  const scheduleCards = [
+    { index: 1, slot: firstSlot, fallbackDay: 1 },
+    { index: 2, slot: secondSlot, fallbackDay: 3 },
+  ].slice(0, classCount);
 
   return (
     <div className="rounded-xl border border-border/70 bg-white/[0.02] p-4 md:col-span-2">
-      <div>
-        <p className="font-heading text-sm font-bold">Weekly classes</p>
-        <p className="mt-1 text-xs text-text-secondary">
-          Enter times in the student&apos;s timezone. The portal converts them automatically.
-        </p>
+      <div className="grid gap-4 md:grid-cols-[1fr_15rem] md:items-end">
+        <div>
+          <p className="font-heading text-sm font-bold">Weekly classes</p>
+          <p className="mt-1 text-xs leading-5 text-text-secondary">
+            Choose the student&apos;s timezone above, then enter the day and time as the student sees them.
+            The portal converts the schedule to IST automatically.
+          </p>
+        </div>
+        <Field label="Classes per week">
+          <select
+            name="classCount"
+            value={classCount}
+            onChange={(event) => setClassCount(Number(event.target.value) === 1 ? 1 : 2)}
+            className={inputClass}
+          >
+            <option value="1">1 class per week</option>
+            <option value="2">2 classes per week</option>
+          </select>
+        </Field>
       </div>
+
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        {[
-          { index: 1, slot: firstSlot, fallbackDay: 1 },
-          { index: 2, slot: secondSlot, fallbackDay: 3 },
-        ].map(({ index, slot, fallbackDay }) => (
+        {scheduleCards.map(({ index, slot, fallbackDay }) => (
           <div key={index} className="rounded-xl border border-border/70 bg-bg-card p-4">
-            <p className="font-mono text-xs uppercase text-accent">Class {index}</p>
+            <p className="font-mono text-xs uppercase text-accent">Class {index} · student local time</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <Field label="Day">
+              <Field label="Student's day">
                 <select
                   name={`slot${index}Day`}
                   defaultValue={String(slot?.dayOfWeek ?? fallbackDay)}
@@ -105,7 +125,7 @@ function ScheduleFields({
                   ))}
                 </select>
               </Field>
-              <Field label="Starts">
+              <Field label="Student's start time">
                 <input
                   name={`slot${index}StartTime`}
                   type="time"
@@ -114,7 +134,7 @@ function ScheduleFields({
                   className={inputClass}
                 />
               </Field>
-              <Field label="Ends">
+              <Field label="Student's end time">
                 <input
                   name={`slot${index}EndTime`}
                   type="time"
@@ -124,7 +144,7 @@ function ScheduleFields({
                 />
               </Field>
             </div>
-            <Field label="Google Meet link">
+            <Field label="Google Meet link for this class">
               <input
                 name={`slot${index}MeetLink`}
                 type="url"
@@ -137,6 +157,12 @@ function ScheduleFields({
           </div>
         ))}
       </div>
+
+      <p className="mt-4 rounded-lg border border-info/20 bg-info/5 px-3 py-2 text-xs leading-5 text-text-secondary">
+        Calgary uses <strong className="text-text-primary">America/Edmonton</strong>. For a Wednesday
+        7:30 AM IST class during daylight saving time, enter Tuesday 8:00 PM to 9:00 PM in the
+        student&apos;s Calgary timezone.
+      </p>
     </div>
   );
 }

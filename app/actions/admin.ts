@@ -52,7 +52,13 @@ function requiredValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
+function normalizeClockTime(value: string) {
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  return match ? `${match[1].padStart(2, "0")}:${match[2]}` : value;
+}
+
 function scheduleFields(formData: FormData) {
+  const classCount = Number(formData.get("classCount") ?? 2) === 1 ? 1 : 2;
   const firstDay = Number(formData.get("slot1Day") ?? 1);
   const secondDay = Number(formData.get("slot2Day") ?? 3);
   const firstStart = requiredValue(formData, "slot1StartTime") || "17:00";
@@ -63,6 +69,7 @@ function scheduleFields(formData: FormData) {
   const secondMeetLink = normalizeMeetLink(requiredValue(formData, "slot2MeetLink"));
 
   return {
+    classCount,
     firstDay,
     secondDay,
     firstStart,
@@ -71,8 +78,14 @@ function scheduleFields(formData: FormData) {
     secondEnd,
     firstMeetLink,
     secondMeetLink,
-    days: `${weekdayNames[firstDay] ?? "Class 1"} / ${weekdayNames[secondDay] ?? "Class 2"}`,
-    timeSlot: `${weekdayNames[firstDay] ?? "Class 1"} ${firstStart} - ${firstEnd} / ${weekdayNames[secondDay] ?? "Class 2"} ${secondStart} - ${secondEnd}`,
+    days:
+      classCount === 1
+        ? weekdayNames[firstDay] ?? "Class 1"
+        : `${weekdayNames[firstDay] ?? "Class 1"} / ${weekdayNames[secondDay] ?? "Class 2"}`,
+    timeSlot:
+      classCount === 1
+        ? `${weekdayNames[firstDay] ?? "Class 1"} ${firstStart} - ${firstEnd}`
+        : `${weekdayNames[firstDay] ?? "Class 1"} ${firstStart} - ${firstEnd} / ${weekdayNames[secondDay] ?? "Class 2"} ${secondStart} - ${secondEnd}`,
   };
 }
 
@@ -136,11 +149,11 @@ export async function createStudentAction(
     !moduleId ||
     !startDate ||
     !schedule.firstMeetLink ||
-    !schedule.secondMeetLink
+    (schedule.classCount === 2 && !schedule.secondMeetLink)
   ) {
     return {
       status: "error",
-      message: "Complete the student, schedule, and both Meet link fields.",
+      message: "Complete the student, schedule, and required Meet link field(s).",
     };
   }
 
@@ -183,7 +196,7 @@ export async function createStudentAction(
     };
   }
 
-  const { error: slotError } = await supabase.from("batch_class_slots").insert([
+  const classSlots = [
     {
       batch_id: batch.id,
       label: `${weekdayNames[schedule.firstDay]} class`,
@@ -193,16 +206,19 @@ export async function createStudentAction(
       meet_link: schedule.firstMeetLink,
       sort_order: 1,
     },
-    {
-      batch_id: batch.id,
-      label: `${weekdayNames[schedule.secondDay]} class`,
-      day_of_week: schedule.secondDay,
-      start_time: schedule.secondStart,
-      end_time: schedule.secondEnd,
-      meet_link: schedule.secondMeetLink,
-      sort_order: 2,
-    },
-  ]);
+    ...(schedule.classCount === 2
+      ? [{
+          batch_id: batch.id,
+          label: `${weekdayNames[schedule.secondDay]} class`,
+          day_of_week: schedule.secondDay,
+          start_time: schedule.secondStart,
+          end_time: schedule.secondEnd,
+          meet_link: schedule.secondMeetLink,
+          sort_order: 2,
+        }]
+      : []),
+  ];
+  const { error: slotError } = await supabase.from("batch_class_slots").insert(classSlots);
 
   const { error: profileError } = await supabase.from("profiles").upsert({
     id: userId,
@@ -275,7 +291,7 @@ export async function updateStudentAction(
     !moduleId ||
     !startDate ||
     !schedule.firstMeetLink ||
-    !schedule.secondMeetLink
+    (schedule.classCount === 2 && !schedule.secondMeetLink)
   ) {
     return { status: "error", message: "Student setup is missing required identifiers or fields." };
   }
@@ -365,15 +381,17 @@ export async function updateStudentAction(
       meet_link: schedule.firstMeetLink,
       sort_order: 1,
     },
-    {
-      batch_id: batchId,
-      label: `${weekdayNames[schedule.secondDay]} class`,
-      day_of_week: schedule.secondDay,
-      start_time: schedule.secondStart,
-      end_time: schedule.secondEnd,
-      meet_link: schedule.secondMeetLink,
-      sort_order: 2,
-    },
+    ...(schedule.classCount === 2
+      ? [{
+          batch_id: batchId,
+          label: `${weekdayNames[schedule.secondDay]} class`,
+          day_of_week: schedule.secondDay,
+          start_time: schedule.secondStart,
+          end_time: schedule.secondEnd,
+          meet_link: schedule.secondMeetLink,
+          sort_order: 2,
+        }]
+      : []),
   ];
 
   let slotError: string | undefined;
@@ -821,8 +839,8 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
 
     const requestSlot = [
       request.requested_date,
-      request.requested_start_time,
-      request.requested_end_time,
+      normalizeClockTime(String(request.requested_start_time)),
+      normalizeClockTime(String(request.requested_end_time)),
       request.requested_time_zone,
     ].join("|");
     const validSlots = getStudentRescheduleOptions(student.timeZone, {
