@@ -35,13 +35,24 @@ export function isSessionUnlocked(
   return Boolean(session && session.globalNumber <= boundary.maxUnlockedGlobalNumber);
 }
 
+export function getUnlockedSessions(
+  sessions: StatusSession[],
+  boundary = getSessionAccessBoundary(sessions),
+) {
+  return [...sessions]
+    .sort((a, b) => a.globalNumber - b.globalNumber)
+    .filter((session) => isSessionUnlocked(session, boundary));
+}
+
 export function filterUnlockedHomework(
   homework: HomeworkItem[],
   sessions: StatusSession[],
   boundary = getSessionAccessBoundary(sessions),
 ) {
-  const sessionById = new Map(sessions.map((session) => [session.id, session]));
-  return homework.filter((item) => isSessionUnlocked(sessionById.get(item.sessionId), boundary));
+  const unlockedSessionIds = new Set(
+    getUnlockedSessions(sessions, boundary).map((session) => session.id),
+  );
+  return homework.filter((item) => unlockedSessionIds.has(item.sessionId));
 }
 
 export function filterUnlockedResources(

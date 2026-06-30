@@ -38,7 +38,13 @@ import {
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { getAuthIdentity } from "@/lib/auth";
-import { filterUnlockedHomework, filterUnlockedResources } from "@/lib/content-access";
+import {
+  filterUnlockedHomework,
+  filterUnlockedResources,
+  getSessionAccessBoundary,
+  getUnlockedSessions,
+  isSessionUnlocked,
+} from "@/lib/content-access";
 import { badgeCatalog } from "@/lib/achievements";
 import { getCourseworkDetail } from "@/lib/coursework-details";
 import { normalizeMeetLink } from "@/lib/meet-links";
@@ -888,9 +894,7 @@ async function getStudentHomeworkDataImpl() {
   const data = emptyStudentData(context);
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { ...data, homework: filterUnlockedHomework(demoHomework, context.sessions) };
-  const unlockedSessionIds = context.sessions
-    .filter((session) => session.status !== "locked")
-    .map((session) => session.id);
+  const unlockedSessionIds = getUnlockedSessions(context.sessions).map((session) => session.id);
   if (!unlockedSessionIds.length) return { ...data, homework: [] };
   const { data: rows } = await supabase
     .from("homework")
@@ -927,7 +931,8 @@ async function getStudentHomeworkDetailDataImpl(homeworkId: string): Promise<Stu
   if (!row) return { ...context };
   const homework = mapHomework(row, context.student.id);
   const session = sessionById.get(homework.sessionId);
-  if (!session || session.status === "locked") return { ...context };
+  const boundary = getSessionAccessBoundary(context.sessions);
+  if (!isSessionUnlocked(session, boundary)) return { ...context };
   return { ...context, homework };
 }
 
@@ -1094,9 +1099,7 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
       rescheduleRequests: [],
     };
   }
-  const unlockedSessionIds = context.sessions
-    .filter((session) => session.status !== "locked")
-    .map((session) => session.id);
+  const unlockedSessionIds = getUnlockedSessions(context.sessions).map((session) => session.id);
   const homeworkQuery = unlockedSessionIds.length
     ? supabase
         .from("homework")

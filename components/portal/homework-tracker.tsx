@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { BookOpenCheck, CheckCircle2, ChevronDown } from "lucide-react";
 import { HomeworkCard } from "@/components/ui/homework-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { getSessionAccessBoundary } from "@/lib/content-access";
+import { getUnlockedSessions } from "@/lib/content-access";
 import type { CourseSession, HomeworkItem } from "@/lib/course-data";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +18,7 @@ export function HomeworkTracker({
   initialSessionId?: string;
 }) {
   const unlockedSessions = useMemo(() => {
-    const access = getSessionAccessBoundary(sessions);
-    return sessions.filter((session) => session.globalNumber <= access.maxUnlockedGlobalNumber);
+    return getUnlockedSessions(sessions);
   }, [sessions]);
   const firstSessionWithWork =
     unlockedSessions.find((session) => homework.some((item) => item.sessionId === session.id))?.id ??
@@ -46,10 +45,12 @@ export function HomeworkTracker({
   const overallCompleted = homework.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
   const moduleGroups = useMemo(
     () =>
-      [1, 2, 3].map((moduleNumber) => ({
-        moduleNumber,
-        sessions: grouped.filter((item) => Math.ceil(item.session.globalNumber / 8) === moduleNumber),
-      })),
+      [1, 2, 3]
+        .map((moduleNumber) => ({
+          moduleNumber,
+          sessions: grouped.filter((item) => Math.ceil(item.session.globalNumber / 8) === moduleNumber),
+        }))
+        .filter((module) => module.sessions.length > 0),
     [grouped],
   );
 
