@@ -38,13 +38,7 @@ import {
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { getAuthIdentity } from "@/lib/auth";
-import {
-  filterUnlockedHomework,
-  filterUnlockedResources,
-  getSessionAccessBoundary,
-  getUnlockedSessions,
-  isSessionUnlocked,
-} from "@/lib/content-access";
+import { filterUnlockedResources } from "@/lib/content-access";
 import { badgeCatalog } from "@/lib/achievements";
 import { getCourseworkDetail } from "@/lib/coursework-details";
 import { normalizeMeetLink } from "@/lib/meet-links";
@@ -129,7 +123,7 @@ function fallbackDashboardData(): DashboardData {
     batch: demoBatch,
     modules,
     sessions: fallbackSessions,
-    homework: filterUnlockedHomework(demoHomework, fallbackSessions),
+    homework: demoHomework,
     resources: filterUnlockedResources(demoResources, fallbackSessions),
     announcements: demoAnnouncements,
     attendance: demoAttendance,
@@ -864,10 +858,7 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
         .limit(5),
     ]);
 
-  const homework = filterUnlockedHomework(
-    homeworkRows?.map((row) => mapHomework(row, effectiveStudent.id)) ?? demoHomework,
-    curriculumSessions,
-  );
+  const homework = homeworkRows?.map((row) => mapHomework(row, effectiveStudent.id)) ?? demoHomework;
   const resources = filterUnlockedResources(resourceRows?.map((row) => mapResource(row)) ?? demoResources, curriculumSessions);
   const feedback = feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback;
   const attendance = attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance;
@@ -893,21 +884,15 @@ async function getStudentHomeworkDataImpl() {
   const context = await getStudentContextData();
   const data = emptyStudentData(context);
   const supabase = await createServerSupabaseClient();
-  if (!supabase) return { ...data, homework: filterUnlockedHomework(demoHomework, context.sessions) };
-  const unlockedSessionIds = getUnlockedSessions(context.sessions).map((session) => session.id);
-  if (!unlockedSessionIds.length) return { ...data, homework: [] };
+  if (!supabase) return { ...data, homework: demoHomework };
   const { data: rows } = await supabase
     .from("homework")
     .select(homeworkSelect)
-    .in("session_id", unlockedSessionIds)
     .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
     .order("due_date", { ascending: true });
   return {
     ...data,
-    homework: filterUnlockedHomework(
-      rows?.map((row) => mapHomework(row, context.student.id)) ?? demoHomework,
-      context.sessions,
-    ),
+    homework: rows?.map((row) => mapHomework(row, context.student.id)) ?? demoHomework,
   };
 }
 
@@ -915,9 +900,7 @@ export const getStudentHomeworkData = cache(() => measureServer("student.homewor
 
 async function getStudentHomeworkDetailDataImpl(homeworkId: string): Promise<StudentHomeworkDetailData> {
   const context = await getStudentContextData();
-  const sessionById = new Map(context.sessions.map((session) => [session.id, session]));
-  const fallbackHomework = filterUnlockedHomework(demoHomework, context.sessions)
-    .find((item) => item.id === homeworkId);
+  const fallbackHomework = demoHomework.find((item) => item.id === homeworkId);
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { ...context, homework: fallbackHomework };
 
@@ -930,9 +913,6 @@ async function getStudentHomeworkDetailDataImpl(homeworkId: string): Promise<Stu
 
   if (!row) return { ...context };
   const homework = mapHomework(row, context.student.id);
-  const session = sessionById.get(homework.sessionId);
-  const boundary = getSessionAccessBoundary(context.sessions);
-  if (!isSessionUnlocked(session, boundary)) return { ...context };
   return { ...context, homework };
 }
 
@@ -1094,19 +1074,15 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
   if (!supabase) {
     return {
       ...context,
-      pendingHomeworkCount: filterUnlockedHomework(demoHomework, context.sessions)
+      pendingHomeworkCount: demoHomework
         .filter((item) => item.status === "pending" || item.status === "revision_requested").length,
       rescheduleRequests: [],
     };
   }
-  const unlockedSessionIds = getUnlockedSessions(context.sessions).map((session) => session.id);
-  const homeworkQuery = unlockedSessionIds.length
-    ? supabase
-        .from("homework")
-        .select(shellHomeworkSelect)
-        .in("session_id", unlockedSessionIds)
-        .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
-    : Promise.resolve({ data: [] });
+  const homeworkQuery = supabase
+    .from("homework")
+    .select(shellHomeworkSelect)
+    .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`);
   const [{ data: homeworkRows }, { data: rescheduleRows }, { data: unseenRows }] = await Promise.all([
     homeworkQuery,
     supabase

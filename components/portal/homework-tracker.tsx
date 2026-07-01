@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { BookOpenCheck, CheckCircle2, ChevronDown } from "lucide-react";
 import { HomeworkCard } from "@/components/ui/homework-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { getUnlockedSessions } from "@/lib/content-access";
 import type { CourseSession, HomeworkItem } from "@/lib/course-data";
 import { cn } from "@/lib/utils";
 
@@ -17,19 +16,20 @@ export function HomeworkTracker({
   sessions: CourseSession[];
   initialSessionId?: string;
 }) {
-  const unlockedSessions = useMemo(() => {
-    return getUnlockedSessions(sessions);
-  }, [sessions]);
+  const availableSessions = useMemo(
+    () => [...sessions].sort((a, b) => a.globalNumber - b.globalNumber),
+    [sessions],
+  );
   const firstSessionWithWork =
-    unlockedSessions.find((session) => homework.some((item) => item.sessionId === session.id))?.id ??
-    unlockedSessions[0]?.id;
-  const initialUnlockedSessionId = unlockedSessions.some((session) => session.id === initialSessionId)
+    availableSessions.find((session) => homework.some((item) => item.sessionId === session.id))?.id ??
+    availableSessions[0]?.id;
+  const initialAvailableSessionId = availableSessions.some((session) => session.id === initialSessionId)
     ? initialSessionId
     : firstSessionWithWork;
-  const [activeSessionId, setActiveSessionId] = useState(initialUnlockedSessionId);
+  const [activeSessionId, setActiveSessionId] = useState(initialAvailableSessionId);
   const grouped = useMemo(
     () =>
-      unlockedSessions.map((session) => {
+      availableSessions.map((session) => {
         const items = homework.filter((item) => item.sessionId === session.id);
         const completed = items.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
         return {
@@ -39,7 +39,7 @@ export function HomeworkTracker({
           total: items.length,
         };
       }),
-    [homework, unlockedSessions],
+    [availableSessions, homework],
   );
   const active = grouped.find((item) => item.session.id === activeSessionId) ?? grouped[0];
   const overallCompleted = homework.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
