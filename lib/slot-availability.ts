@@ -42,7 +42,7 @@ export const availabilityBucket: AvailabilityDay[] = [
   {
     dayIndex: 0,
     label: "Sunday",
-    slots: ["00:30", "03:30", "07:30", "08:30"],
+    slots: ["00:30", "03:30", "07:30", "08:30", "22:30"],
   },
   {
     dayIndex: 2,
@@ -52,7 +52,7 @@ export const availabilityBucket: AvailabilityDay[] = [
   {
     dayIndex: 3,
     label: "Wednesday",
-    slots: ["01:30", "04:30", "07:30", "08:30", "17:30", "19:30"],
+    slots: ["01:30", "04:30", "07:30", "08:30", "17:30", "19:30", "22:30"],
   },
   {
     dayIndex: 4,
@@ -62,7 +62,7 @@ export const availabilityBucket: AvailabilityDay[] = [
   {
     dayIndex: 5,
     label: "Friday",
-    slots: ["00:30", "07:30", "08:30", "17:30", "19:30", "21:30"],
+    slots: ["00:30", "04:30", "07:30", "08:30", "17:30", "19:30", "21:30", "22:30"],
   },
   {
     dayIndex: 6,
