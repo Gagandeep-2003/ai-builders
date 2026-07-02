@@ -21,6 +21,7 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  MessageCircle,
   MessageSquareText,
   Trophy,
   UserRound,
@@ -184,6 +185,21 @@ export function SidebarNav({
       </nav>
 
       <div className="mt-auto space-y-3 pt-6">
+        <button
+          type="button"
+          onClick={() => {
+            window.dispatchEvent(new Event("portal:open-quick-chat"));
+            setOpen(false);
+          }}
+          className="button-motion group flex w-full items-center gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] px-3 py-2.5 text-sm text-text-secondary transition hover:border-accent/35 hover:bg-accent/10 hover:text-accent"
+          aria-label="Open Quick Chat"
+        >
+          <MessageCircle className="h-4 w-4 text-accent/80 transition group-hover:text-accent" />
+          <span className="flex-1 text-left">Quick Chat</span>
+          <span className="hidden font-mono text-[0.6rem] uppercase tracking-[0.12em] text-text-muted sm:inline">
+            Alt + Space
+          </span>
+        </button>
         {footer}
         <form action={logoutAction}>
           <SubmitButton

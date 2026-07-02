@@ -83,8 +83,14 @@ export function AdminCommandCenter({ data }: { data: AdminCommandCenterData }) {
       setOpen((value) => !value);
     };
 
+    const handleQuickChat = () => setOpen(true);
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("portal:open-quick-chat", handleQuickChat);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("portal:open-quick-chat", handleQuickChat);
+    };
   }, []);
 
   useEffect(() => {

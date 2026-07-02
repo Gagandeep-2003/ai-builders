@@ -412,8 +412,18 @@ export function StudentStrandsSearch({
       });
     };
 
+    const handleQuickChat = () => {
+      ensureAudioContext();
+      setOpen(true);
+      void loadSearchItems();
+    };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("portal:open-quick-chat", handleQuickChat);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("portal:open-quick-chat", handleQuickChat);
+    };
   }, [ensureAudioContext, loadSearchItems]);
 
   useEffect(() => {
