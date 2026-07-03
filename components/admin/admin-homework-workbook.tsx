@@ -46,6 +46,8 @@ export function AdminHomeworkWorkbook({
   homework: HomeworkItem[];
 }) {
   const [selectedStudentId, setSelectedStudentId] = useState(students[0]?.id ?? "");
+  const [openModuleNumber, setOpenModuleNumber] = useState<number | null>(1);
+  const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const selectedStudent = students.find((student) => student.id === selectedStudentId) ?? students[0];
   const selectedBatch = batches.find((batch) => batch.id === selectedStudent?.batchId);
 
@@ -125,7 +127,11 @@ export function AdminHomeworkWorkbook({
             return (
               <button
                 key={student.id}
-                onClick={() => setSelectedStudentId(student.id)}
+                onClick={() => {
+                  setSelectedStudentId(student.id);
+                  setOpenModuleNumber(1);
+                  setOpenSessionId(null);
+                }}
                 className={cn(
                   "w-full rounded-xl border p-4 text-left transition",
                   active
@@ -165,20 +171,34 @@ export function AdminHomeworkWorkbook({
           </div>
         </div>
 
-        {moduleGroups.map((module) => (
-          <details key={module.moduleNumber} className="premium-card group rounded-xl p-0" open={module.moduleNumber === 1}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+        {moduleGroups.map((module) => {
+          const moduleOpen = openModuleNumber === module.moduleNumber;
+          return (
+          <section key={module.moduleNumber} className="premium-card rounded-xl p-0">
+            <button
+              type="button"
+              onClick={() => {
+                setOpenModuleNumber(moduleOpen ? null : module.moduleNumber);
+                setOpenSessionId(null);
+              }}
+              className="flex w-full items-center justify-between gap-4 p-5 text-left"
+              aria-expanded={moduleOpen}
+            >
               <p className="font-mono text-xs uppercase text-accent">Module {module.moduleNumber}</p>
-              <ChevronDown className="h-4 w-4 text-text-muted transition group-open:rotate-180" />
-            </summary>
+              <ChevronDown className={cn("h-4 w-4 text-text-muted transition", moduleOpen && "rotate-180")} />
+            </button>
+            {moduleOpen ? (
             <div className="space-y-3 border-t border-border/60 p-5">
-              {module.sessions.map(({ session, items, completed, total }) => (
-                <details
-                  key={session.id}
-                  className="rounded-xl border border-border/70 bg-white/[0.02]"
-                  open={items.length > 0 && completed < total}
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4">
+              {module.sessions.map(({ session, items, completed, total }) => {
+                const sessionOpen = openSessionId === session.id;
+                return (
+                <section key={session.id} className="rounded-xl border border-border/70 bg-white/[0.02]">
+                  <button
+                    type="button"
+                    onClick={() => setOpenSessionId(sessionOpen ? null : session.id)}
+                    className="flex w-full items-center justify-between gap-4 p-4 text-left"
+                    aria-expanded={sessionOpen}
+                  >
                     <div>
                       <p className="font-mono text-xs uppercase text-text-muted">Session {session.sessionNumber}</p>
                       <h3 className="mt-1 font-heading text-lg font-bold">{session.title}</h3>
@@ -187,10 +207,11 @@ export function AdminHomeworkWorkbook({
                       <span className="rounded-full border border-border px-2.5 py-1 font-mono text-[11px] text-text-secondary">
                         {total === 0 ? "No work" : `${completed}/${total}`}
                       </span>
-                      <ChevronDown className="h-4 w-4 text-text-muted" />
+                      <ChevronDown className={cn("h-4 w-4 text-text-muted transition", sessionOpen && "rotate-180")} />
                     </div>
-                  </summary>
+                  </button>
 
+                  {sessionOpen ? (
                   <div className="border-t border-border/60 p-4">
                     {items.length ? (
                       <div className="space-y-3">
@@ -248,7 +269,9 @@ export function AdminHomeworkWorkbook({
                                         </div>
                                       ) : (
                                         <div className="mt-3 rounded-lg border border-border/70 bg-bg-card/60 p-3 text-sm text-text-secondary">
-                                          {submission.proofCapturedAt
+                                          {submission.proofText || submission.attachmentData
+                                            ? "No screen or camera image was attached. Text or file evidence is shown below."
+                                            : submission.proofCapturedAt
                                             ? "No proof image was attached. The student may have submitted after capture was blocked or skipped."
                                             : "No evidence row was found for this submitted task. Ask the student to submit again after the evidence migration is applied."}
                                         </div>
@@ -328,11 +351,15 @@ export function AdminHomeworkWorkbook({
                       </div>
                     )}
                   </div>
-                </details>
-              ))}
+                  ) : null}
+                </section>
+                );
+              })}
             </div>
-          </details>
-        ))}
+            ) : null}
+          </section>
+          );
+        })}
       </section>
     </div>
   );

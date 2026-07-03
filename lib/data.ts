@@ -464,19 +464,45 @@ async function getSubmissionEvidenceRows(supabase: Awaited<ReturnType<typeof cre
   if (!supabase) return [];
 
   const expiresAt = new Date().toISOString();
-  const withClientInfo = await supabase
+  const coreColumns = "homework_id, student_id, screen_image, camera_image, proof_text, attachment_name, attachment_mime, attachment_data, captured_at, expires_at";
+  const coreWithExpiry = await supabase
     .from("submission_evidence")
-    .select("homework_id, student_id, screen_image, camera_image, proof_text, attachment_name, attachment_mime, attachment_data, captured_at, expires_at, user_agent, browser_name, browser_version, os_name, device_type, viewport_width, viewport_height, language")
+    .select(coreColumns)
     .gt("expires_at", expiresAt);
 
-  if (!withClientInfo.error) return withClientInfo.data ?? [];
+  let coreRows: DbRow[] = coreWithExpiry.error ? [] : coreWithExpiry.data ?? [];
 
-  const withExpiry = await supabase
+  if (coreWithExpiry.error) {
+    const coreWithoutExpiry = await supabase
+      .from("submission_evidence")
+      .select("homework_id, student_id, screen_image, camera_image, proof_text, attachment_name, attachment_mime, attachment_data, captured_at");
+    if (!coreWithoutExpiry.error) coreRows = coreWithoutExpiry.data ?? [];
+  }
+
+  if (coreRows.length > 0) {
+    const metadata = await supabase
+      .from("submission_evidence")
+      .select("homework_id, student_id, user_agent, browser_name, browser_version, os_name, device_type, viewport_width, viewport_height, language");
+
+    if (!metadata.error) {
+      const metadataBySubmission = new Map(
+        (metadata.data ?? []).map((row) => [`${text(row, "homework_id")}:${text(row, "student_id")}`, row]),
+      );
+      return coreRows.map((row) => ({
+        ...row,
+        ...metadataBySubmission.get(`${text(row, "homework_id")}:${text(row, "student_id")}`),
+      }));
+    }
+
+    return coreRows;
+  }
+
+  const imagesWithExpiry = await supabase
     .from("submission_evidence")
     .select("homework_id, student_id, screen_image, camera_image, captured_at, expires_at")
     .gt("expires_at", expiresAt);
 
-  if (!withExpiry.error) return withExpiry.data ?? [];
+  if (!imagesWithExpiry.error) return imagesWithExpiry.data ?? [];
 
   const legacy = await supabase
     .from("submission_evidence")
