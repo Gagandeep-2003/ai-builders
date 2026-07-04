@@ -17,7 +17,7 @@ type TourStep = "quick-chat" | "fluid-toggle";
 type TargetPosition = {
   spotlight: CSSProperties;
   card: CSSProperties;
-  side: "right" | "below";
+  side: "right" | "below" | "above";
 };
 
 function getTargetPosition(step: TourStep): TargetPosition | null {
@@ -28,13 +28,17 @@ function getTargetPosition(step: TourStep): TargetPosition | null {
 
   const gap = 18;
   const cardWidth = Math.min(340, window.innerWidth - 32);
+  const cardHeight = step === "fluid-toggle" ? 390 : 330;
   const canPlaceRight = rect.right + gap + cardWidth <= window.innerWidth - 16;
+  const canPlaceBelow = rect.bottom + gap + cardHeight <= window.innerHeight - 16;
   const left = canPlaceRight
     ? rect.right + gap
     : Math.min(window.innerWidth - cardWidth - 16, Math.max(16, rect.right - cardWidth));
   const top = canPlaceRight
-    ? Math.min(window.innerHeight - 250, Math.max(16, rect.top + rect.height / 2 - 108))
-    : Math.min(window.innerHeight - 250, rect.bottom + gap);
+    ? Math.max(16, Math.min(window.innerHeight - cardHeight - 16, rect.top + rect.height / 2 - cardHeight / 2))
+    : canPlaceBelow
+      ? rect.bottom + gap
+      : Math.max(16, rect.top - gap - cardHeight);
 
   return {
     spotlight: {
@@ -44,13 +48,21 @@ function getTargetPosition(step: TourStep): TargetPosition | null {
       height: rect.height + 12,
     },
     card: { left, top, width: cardWidth },
-    side: canPlaceRight ? "right" : "below",
+    side: canPlaceRight ? "right" : canPlaceBelow ? "below" : "above",
   };
 }
 
-function CursorOnboarding({ onComplete }: { onComplete: () => void }) {
+function CursorOnboarding({
+  onComplete,
+  onDismiss,
+}: {
+  onComplete: () => void;
+  onDismiss: () => void;
+}) {
   const [step, setStep] = useState<TourStep>("quick-chat");
   const [position, setPosition] = useState<TargetPosition | null>(null);
+  const [confirmation, setConfirmation] = useState("");
+  const confirmed = confirmation.trim().toLowerCase() === "confirm";
 
   const updatePosition = useCallback(() => {
     const next = getTargetPosition(step);
@@ -90,15 +102,15 @@ function CursorOnboarding({ onComplete }: { onComplete: () => void }) {
         style={position.spotlight}
       />
       <section
-        className="fixed overflow-hidden rounded-2xl border border-accent/30 bg-bg-card/95 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+        className="scrollbar-soft fixed max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-accent/30 bg-bg-card/95 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.5)] backdrop-blur-xl"
         style={position.card}
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(168,85,247,0.17),transparent_38%),radial-gradient(circle_at_90%_22%,rgba(6,182,212,0.14),transparent_36%)]" />
         <button
           type="button"
-          onClick={onComplete}
+          onClick={onDismiss}
           className="button-motion absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-lg border border-border bg-bg-elevated text-text-muted hover:text-text-primary"
-          aria-label="Skip fluid cursor introduction"
+          aria-label="Close fluid cursor introduction for now"
         >
           <X className="h-4 w-4" />
         </button>
@@ -117,20 +129,55 @@ function CursorOnboarding({ onComplete }: { onComplete: () => void }) {
               ? "The colorful fluid trail is enabled automatically. Open Quick Chat anytime to change it."
               : "Use this Fluid cursor switch whenever you prefer the normal cursor. Your choice is remembered."}
           </p>
-          <button
-            type="button"
-            onClick={step === "quick-chat" ? showControl : onComplete}
-            className="button-motion mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 font-heading text-sm font-bold text-bg-base"
-          >
-            {step === "quick-chat" ? "Show me the control" : "Got it"}
-            <ArrowRight className="h-4 w-4" />
-          </button>
+          {step === "quick-chat" ? (
+            <button
+              type="button"
+              onClick={showControl}
+              className="button-motion mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 font-heading text-sm font-bold text-bg-base"
+            >
+              Show me the control
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <form
+              className="mt-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (confirmed) onComplete();
+              }}
+            >
+              <label className="block font-mono text-[0.62rem] uppercase tracking-[0.16em] text-text-muted" htmlFor="cursor-tour-confirmation">
+                Type CONFIRM to finish
+              </label>
+              <input
+                id="cursor-tour-confirmation"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                placeholder="CONFIRM"
+                autoComplete="off"
+                className="mt-2 h-11 w-full rounded-xl border border-border bg-bg-elevated px-3 font-mono text-sm uppercase text-text-primary outline-none transition focus:border-accent/60"
+              />
+              <button
+                type="submit"
+                disabled={!confirmed}
+                className="button-motion mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 font-heading text-sm font-bold text-bg-base disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Finish introduction
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <p className="mt-2 text-xs leading-5 text-text-muted">
+                Closing before confirmation will show this short guide again next time.
+              </p>
+            </form>
+          )}
         </div>
         <span
           className={
             position.side === "right"
               ? "absolute -left-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-45 border-b border-l border-accent/30 bg-bg-card"
-              : "absolute -top-2 right-8 h-4 w-4 rotate-45 border-l border-t border-accent/30 bg-bg-card"
+              : position.side === "below"
+                ? "absolute -top-2 right-8 h-4 w-4 rotate-45 border-l border-t border-accent/30 bg-bg-card"
+                : "absolute -bottom-2 right-8 h-4 w-4 rotate-45 border-b border-r border-accent/30 bg-bg-card"
           }
           aria-hidden="true"
         />
@@ -195,7 +242,9 @@ export function StudentSplashCursor() {
           COLOR="#A855F7"
         />
       </div>
-      {showTour ? <CursorOnboarding onComplete={completeTour} /> : null}
+      {showTour ? (
+        <CursorOnboarding onComplete={completeTour} onDismiss={() => setShowTour(false)} />
+      ) : null}
     </>
   );
 }
