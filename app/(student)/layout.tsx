@@ -49,8 +49,8 @@ export default async function StudentLayout({ children }: { children: React.Reac
   return (
     <div className="min-h-screen">
       <CardBorderGlow />
-      <StudentSplashCursor />
-      <StudentStrandsSearch studentName={data.student.fullName} />
+      <StudentSplashCursor studentId={data.student.id} />
+      <StudentStrandsSearch studentId={data.student.id} studentName={data.student.fullName} />
       <BadgeCelebration key={data.unseenBadge?.id ?? "no-unseen-badge"} award={data.unseenBadge} />
       <PortalAutoSync />
       <SidebarNav links={links} badges={badges} />

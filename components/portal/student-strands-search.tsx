@@ -286,8 +286,10 @@ declare global {
 }
 
 export function StudentStrandsSearch({
+  studentId,
   studentName,
 }: {
+  studentId: string;
   studentName: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -305,6 +307,7 @@ export function StudentStrandsSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const { theme } = useTheme();
+  const splashCursorPreferenceKey = `ai-builders-splash-cursor-enabled:${studentId}`;
   const firstName = studentName.split(" ")[0] || "Builder";
   const normalizedSubmittedQuery = normalize(submittedQuery);
   const isHelp = searched && ["/help", "help", "?"].includes(normalizedSubmittedQuery);
@@ -355,7 +358,7 @@ export function StudentStrandsSearch({
 
   useEffect(() => {
     const initialStateTimer = window.setTimeout(() => {
-      setSplashCursorEnabled(window.localStorage.getItem("ai-builders-splash-cursor-enabled") !== "false");
+      setSplashCursorEnabled(window.localStorage.getItem(splashCursorPreferenceKey) !== "false");
     }, 0);
 
     const handleState = (event: Event) => {
@@ -368,12 +371,12 @@ export function StudentStrandsSearch({
       window.clearTimeout(initialStateTimer);
       window.removeEventListener("portal:splash-cursor-state", handleState);
     };
-  }, []);
+  }, [splashCursorPreferenceKey]);
 
   function toggleSplashCursor() {
     const enabled = !splashCursorEnabled;
     setSplashCursorEnabled(enabled);
-    window.localStorage.setItem("ai-builders-splash-cursor-enabled", String(enabled));
+    window.localStorage.setItem(splashCursorPreferenceKey, String(enabled));
     window.dispatchEvent(new CustomEvent("portal:set-splash-cursor", { detail: { enabled } }));
   }
 

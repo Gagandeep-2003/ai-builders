@@ -9,9 +9,6 @@ const SplashCursor = dynamic(() => import("@/components/ui/splash-cursor"), {
   ssr: false,
 });
 
-const CURSOR_PREFERENCE_KEY = "ai-builders-splash-cursor-enabled";
-const CURSOR_TOUR_KEY = "ai-builders-splash-cursor-tour-seen";
-
 type TourStep = "quick-chat" | "fluid-toggle";
 
 type TargetPosition = {
@@ -186,26 +183,29 @@ function CursorOnboarding({
   );
 }
 
-export function StudentSplashCursor() {
+export function StudentSplashCursor({ studentId }: { studentId: string }) {
   const pathname = usePathname();
   const [enabled, setEnabled] = useState(false);
   const [ready, setReady] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const cursorPreferenceKey = `ai-builders-splash-cursor-enabled:${studentId}`;
+  const cursorTourKey = `ai-builders-splash-cursor-tour-seen:${studentId}`;
 
   useEffect(() => {
+    let tourTimer: number | undefined;
     const initialStateTimer = window.setTimeout(() => {
-      const stored = window.localStorage.getItem(CURSOR_PREFERENCE_KEY);
+      const stored = window.localStorage.getItem(cursorPreferenceKey);
       setEnabled(stored !== "false");
       setReady(true);
-      if (stored !== "false" && window.localStorage.getItem(CURSOR_TOUR_KEY) !== "true") {
-        window.setTimeout(() => setShowTour(true), 900);
+      if (stored !== "false" && window.localStorage.getItem(cursorTourKey) !== "true") {
+        tourTimer = window.setTimeout(() => setShowTour(true), 900);
       }
     }, 0);
 
     const handlePreference = (event: Event) => {
       const nextEnabled = (event as CustomEvent<{ enabled: boolean }>).detail?.enabled;
       if (typeof nextEnabled !== "boolean") return;
-      window.localStorage.setItem(CURSOR_PREFERENCE_KEY, String(nextEnabled));
+      window.localStorage.setItem(cursorPreferenceKey, String(nextEnabled));
       setEnabled(nextEnabled);
       window.dispatchEvent(
         new CustomEvent("portal:splash-cursor-state", { detail: { enabled: nextEnabled } }),
@@ -215,12 +215,13 @@ export function StudentSplashCursor() {
     window.addEventListener("portal:set-splash-cursor", handlePreference);
     return () => {
       window.clearTimeout(initialStateTimer);
+      if (tourTimer) window.clearTimeout(tourTimer);
       window.removeEventListener("portal:set-splash-cursor", handlePreference);
     };
-  }, []);
+  }, [cursorPreferenceKey, cursorTourKey]);
 
   function completeTour() {
-    window.localStorage.setItem(CURSOR_TOUR_KEY, "true");
+    window.localStorage.setItem(cursorTourKey, "true");
     setShowTour(false);
   }
 
