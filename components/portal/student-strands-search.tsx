@@ -320,6 +320,11 @@ export function StudentStrandsSearch({
     ["timer", "focus", "focus timer", "study timer", "pomodoro", "pressure timer"].some(
       (command) => normalizedSubmittedQuery === command || normalizedSubmittedQuery.includes(command),
     );
+  const isCursorCommand =
+    searched &&
+    ["cursor", "fluid cursor", "splash cursor", "rainbow cursor", "normal cursor"].some(
+      (command) => normalizedSubmittedQuery === command || normalizedSubmittedQuery.includes(command),
+    );
   const nextTheme = theme === "dark" ? "light" : "dark";
   const helpItems = [
     {
@@ -378,7 +383,8 @@ export function StudentStrandsSearch({
       !submittedQuery.trim() ||
       isHelp ||
       isThemeCommand ||
-      isTimerCommand
+      isTimerCommand ||
+      isCursorCommand
     ) return [];
     return items
       .map((item) => ({ item, score: scoreItem(item, submittedQuery) }))
@@ -386,7 +392,7 @@ export function StudentStrandsSearch({
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
       .map(({ item }) => item);
-  }, [isHelp, isThemeCommand, isTimerCommand, items, searched, submittedQuery]);
+  }, [isCursorCommand, isHelp, isThemeCommand, isTimerCommand, items, searched, submittedQuery]);
 
   const ensureAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -464,12 +470,12 @@ export function StudentStrandsSearch({
   }, [open, speakGreeting]);
 
   useEffect(() => {
-    if (!searched || (results.length === 0 && !isHelp && !isThemeCommand && !isTimerCommand)) return;
-    const count = isHelp ? helpItems.length : isThemeCommand || isTimerCommand ? 1 : Math.min(results.length, 4);
+    if (!searched || (results.length === 0 && !isHelp && !isThemeCommand && !isTimerCommand && !isCursorCommand)) return;
+    const count = isHelp ? helpItems.length : isThemeCommand || isTimerCommand || isCursorCommand ? 1 : Math.min(results.length, 4);
     Array.from({ length: count }).forEach((_, index) => {
       window.setTimeout(() => playResultTone(audioContextRef.current, index), index * 95);
     });
-  }, [helpItems.length, isHelp, isThemeCommand, isTimerCommand, results.length, searched]);
+  }, [helpItems.length, isCursorCommand, isHelp, isThemeCommand, isTimerCommand, results.length, searched]);
 
   useEffect(() => {
     if (!focusRunning) return;
@@ -582,13 +588,27 @@ export function StudentStrandsSearch({
                   <p className="text-xs text-text-muted">Press Option/Alt + Space or Ctrl + Space anytime.</p>
                 </div>
               </div>
-              <button
-                onClick={close}
-                className="button-motion grid h-10 w-10 place-items-center rounded-xl border border-border bg-bg-elevated text-text-secondary"
-                aria-label="Close search"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleSplashCursor}
+                  className="button-motion inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 text-xs font-semibold text-text-secondary hover:border-accent/40 hover:text-accent"
+                  aria-label={`${splashCursorEnabled ? "Disable" : "Enable"} fluid cursor`}
+                  aria-pressed={splashCursorEnabled}
+                >
+                  <MousePointer2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Fluid cursor</span>
+                  <span className={splashCursorEnabled ? "text-accent" : "text-text-muted"}>
+                    {splashCursorEnabled ? "On" : "Off"}
+                  </span>
+                </button>
+                <button
+                  onClick={close}
+                  className="button-motion grid h-10 w-10 place-items-center rounded-xl border border-border bg-bg-elevated text-text-secondary"
+                  aria-label="Close search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <div className="scrollbar-soft relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-6 md:px-8">
@@ -721,6 +741,39 @@ export function StudentStrandsSearch({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                   >
                     <LiquidPressureTimer getAudioContext={ensureAudioContext} onStart={startFocusTimer} />
+                  </motion.div>
+                ) : isCursorCommand ? (
+                  <motion.div
+                    className="overflow-hidden rounded-3xl border border-accent/25 bg-bg-base/80 shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
+                    initial={{ opacity: 0, y: 18, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                  >
+                    <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_10%,rgba(168,85,247,0.16),transparent_34%),radial-gradient(circle_at_86%_34%,rgba(6,182,212,0.13),transparent_32%)]" />
+                      <div className="relative flex items-start gap-4">
+                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-accent/25 bg-accent/10 text-accent">
+                          <MousePointer2 className="h-5 w-5" />
+                        </span>
+                        <div>
+                          <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+                            Cursor effect
+                          </p>
+                          <h3 className="mt-2 font-heading text-2xl font-bold">
+                            Fluid cursor is {splashCursorEnabled ? "on" : "off"}
+                          </h3>
+                          <p className="mt-2 max-w-xl text-sm leading-6 text-text-secondary">
+                            The rainbow fluid trail appears over student pages, excluding the sidebar and AI Builders League.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={toggleSplashCursor}
+                        className="button-motion relative min-h-12 w-full rounded-xl border border-accent/30 bg-accent px-5 font-heading font-bold text-bg-base sm:w-auto sm:min-w-48"
+                      >
+                        {splashCursorEnabled ? "Use normal cursor" : "Enable fluid cursor"}
+                      </button>
+                    </div>
                   </motion.div>
                 ) : isThemeCommand ? (
                   <motion.div
