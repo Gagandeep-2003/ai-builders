@@ -1300,3 +1300,9 @@ textarea:focus-visible {
     animation: none !important;
   }
 }
+
+@media (min-width: 1024px) {
+  .student-splash-cursor > div {
+    clip-path: inset(0 0 0 18rem);
+  }
+}

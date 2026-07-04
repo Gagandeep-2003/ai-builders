@@ -1,6 +1,7 @@
 import { requireStudentAccess } from "@/lib/auth";
 import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
 import { StudentStrandsSearch } from "@/components/portal/student-strands-search";
+import { StudentSplashCursor } from "@/components/portal/student-splash-cursor";
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar-nav";
 import { getNextClassEvent, getStudentClassEvents } from "@/lib/class-events";
@@ -48,6 +49,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
   return (
     <div className="min-h-screen">
       <CardBorderGlow />
+      <StudentSplashCursor />
       <StudentStrandsSearch studentName={data.student.fullName} />
       <BadgeCelebration key={data.unseenBadge?.id ?? "no-unseen-badge"} award={data.unseenBadge} />
       <PortalAutoSync />

@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Command,
   Droplets,
+  MousePointer2,
   Palette,
   Pause,
   Play,
@@ -300,6 +301,7 @@ export function StudentStrandsSearch({
   const [focusTotalSeconds, setFocusTotalSeconds] = useState(25 * 60);
   const [focusRunning, setFocusRunning] = useState(false);
   const [waterRelease, setWaterRelease] = useState(false);
+  const [splashCursorEnabled, setSplashCursorEnabled] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const { theme } = useTheme();
@@ -340,7 +342,35 @@ export function StudentStrandsSearch({
       title: "Start a focus timer",
       description: "Search timer, focus, study timer, or pomodoro; then hold the pressure valve to choose a duration.",
     },
+    {
+      title: "Control the fluid cursor",
+      description: "Use the Fluid cursor quick action to switch the rainbow trail on or return to the normal cursor.",
+    },
   ];
+
+  useEffect(() => {
+    const initialStateTimer = window.setTimeout(() => {
+      setSplashCursorEnabled(window.localStorage.getItem("ai-builders-splash-cursor-enabled") !== "false");
+    }, 0);
+
+    const handleState = (event: Event) => {
+      const enabled = (event as CustomEvent<{ enabled: boolean }>).detail?.enabled;
+      if (typeof enabled === "boolean") setSplashCursorEnabled(enabled);
+    };
+
+    window.addEventListener("portal:splash-cursor-state", handleState);
+    return () => {
+      window.clearTimeout(initialStateTimer);
+      window.removeEventListener("portal:splash-cursor-state", handleState);
+    };
+  }, []);
+
+  function toggleSplashCursor() {
+    const enabled = !splashCursorEnabled;
+    setSplashCursorEnabled(enabled);
+    window.localStorage.setItem("ai-builders-splash-cursor-enabled", String(enabled));
+    window.dispatchEvent(new CustomEvent("portal:set-splash-cursor", { detail: { enabled } }));
+  }
 
   const results = useMemo(() => {
     if (
@@ -625,6 +655,21 @@ export function StudentStrandsSearch({
                         </span>
                         <span className="mt-2 block text-sm leading-6 text-text-secondary">
                           Jump straight to class timing, Meet access, and schedule information.
+                        </span>
+                      </button>
+                      <button
+                        onClick={toggleSplashCursor}
+                        className="group rounded-2xl border border-border bg-white/[0.025] p-4 text-left transition hover:-translate-y-0.5 hover:border-accent/35"
+                        aria-pressed={splashCursorEnabled}
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="font-heading font-bold text-text-primary">Fluid cursor</span>
+                          <MousePointer2 className="h-4 w-4 text-accent" />
+                        </span>
+                        <span className="mt-2 block text-sm leading-6 text-text-secondary">
+                          {splashCursorEnabled
+                            ? "On · Switch off to use the normal cursor."
+                            : "Off · Turn on the rainbow fluid trail."}
                         </span>
                       </button>
                     </div>
