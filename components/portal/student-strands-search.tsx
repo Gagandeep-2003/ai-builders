@@ -591,6 +591,7 @@ export function StudentStrandsSearch({
               <div className="flex items-center gap-2">
                 <button
                   onClick={toggleSplashCursor}
+                  data-cursor-tour="fluid-toggle"
                   className="button-motion inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 text-xs font-semibold text-text-secondary hover:border-accent/40 hover:text-accent"
                   aria-label={`${splashCursorEnabled ? "Disable" : "Enable"} fluid cursor`}
                   aria-pressed={splashCursorEnabled}

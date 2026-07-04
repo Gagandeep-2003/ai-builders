@@ -2,24 +2,157 @@
 
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { ArrowRight, MousePointer2, X } from "lucide-react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 
 const SplashCursor = dynamic(() => import("@/components/ui/splash-cursor"), {
   ssr: false,
 });
 
 const CURSOR_PREFERENCE_KEY = "ai-builders-splash-cursor-enabled";
+const CURSOR_TOUR_KEY = "ai-builders-splash-cursor-tour-seen";
+
+type TourStep = "quick-chat" | "fluid-toggle";
+
+type TargetPosition = {
+  spotlight: CSSProperties;
+  card: CSSProperties;
+  side: "right" | "below";
+};
+
+function getTargetPosition(step: TourStep): TargetPosition | null {
+  const target = document.querySelector<HTMLElement>(`[data-cursor-tour="${step}"]`);
+  if (!target) return null;
+  const rect = target.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return null;
+
+  const gap = 18;
+  const cardWidth = Math.min(340, window.innerWidth - 32);
+  const canPlaceRight = rect.right + gap + cardWidth <= window.innerWidth - 16;
+  const left = canPlaceRight
+    ? rect.right + gap
+    : Math.min(window.innerWidth - cardWidth - 16, Math.max(16, rect.right - cardWidth));
+  const top = canPlaceRight
+    ? Math.min(window.innerHeight - 250, Math.max(16, rect.top + rect.height / 2 - 108))
+    : Math.min(window.innerHeight - 250, rect.bottom + gap);
+
+  return {
+    spotlight: {
+      left: rect.left - 6,
+      top: rect.top - 6,
+      width: rect.width + 12,
+      height: rect.height + 12,
+    },
+    card: { left, top, width: cardWidth },
+    side: canPlaceRight ? "right" : "below",
+  };
+}
+
+function CursorOnboarding({ onComplete }: { onComplete: () => void }) {
+  const [step, setStep] = useState<TourStep>("quick-chat");
+  const [position, setPosition] = useState<TargetPosition | null>(null);
+
+  const updatePosition = useCallback(() => {
+    const next = getTargetPosition(step);
+    if (next) {
+      setPosition(next);
+      return;
+    }
+
+    if (step === "quick-chat") {
+      window.dispatchEvent(new Event("portal:open-quick-chat"));
+      setStep("fluid-toggle");
+    }
+  }, [step]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(updatePosition, step === "fluid-toggle" ? 220 : 60);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [step, updatePosition]);
+
+  function showControl() {
+    window.dispatchEvent(new Event("portal:open-quick-chat"));
+    setPosition(null);
+    setStep("fluid-toggle");
+  }
+
+  if (!position) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="Fluid cursor introduction">
+      <div className="absolute inset-0 bg-bg-base/58 backdrop-blur-[2px]" />
+      <div
+        className="pointer-events-none fixed rounded-2xl border-2 border-accent shadow-[0_0_0_5px_rgba(110,231,183,0.14),0_0_42px_rgba(110,231,183,0.45)]"
+        style={position.spotlight}
+      />
+      <section
+        className="fixed overflow-hidden rounded-2xl border border-accent/30 bg-bg-card/95 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+        style={position.card}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(168,85,247,0.17),transparent_38%),radial-gradient(circle_at_90%_22%,rgba(6,182,212,0.14),transparent_36%)]" />
+        <button
+          type="button"
+          onClick={onComplete}
+          className="button-motion absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-lg border border-border bg-bg-elevated text-text-muted hover:text-text-primary"
+          aria-label="Skip fluid cursor introduction"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="relative pr-8">
+          <span className="grid h-11 w-11 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
+            <MousePointer2 className="h-5 w-5" />
+          </span>
+          <p className="mt-4 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-accent">
+            New · fluid cursor
+          </p>
+          <h2 className="mt-2 font-heading text-xl font-bold text-text-primary">
+            {step === "quick-chat" ? "You are in control" : "Turn the effect on or off"}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">
+            {step === "quick-chat"
+              ? "The colorful fluid trail is enabled automatically. Open Quick Chat anytime to change it."
+              : "Use this Fluid cursor switch whenever you prefer the normal cursor. Your choice is remembered."}
+          </p>
+          <button
+            type="button"
+            onClick={step === "quick-chat" ? showControl : onComplete}
+            className="button-motion mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 font-heading text-sm font-bold text-bg-base"
+          >
+            {step === "quick-chat" ? "Show me the control" : "Got it"}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+        <span
+          className={
+            position.side === "right"
+              ? "absolute -left-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-45 border-b border-l border-accent/30 bg-bg-card"
+              : "absolute -top-2 right-8 h-4 w-4 rotate-45 border-l border-t border-accent/30 bg-bg-card"
+          }
+          aria-hidden="true"
+        />
+      </section>
+    </div>
+  );
+}
 
 export function StudentSplashCursor() {
   const pathname = usePathname();
   const [enabled, setEnabled] = useState(false);
   const [ready, setReady] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     const initialStateTimer = window.setTimeout(() => {
       const stored = window.localStorage.getItem(CURSOR_PREFERENCE_KEY);
       setEnabled(stored !== "false");
       setReady(true);
+      if (stored !== "false" && window.localStorage.getItem(CURSOR_TOUR_KEY) !== "true") {
+        window.setTimeout(() => setShowTour(true), 900);
+      }
     }, 0);
 
     const handlePreference = (event: Event) => {
@@ -39,22 +172,30 @@ export function StudentSplashCursor() {
     };
   }, []);
 
+  function completeTour() {
+    window.localStorage.setItem(CURSOR_TOUR_KEY, "true");
+    setShowTour(false);
+  }
+
   if (!ready || !enabled || pathname === "/league" || pathname.startsWith("/league/")) return null;
 
   return (
-    <div className="student-splash-cursor" aria-hidden="true">
-      <SplashCursor
-        DENSITY_DISSIPATION={3.5}
-        VELOCITY_DISSIPATION={2}
-        PRESSURE={0.1}
-        CURL={3}
-        SPLAT_RADIUS={0.2}
-        SPLAT_FORCE={6000}
-        COLOR_UPDATE_SPEED={10}
-        SHADING
-        RAINBOW_MODE
-        COLOR="#A855F7"
-      />
-    </div>
+    <>
+      <div className="student-splash-cursor" aria-hidden="true">
+        <SplashCursor
+          DENSITY_DISSIPATION={3.5}
+          VELOCITY_DISSIPATION={2}
+          PRESSURE={0.1}
+          CURL={3}
+          SPLAT_RADIUS={0.2}
+          SPLAT_FORCE={6000}
+          COLOR_UPDATE_SPEED={10}
+          SHADING
+          RAINBOW_MODE
+          COLOR="#A855F7"
+        />
+      </div>
+      {showTour ? <CursorOnboarding onComplete={completeTour} /> : null}
+    </>
   );
 }

@@ -187,6 +187,7 @@ export function SidebarNav({
       <div className="mt-auto space-y-3 pt-6">
         <button
           type="button"
+          data-cursor-tour="quick-chat"
           onClick={() => {
             window.dispatchEvent(new Event("portal:open-quick-chat"));
             setOpen(false);
