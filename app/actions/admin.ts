@@ -12,6 +12,7 @@ import { getAdminData, getMentorScheduleData } from "@/lib/data";
 import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
 import { getBookedSlots } from "@/lib/slot-availability";
 import {
+  ADMIN_TIME_ZONE,
   dateKeyInTimeZone,
   getSessionScheduleDate,
   isBatchPausedOnDate,
@@ -1055,6 +1056,26 @@ export async function updateApprovedRescheduleOriginalAction(formData: FormData)
   redirect("/admin/attendance?reschedule=updated");
 }
 
+export async function deleteApprovedRescheduleAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) return;
+
+  const requestId = requiredValue(formData, "requestId");
+  if (!requestId) return;
+
+  await supabase
+    .from("class_reschedule_requests")
+    .delete()
+    .eq("id", requestId)
+    .eq("status", "approved");
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/attendance");
+  revalidatePath("/class");
+  revalidatePath("/dashboard");
+  redirect("/admin/attendance?reschedule=deleted");
+}
+
 export async function createAdminRescheduleAction(formData: FormData) {
   const supabase = await getAdminClient();
   if (!supabase) {
@@ -1066,7 +1087,7 @@ export async function createAdminRescheduleAction(formData: FormData) {
   const requestedDate = String(formData.get("requestedDate") ?? "");
   const requestedStartTime = String(formData.get("requestedStartTime") ?? "");
   const requestedEndTime = String(formData.get("requestedEndTime") ?? "");
-  const requestedTimeZone = String(formData.get("requestedTimeZone") ?? "Asia/Kolkata");
+  const requestedTimeZone = ADMIN_TIME_ZONE;
   const meetLink = normalizeMeetLink(String(formData.get("meetLink") ?? ""));
   const adminNote = String(formData.get("adminNote") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim() || "Scheduled by admin";

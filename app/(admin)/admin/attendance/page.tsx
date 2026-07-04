@@ -1,16 +1,17 @@
 import { AttendanceStatusForm } from "@/components/admin/attendance-status-form";
 import {
-  createAdminRescheduleAction,
   reviewRescheduleRequestAction,
   updateApprovedRescheduleOriginalAction,
 } from "@/app/actions/admin";
+import { DeleteApprovedClassButton } from "@/components/admin/delete-approved-class-button";
+import { OneOffClassForm } from "@/components/admin/one-off-class-form";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { formatRescheduleRequestTime, getRescheduleRequestKind } from "@/lib/class-events";
 import { getAdminData } from "@/lib/data";
-import { ADMIN_TIME_ZONE, commonTimeZones, formatSessionTime, getSessionScheduleDate } from "@/lib/time";
+import { ADMIN_TIME_ZONE, formatSessionTime, getSessionScheduleDate } from "@/lib/time";
 
 function SchedulerField({
   label,
@@ -51,8 +52,10 @@ export default async function AdminAttendancePage({
       ? "That time is no longer free. Ask the student to choose another available slot."
       : params?.reschedule === "batch-paused"
         ? "That date falls inside this student's scheduled break. Choose a date after classes resume."
-      : params?.reschedule === "invalid-original"
-        ? "The original class date does not match this student's schedule."
+        : params?.reschedule === "invalid-original"
+          ? "The original class date does not match this student's schedule."
+        : params?.reschedule === "deleted"
+          ? "The approved one-off class was deleted and removed from the student's schedule."
         : params?.reschedule === "updated"
           ? "The approved class now replaces the selected regular occurrence."
           : "";
@@ -75,119 +78,13 @@ export default async function AdminAttendancePage({
               Add an extra make-up class, or replace exactly one regular occurrence. Weekly classes after it continue normally.
             </p>
           </div>
-          <form action={createAdminRescheduleAction} className="grid gap-4 md:grid-cols-2">
-            <SchedulerField label="Class action">
-              <select
-                name="requestType"
-                defaultValue="makeup"
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              >
-                <option value="makeup">Additional make-up class</option>
-                <option value="reschedule">Replace one regular class</option>
-              </select>
-            </SchedulerField>
-            <SchedulerField label="Student">
-              <select
-                name="studentId"
-                required
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              >
-                <option value="">Select student</option>
-                {data.students.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.fullName}
-                  </option>
-                ))}
-              </select>
-            </SchedulerField>
-            <SchedulerField
-              label="Timezone used below"
-              hint="The new date, start time, and end time must all be entered in this timezone."
-            >
-              <select
-                name="requestedTimeZone"
-                defaultValue={ADMIN_TIME_ZONE}
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              >
-                {commonTimeZones.map((timeZone) => (
-                  <option key={timeZone} value={timeZone}>
-                    {timeZone}
-                  </option>
-                ))}
-              </select>
-            </SchedulerField>
-            <SchedulerField label="New class date" hint="Date of the make-up or replacement class.">
-              <input
-                name="requestedDate"
-                type="date"
-                required
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              />
-            </SchedulerField>
-            <SchedulerField
-              label="Original class date · replacements only"
-              hint="Leave blank for an additional make-up. Fill only when replacing one regular class."
-            >
-              <input
-                name="originalDate"
-                type="date"
-                title="Required only when replacing one regular class"
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              />
-            </SchedulerField>
-            <SchedulerField label="New class start time">
-              <input
-                name="requestedStartTime"
-                type="time"
-                required
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              />
-            </SchedulerField>
-            <SchedulerField label="New class end time">
-              <input
-                name="requestedEndTime"
-                type="time"
-                required
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              />
-            </SchedulerField>
-            <SchedulerField
-              label="Google Meet link · optional"
-              hint="Leave blank to reuse the student's regular batch Meet link."
-              className="md:col-span-2"
-            >
-              <input
-                name="meetLink"
-                type="url"
-                placeholder="https://meet.google.com/..."
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              />
-            </SchedulerField>
-            <SchedulerField label="Reason" className="md:col-span-2">
-              <input
-                name="reason"
-                placeholder="For example: make-up class for missed Thursday"
-                className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              />
-            </SchedulerField>
-            <SchedulerField
-              label="Student-visible note · optional"
-              hint="This message appears in the student's portal."
-              className="md:col-span-2"
-            >
-              <textarea
-                name="adminNote"
-                placeholder="Add any instruction the student should see"
-                className="min-h-20 w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-              />
-            </SchedulerField>
-            <SubmitButton
-              pendingLabel="Adding class..."
-              className="rounded-xl bg-accent px-5 py-3 font-bold text-bg-base md:col-span-2"
-            >
-              Add one-off class
-            </SubmitButton>
-          </form>
+          <OneOffClassForm
+            students={data.students.map((student) => ({
+              id: student.id,
+              fullName: student.fullName,
+              timeZone: student.timeZone,
+            }))}
+          />
         </div>
       </section>
 
@@ -353,6 +250,9 @@ export default async function AdminAttendancePage({
                       Replaces the regular class scheduled for {request.originalDate}.
                     </p>
                   )}
+                  <div className="mt-3">
+                    <DeleteApprovedClassButton requestId={request.id} studentName={request.studentName} />
+                  </div>
                 </article>
               ))}
             </div>
