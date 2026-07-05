@@ -4,6 +4,7 @@ import { CheckCircle2, Lock, Radio } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MotionDiv } from "@/components/ui/animated";
 import { ToolLinkChip } from "@/components/ui/tool-link-chip";
+import { ToolAccessHint } from "@/components/ui/tool-access-hint";
 import { cn, formatDate } from "@/lib/utils";
 import type { CurriculumSession } from "@/lib/data";
 
@@ -48,11 +49,15 @@ export function SessionCard({
         <StatusBadge status={session.status} />
       </div>
       <p className="mt-4 text-sm leading-6 text-text-secondary">{session.focus}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {session.toolsCovered.map((tool) => (
-          <ToolLinkChip key={tool} tool={tool} className="px-2.5" />
-        ))}
-      </div>
+      {session.status === "locked" ? (
+        <ToolAccessHint className="mt-4" />
+      ) : (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {session.toolsCovered.map((tool) => (
+            <ToolLinkChip key={tool} tool={tool} className="px-2.5" />
+          ))}
+        </div>
+      )}
       <div className="mt-5 flex items-center gap-2 border-t border-border/60 pt-4 text-sm text-text-secondary">
         <Icon className="h-4 w-4 text-accent" />
         <span>{session.studentOutput}</span>

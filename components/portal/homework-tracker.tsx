@@ -5,6 +5,7 @@ import { BookOpenCheck, CheckCircle2, ChevronDown } from "lucide-react";
 import { HomeworkCard } from "@/components/ui/homework-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import type { CourseSession, HomeworkItem } from "@/lib/course-data";
+import { getSessionAccessBoundary } from "@/lib/content-access";
 import { cn } from "@/lib/utils";
 
 export function HomeworkTracker({
@@ -18,6 +19,10 @@ export function HomeworkTracker({
 }) {
   const availableSessions = useMemo(
     () => [...sessions].sort((a, b) => a.globalNumber - b.globalNumber),
+    [sessions],
+  );
+  const accessBoundary = useMemo(
+    () => getSessionAccessBoundary(sessions),
     [sessions],
   );
   const firstSessionWithWork =
@@ -156,7 +161,11 @@ export function HomeworkTracker({
             {active.items
               .sort((a, b) => a.kind.localeCompare(b.kind))
               .map((item) => (
-                <HomeworkCard key={item.id} homework={item} />
+                <HomeworkCard
+                  key={item.id}
+                  homework={item}
+                  toolsUnlocked={active.session.globalNumber <= accessBoundary.maxUnlockedGlobalNumber}
+                />
               ))}
           </div>
         ) : (

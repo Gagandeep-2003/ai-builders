@@ -5,10 +5,12 @@ import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ToolLinkChip } from "@/components/ui/tool-link-chip";
+import { ToolAccessHint } from "@/components/ui/tool-access-hint";
 import { PendingLink } from "@/components/ui/pending-link";
 import { getStudentHomeworkDetailData } from "@/lib/data";
 import { formatDuration, formatHomeworkKind, getGoogleDocEmbedUrl, isTrustedTaskDuration } from "@/lib/homework-utils";
 import { formatDate } from "@/lib/utils";
+import { getSessionAccessBoundary, isSessionUnlocked } from "@/lib/content-access";
 
 function DetailList({ title, items }: { title: string; items?: string[] }) {
   if (!items?.length) return null;
@@ -81,6 +83,8 @@ export default async function HomeworkDetailPage({
     (data.sessions.find((session) => session.id === homework.sessionId)?.globalNumber ?? 1) / 8,
   );
   const sessionNumber = data.sessions.find((session) => session.id === homework.sessionId)?.sessionNumber ?? 1;
+  const homeworkSession = data.sessions.find((session) => session.id === homework.sessionId);
+  const toolsUnlocked = isSessionUnlocked(homeworkSession, getSessionAccessBoundary(data.sessions));
   const isCompleted = homework.status === "submitted" || homework.status === "reviewed";
   const hasStaleTiming =
     isCompleted && typeof homework.timeSpentSeconds === "number" && !isTrustedTaskDuration(homework.timeSpentSeconds);
@@ -146,7 +150,7 @@ export default async function HomeworkDetailPage({
           <div>
             <p className="font-mono text-xs uppercase text-accent">Task brief</p>
             <p className="text-sm leading-6 text-text-secondary">{homework.description}</p>
-            {taskDetails.tools.length > 0 ? (
+            {taskDetails.tools.length > 0 && toolsUnlocked ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 {taskDetails.tools.map((tool) => (
                   <ToolLinkChip key={tool} tool={tool} />
@@ -155,6 +159,8 @@ export default async function HomeworkDetailPage({
                   {taskDetails.aiType}
                 </span>
               </div>
+            ) : taskDetails.tools.length > 0 ? (
+              <ToolAccessHint className="mt-4" />
             ) : null}
             {homework.contentUrl ? (
               <a
@@ -193,10 +199,14 @@ export default async function HomeworkDetailPage({
                   Use this guided flow instead of hunting through scattered sections. Read the brief, run the prompt, produce the proof, then submit.
                 </p>
               </div>
-              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 font-mono text-[11px] uppercase text-accent">
-                <Sparkles className="h-3.5 w-3.5" />
-                {taskDetails.aiType}
-              </span>
+              {toolsUnlocked ? (
+                <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 font-mono text-[11px] uppercase text-accent">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {taskDetails.aiType}
+                </span>
+              ) : (
+                <ToolAccessHint />
+              )}
             </div>
             <div className="relative mt-6 grid gap-3 md:grid-cols-4">
               <PhaseCard label="01" title="Understand" description={taskDetails.mission || "Know the goal before opening the tool."} />

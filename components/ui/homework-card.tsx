@@ -2,11 +2,18 @@ import { CalendarDays, ExternalLink } from "lucide-react";
 import { PendingLink } from "@/components/ui/pending-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ToolLinkChip } from "@/components/ui/tool-link-chip";
+import { ToolAccessHint } from "@/components/ui/tool-access-hint";
 import { formatDuration, formatHomeworkKind } from "@/lib/homework-utils";
 import { cn, formatDate, getDueTone } from "@/lib/utils";
 import type { HomeworkItem } from "@/lib/course-data";
 
-export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
+export function HomeworkCard({
+  homework,
+  toolsUnlocked = true,
+}: {
+  homework: HomeworkItem;
+  toolsUnlocked?: boolean;
+}) {
   const tone = getDueTone(homework.dueDate, homework.status);
   const progressLabel =
     homework.status === "revision_requested"
@@ -33,9 +40,13 @@ export function HomeworkCard({ homework }: { homework: HomeworkItem }) {
           <span className="rounded-full border border-border bg-bg-elevated px-3 py-1 font-mono text-[11px] uppercase text-text-secondary">
             Module {homework.details.moduleNumber} · Session {homework.details.sessionNumber}
           </span>
-          {homework.details.tools.slice(0, 3).map((tool) => (
-            <ToolLinkChip key={tool} tool={tool} />
-          ))}
+          {toolsUnlocked ? (
+            homework.details.tools.slice(0, 3).map((tool) => (
+              <ToolLinkChip key={tool} tool={tool} />
+            ))
+          ) : (
+            <ToolAccessHint />
+          )}
         </div>
       ) : null}
       <p className="mt-3 font-mono text-xs uppercase text-text-muted">{progressLabel}</p>
