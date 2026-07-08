@@ -99,10 +99,10 @@ export async function GET() {
     },
     {
       title: "Refer & Earn",
-      eyebrow: "Bonus skill labs",
-      description: "Refer a friend or sibling and track eligibility for bonus skill-lab sessions.",
+      eyebrow: "Family and friends bonus",
+      description: "Refer a friend, sibling, cousin, or classmate and track eligibility for extra mastery sessions.",
       href: "/referrals",
-      keywords: ["referral", "refer", "friend", "sibling", "reward", "bonus classes"],
+      keywords: ["referral", "refer", "friend", "sibling", "cousin", "family", "reward", "bonus classes"],
       priority: 3,
     },
   ];

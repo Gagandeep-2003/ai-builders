@@ -12,7 +12,7 @@ export default async function AdminReferralsPage() {
     <AnimatedPage>
       <PageHeader
         title="Referrals"
-        subtitle="Follow student introductions from first contact through enrolment and bonus skill-lab rewards."
+        subtitle="Follow student introductions from first contact through enrolment, four-session referrer rewards, and welcome boosters for new students."
       />
       <section className="grid gap-4 sm:grid-cols-3">
         {[

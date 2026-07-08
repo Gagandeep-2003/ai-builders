@@ -118,9 +118,9 @@ export default async function DashboardPage() {
           <div className="relative flex items-start justify-between gap-4">
             <div>
               <p className="font-mono text-xs uppercase text-amber-200">Learn together reward</p>
-              <h2 className="mt-2 font-heading text-2xl font-bold">Two bonus skill labs each</h2>
+              <h2 className="mt-2 font-heading text-2xl font-bold">4 bonus sessions for you</h2>
               <p className="mt-2 text-sm leading-6 text-text-secondary">
-                Refer a friend or sibling. After enrolment and their first session, both of you become eligible.
+                Refer a friend, sibling, or cousin. After enrolment and their first session, they also get 2 welcome boosters.
               </p>
             </div>
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-amber-300/25 bg-amber-300/10 text-amber-200 transition group-hover:scale-105">
