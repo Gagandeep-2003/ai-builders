@@ -125,7 +125,7 @@ export function SidebarNav({
         <BrandMark className="h-10 w-10" />
         <div className="min-w-0 flex-1">
           <p className="font-heading text-sm font-bold">AI Builders</p>
-          <p className="font-mono text-[11px] uppercase text-text-muted">Summer Bootcamp</p>
+          <p className="font-mono text-[11px] uppercase text-text-muted">AI Academy</p>
         </div>
         <AnimatedThemeToggler compact variant="circle" />
       </div>

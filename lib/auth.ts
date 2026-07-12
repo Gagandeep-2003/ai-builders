@@ -14,7 +14,7 @@ const demoRoleFallbacks: Record<string, AppProfile> = {
   "admin@bootcamp.com": {
     id: "admin-demo-fallback",
     email: "admin@bootcamp.com",
-    fullName: "Bootcamp Admin",
+    fullName: "AI Builders Admin",
     role: "admin",
   },
 };

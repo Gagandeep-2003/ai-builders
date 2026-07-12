@@ -1,4 +1,4 @@
-# AI Builders Summer Bootcamp Portal
+# AI Builders Academy Portal
 
 Private student learning portal for a premium AI tutoring bootcamp. Built with the latest stable Next.js App Router, Supabase Auth/Database, Tailwind CSS, Framer Motion, Lucide React, and Recharts.
 

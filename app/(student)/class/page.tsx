@@ -211,7 +211,7 @@ export default async function ClassPage({
           <p className="mt-2 text-sm text-text-secondary">{data.student.timeZone}</p>
         </div>
         <div className="premium-card rounded-xl p-5">
-          <p className="font-mono text-xs uppercase text-text-muted">Bootcamp time</p>
+          <p className="font-mono text-xs uppercase text-text-muted">Course time</p>
           <p className="mt-2 font-heading text-xl font-bold">
             {formatBatchSchedule(data.batch, data.batch.timeZone)}
           </p>

@@ -97,7 +97,7 @@ select id, email, 'Aarav Mehta', 'student'::public.app_role
 from auth.users
 where lower(email) = 'student@demo.com'
 union all
-select id, email, 'Bootcamp Admin', 'admin'::public.app_role
+select id, email, 'AI Builders Admin', 'admin'::public.app_role
 from auth.users
 where lower(email) = 'admin@bootcamp.com'
 union all

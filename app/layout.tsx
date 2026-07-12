@@ -25,9 +25,9 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Builders Summer Bootcamp",
+  title: "AI Builders Academy",
   description:
-    "A private student learning portal for AI Builders Summer Bootcamp.",
+    "A private student learning portal for AI Builders Academy.",
   manifest: "/site.webmanifest",
   icons: {
     icon: [

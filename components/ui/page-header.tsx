@@ -12,7 +12,7 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="font-mono text-xs uppercase text-accent">AI Builders Summer Bootcamp</p>
+        <p className="font-mono text-xs uppercase text-accent">AI Builders Academy</p>
         <h1 className="mt-3 font-heading text-3xl font-bold text-text-primary sm:text-4xl">
           {title}
         </h1>

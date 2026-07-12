@@ -41,7 +41,7 @@ export function LandingPage() {
             <span>
               <span className="block font-heading text-sm font-bold">AI Builders</span>
               <span className="block font-mono text-[10px] uppercase text-text-muted">
-                Summer Bootcamp
+                AI Builders Academy
               </span>
             </span>
           </Link>
@@ -95,12 +95,12 @@ export function LandingPage() {
               </AnimatePresence>
             </div>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-text-secondary">
-              A premium summer bootcamp for students who want practical AI literacy,
+              A premium AI learning program for students who want practical AI literacy,
               app-building confidence, and automation thinking in one focused learning path.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <a
-                href="mailto:hello@aibuilders.example?subject=AI%20Builders%20Summer%20Bootcamp%20Application"
+                href="mailto:hello@aibuilders.example?subject=AI%20Builders%20Academy%20Application"
                 className="button-motion inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 font-bold text-bg-base shadow-[0_18px_44px_rgba(110,231,183,0.18)]"
               >
                 Apply for the Next Batch
