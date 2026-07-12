@@ -1,5 +1,6 @@
-import { AlertTriangle, CheckCircle2, Clock3, LockKeyhole, Plus, Trash2 } from "lucide-react";
-import { addAvailabilitySlotAction, removeAvailabilitySlotAction } from "@/app/actions/admin";
+import { AlertTriangle, CheckCircle2, Clock3, LockKeyhole, Plus } from "lucide-react";
+import { addAvailabilitySlotAction } from "@/app/actions/admin";
+import { DeleteAvailabilitySlotForm } from "@/components/admin/delete-availability-slot-form";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { getAdminAvailabilityData, getAdminData } from "@/lib/data";
@@ -58,17 +59,10 @@ function SlotTile({ slot, managedSlotId }: { slot: AvailabilitySlot; managedSlot
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {managedSlotId ? (
-            <form action={removeAvailabilitySlotAction}>
-              <input type="hidden" name="slotId" value={managedSlotId} />
-              <button
-                type="submit"
-                className="grid h-9 w-9 place-items-center rounded-xl border border-current/20 bg-bg-base/30 text-current transition hover:bg-rose-400/15 hover:text-rose-100"
-                aria-label={`Remove ${slot.timeLabel} on ${slot.dayLabel}`}
-                title="Remove this available slot"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </form>
+            <DeleteAvailabilitySlotForm
+              slotId={managedSlotId}
+              label={`${slot.dayLabel} ${slot.timeLabel}`}
+            />
           ) : null}
           <span className="grid h-9 w-9 place-items-center rounded-xl border border-current/20 bg-bg-base/30">
             <Icon className="h-4 w-4" />
@@ -168,21 +162,19 @@ export default async function AdminSlotsPage() {
           {availability.managedSlots
             .slice()
             .sort((first, second) => first.dayIndex - second.dayIndex || parseSlotMinutes(first.startTime) - parseSlotMinutes(second.startTime))
-            .map((slot) => (
-              <form key={slot.id} action={removeAvailabilitySlotAction}>
-                <input type="hidden" name="slotId" value={slot.id} />
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-full border border-border bg-white/[0.03] px-3 py-2 text-xs text-text-secondary transition hover:border-rose-300/40 hover:text-rose-100"
-                >
-                  <span>{dayOptions.find((day) => day.value === slot.dayIndex)?.label}</span>
-                  <span className="font-semibold text-text-primary">
-                    {formatSlotMinutes(parseSlotMinutes(slot.startTime))} - {formatSlotMinutes(parseSlotMinutes(slot.endTime))}
-                  </span>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </form>
-            ))}
+            .map((slot) => {
+              const dayLabel = dayOptions.find((day) => day.value === slot.dayIndex)?.label ?? "Slot";
+              const timeLabel = `${formatSlotMinutes(parseSlotMinutes(slot.startTime))} - ${formatSlotMinutes(parseSlotMinutes(slot.endTime))}`;
+
+              return (
+                <DeleteAvailabilitySlotForm
+                  key={slot.id}
+                  slotId={slot.id}
+                  label={`${dayLabel} ${timeLabel}`}
+                  variant="chip"
+                />
+              );
+            })}
         </div>
       </section>
 
