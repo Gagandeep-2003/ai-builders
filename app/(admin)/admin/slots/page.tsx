@@ -1,14 +1,27 @@
-import { AlertTriangle, CheckCircle2, Clock3, LockKeyhole } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, LockKeyhole, Plus, Trash2 } from "lucide-react";
+import { addAvailabilitySlotAction, removeAvailabilitySlotAction } from "@/app/actions/admin";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getAdminData } from "@/lib/data";
+import { getAdminAvailabilityData, getAdminData } from "@/lib/data";
 import {
+  formatSlotMinutes,
   getAvailabilitySlots,
   getBookedSlots,
+  parseSlotMinutes,
   summarizeAvailability,
   type AvailabilitySlot,
   type BookedSlot,
 } from "@/lib/slot-availability";
+
+const dayOptions = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
 
 const statusStyles: Record<AvailabilitySlot["status"], string> = {
   available: "border-accent/35 bg-accent/10 text-accent",
@@ -32,7 +45,7 @@ function getConflictName(conflict: BookedSlot) {
   return conflict.studentNames.length > 0 ? conflict.studentNames.join(", ") : conflict.batchName;
 }
 
-function SlotTile({ slot }: { slot: AvailabilitySlot }) {
+function SlotTile({ slot, managedSlotId }: { slot: AvailabilitySlot; managedSlotId?: string }) {
   const Icon = statusIcons[slot.status];
 
   return (
@@ -43,9 +56,24 @@ function SlotTile({ slot }: { slot: AvailabilitySlot }) {
           <p className="font-heading text-base font-bold text-text-primary">{slot.timeLabel}</p>
           <p className="mt-1 font-mono text-[0.65rem] uppercase tracking-[0.18em]">{getSlotLabel(slot.status)}</p>
         </div>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-current/20 bg-bg-base/30">
-          <Icon className="h-4 w-4" />
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {managedSlotId ? (
+            <form action={removeAvailabilitySlotAction}>
+              <input type="hidden" name="slotId" value={managedSlotId} />
+              <button
+                type="submit"
+                className="grid h-9 w-9 place-items-center rounded-xl border border-current/20 bg-bg-base/30 text-current transition hover:bg-rose-400/15 hover:text-rose-100"
+                aria-label={`Remove ${slot.timeLabel} on ${slot.dayLabel}`}
+                title="Remove this available slot"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </form>
+          ) : null}
+          <span className="grid h-9 w-9 place-items-center rounded-xl border border-current/20 bg-bg-base/30">
+            <Icon className="h-4 w-4" />
+          </span>
+        </div>
       </div>
 
       {slot.conflicts.length > 0 ? (
@@ -67,10 +95,16 @@ function SlotTile({ slot }: { slot: AvailabilitySlot }) {
 }
 
 export default async function AdminSlotsPage() {
-  const data = await getAdminData();
+  const [data, availability] = await Promise.all([getAdminData(), getAdminAvailabilityData()]);
   const bookedSlots = getBookedSlots(data.batches, data.students);
-  const slotsByDay = getAvailabilitySlots(bookedSlots);
+  const slotsByDay = getAvailabilitySlots(bookedSlots, availability.bucket);
   const summary = summarizeAvailability(slotsByDay);
+  const managedSlotIds = new Map(
+    availability.managedSlots.map((slot) => [
+      `${slot.dayIndex}-${slot.startTime}`,
+      slot.id,
+    ]),
+  );
   const summaryCards = [
     { label: "Available", value: summary.available, detail: "Open one-hour options", tone: "text-accent", Icon: CheckCircle2 },
     { label: "Booked", value: summary.booked, detail: "Exact slot already taken", tone: "text-rose-100", Icon: LockKeyhole },
@@ -88,6 +122,69 @@ export default async function AdminSlotsPage() {
         title="Slot Availability"
         subtitle="Track your fixed IST teaching bucket against booked batch timings before assigning a new student."
       />
+
+      <section className="premium-card rounded-xl p-6">
+        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.6fr]">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-accent">Availability controls</p>
+            <h2 className="mt-2 font-heading text-2xl font-bold">Add or remove your available slots</h2>
+            <p className="mt-3 text-sm leading-6 text-text-secondary">
+              Times here are your teaching availability in IST. Student reschedule options will automatically use this same bucket.
+            </p>
+            {availability.usesFallback ? (
+              <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">
+                Database table not found yet, so this page is showing the fallback slot list. Run
+                <span className="font-mono"> supabase/admin-availability-slots-migration.sql </span>
+                once to enable saving changes.
+              </div>
+            ) : null}
+          </div>
+
+          <form action={addAvailabilitySlotAction} className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+            <label className="space-y-2">
+              <span className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-text-muted">Day</span>
+              <select name="dayOfWeek" className="h-12 w-full rounded-xl border border-border bg-bg-elevated px-4 text-sm text-text-primary outline-none transition focus:border-accent/60">
+                {dayOptions.map((day) => (
+                  <option key={day.value} value={day.value}>{day.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-text-muted">Start time IST</span>
+              <input name="startTime" type="time" step="1800" required className="h-12 w-full rounded-xl border border-border bg-bg-elevated px-4 text-sm text-text-primary outline-none transition focus:border-accent/60" />
+            </label>
+            <label className="space-y-2">
+              <span className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-text-muted">End time IST</span>
+              <input name="endTime" type="time" step="1800" className="h-12 w-full rounded-xl border border-border bg-bg-elevated px-4 text-sm text-text-primary outline-none transition focus:border-accent/60" />
+            </label>
+            <button type="submit" className="button-motion mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-accent px-5 font-semibold text-bg-base">
+              <Plus className="h-4 w-4" />
+              Add slot
+            </button>
+          </form>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {availability.managedSlots
+            .slice()
+            .sort((first, second) => first.dayIndex - second.dayIndex || parseSlotMinutes(first.startTime) - parseSlotMinutes(second.startTime))
+            .map((slot) => (
+              <form key={slot.id} action={removeAvailabilitySlotAction}>
+                <input type="hidden" name="slotId" value={slot.id} />
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-full border border-border bg-white/[0.03] px-3 py-2 text-xs text-text-secondary transition hover:border-rose-300/40 hover:text-rose-100"
+                >
+                  <span>{dayOptions.find((day) => day.value === slot.dayIndex)?.label}</span>
+                  <span className="font-semibold text-text-primary">
+                    {formatSlotMinutes(parseSlotMinutes(slot.startTime))} - {formatSlotMinutes(parseSlotMinutes(slot.endTime))}
+                  </span>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </form>
+            ))}
+        </div>
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map(({ label, value, detail, tone, Icon }) => (
@@ -122,7 +219,11 @@ export default async function AdminSlotsPage() {
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 {day.slots.map((slot) => (
-                  <SlotTile key={slot.id} slot={slot} />
+                  <SlotTile
+                    key={slot.id}
+                    slot={slot}
+                    managedSlotId={managedSlotIds.get(`${slot.dayIndex}-${String(Math.floor(slot.startMinutes / 60)).padStart(2, "0")}:${String(slot.startMinutes % 60).padStart(2, "0")}`)}
+                  />
                 ))}
               </div>
             </div>

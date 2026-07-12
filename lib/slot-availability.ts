@@ -7,6 +7,13 @@ export type AvailabilityDay = {
   slots: string[];
 };
 
+export type ManagedAvailabilitySlot = {
+  id: string;
+  dayIndex: number;
+  startTime: string;
+  endTime: string;
+};
+
 export type BookedSlot = {
   id: string;
   batchId: string;
@@ -76,12 +83,12 @@ export const availabilityBucket: AvailabilityDay[] = [
   },
 ];
 
-function parseMinutes(time: string) {
+export function parseSlotMinutes(time: string) {
   const [hour, minute] = time.split(":").map(Number);
   return hour * 60 + minute;
 }
 
-function formatMinutes(minutes: number) {
+export function formatSlotMinutes(minutes: number) {
   const normalized = ((minutes % 1440) + 1440) % 1440;
   const hour24 = Math.floor(normalized / 60);
   const minute = normalized % 60;
@@ -91,7 +98,7 @@ function formatMinutes(minutes: number) {
 }
 
 function formatRange(startMinutes: number, endMinutes: number) {
-  return `${formatMinutes(startMinutes)} - ${formatMinutes(endMinutes)}`;
+  return `${formatSlotMinutes(startMinutes)} - ${formatSlotMinutes(endMinutes)}`;
 }
 
 function getUtcDateKey(date: string, dayOffset: number) {
@@ -124,7 +131,7 @@ function getZonedMinutes(date: Date, timeZone: string) {
     minute: "2-digit",
     hourCycle: "h23",
   });
-  return parseMinutes(value);
+  return parseSlotMinutes(value);
 }
 
 function overlaps(firstStart: number, firstEnd: number, secondStart: number, secondEnd: number) {
@@ -183,10 +190,25 @@ export function getBookedSlots(batches: Batch[], students: StudentProfile[]) {
   });
 }
 
-export function getAvailabilitySlots(bookedSlots: BookedSlot[]) {
-  return availabilityBucket.map((day) => {
+export function buildAvailabilityBucket(rows: ManagedAvailabilitySlot[]) {
+  if (rows.length === 0) return availabilityBucket;
+
+  return dayLabels
+    .map((label, dayIndex) => {
+      const slots = rows
+        .filter((row) => row.dayIndex === dayIndex)
+        .map((row) => row.startTime)
+        .sort((first, second) => parseSlotMinutes(first) - parseSlotMinutes(second));
+
+      return { dayIndex, label, slots };
+    })
+    .filter((day) => day.slots.length > 0);
+}
+
+export function getAvailabilitySlots(bookedSlots: BookedSlot[], bucket = availabilityBucket) {
+  return bucket.map((day) => {
     const slots: AvailabilitySlot[] = day.slots.map((time) => {
-      const startMinutes = parseMinutes(time);
+      const startMinutes = parseSlotMinutes(time);
       const endMinutes = startMinutes + 60;
       const conflicts = bookedSlots.filter(
         (booking) =>

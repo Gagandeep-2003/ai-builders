@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getMentorScheduleData, getStudentDashboardData } from "@/lib/data";
+import { getAdminAvailabilityData, getMentorScheduleData, getStudentDashboardData } from "@/lib/data";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { normalizeMeetLink } from "@/lib/meet-links";
@@ -116,10 +116,14 @@ export async function requestClassRescheduleAction(formData: FormData) {
     if (!validOriginal || alreadyMoved) redirect("/class?reschedule=invalid-original");
   }
 
-  const mentorSchedule = await getMentorScheduleData();
+  const [mentorSchedule, availability] = await Promise.all([
+    getMentorScheduleData(),
+    getAdminAvailabilityData(),
+  ]);
   const validSlots = getStudentRescheduleOptions(data.student.timeZone, {
     bookedSlots: getBookedSlots(mentorSchedule.batches, mentorSchedule.students),
     requests: mentorSchedule.rescheduleRequests,
+    availabilityBucket: availability.bucket,
   });
   if (!validSlots.some((option) => option.value === slot)) {
     redirect("/class?reschedule=slot-taken");

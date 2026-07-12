@@ -12,7 +12,7 @@ import {
   getNextClassEvent,
   getStudentClassEvents,
 } from "@/lib/class-events";
-import { getMentorScheduleData, getStudentClassData } from "@/lib/data";
+import { getAdminAvailabilityData, getMentorScheduleData, getStudentClassData } from "@/lib/data";
 import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
 import { getBookedSlots } from "@/lib/slot-availability";
 import {
@@ -41,7 +41,10 @@ export default async function ClassPage({
 }) {
   const { join, reschedule } = await searchParams;
   const data = await getStudentClassData();
-  const mentorSchedule = await getMentorScheduleData();
+  const [mentorSchedule, availability] = await Promise.all([
+    getMentorScheduleData(),
+    getAdminAvailabilityData(),
+  ]);
   const now = new Date();
   const classEvents = getStudentClassEvents({
     student: data.student,
@@ -60,6 +63,7 @@ export default async function ClassPage({
     requests: mentorSchedule.rescheduleRequests,
     excludedPauses: data.batch.pauses,
     excludedPauseTimeZone: data.batch.timeZone,
+    availabilityBucket: availability.bucket,
   });
   const pendingRequest = data.rescheduleRequests.find((request) => request.status === "pending");
   const originalClassOptions = data.sessions

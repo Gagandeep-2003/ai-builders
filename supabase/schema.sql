@@ -225,6 +225,15 @@ create table public.class_reschedule_requests (
   created_at timestamptz not null default now()
 );
 
+create table public.admin_availability_slots (
+  id uuid primary key default gen_random_uuid(),
+  day_of_week integer not null check (day_of_week between 0 and 6),
+  start_time time not null,
+  end_time time not null,
+  created_at timestamptz not null default now(),
+  unique (day_of_week, start_time)
+);
+
 create table public.feedback (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references public.students(id) on delete cascade,
@@ -290,6 +299,7 @@ create index class_join_events_student_id_idx on public.class_join_events (stude
 create index class_join_events_session_id_idx on public.class_join_events (session_id);
 create index class_reschedule_requests_student_id_idx on public.class_reschedule_requests (student_id);
 create index class_reschedule_requests_status_idx on public.class_reschedule_requests (status);
+create index admin_availability_slots_day_start_idx on public.admin_availability_slots (day_of_week, start_time);
 create index feedback_student_id_idx on public.feedback (student_id);
 create index password_change_requests_student_id_idx on public.password_change_requests (student_id);
 create index password_change_requests_status_idx on public.password_change_requests (status);
@@ -433,6 +443,7 @@ alter table public.resources enable row level security;
 alter table public.attendance enable row level security;
 alter table public.class_join_events enable row level security;
 alter table public.class_reschedule_requests enable row level security;
+alter table public.admin_availability_slots enable row level security;
 alter table public.feedback enable row level security;
 alter table public.password_change_requests enable row level security;
 alter table public.announcements enable row level security;
@@ -644,6 +655,15 @@ create policy "class_reschedule_requests_delete_admin"
 on public.class_reschedule_requests for delete
 using (private.is_admin());
 
+create policy "admin_availability_slots_select_authenticated"
+on public.admin_availability_slots for select
+using (auth.uid() is not null);
+
+create policy "admin_availability_slots_admin_write"
+on public.admin_availability_slots for all
+using (private.is_admin())
+with check (private.is_admin());
+
 create policy "feedback_select_self_or_admin"
 on public.feedback for select
 using (student_id = private.current_student_id() or private.is_admin());
@@ -724,6 +744,7 @@ grant select, insert, update, delete on public.resources to authenticated;
 grant select, insert, update, delete on public.attendance to authenticated;
 grant select, insert, update, delete on public.class_join_events to authenticated;
 grant select, insert, update, delete on public.class_reschedule_requests to authenticated;
+grant select, insert, update, delete on public.admin_availability_slots to authenticated;
 grant select, insert, update, delete on public.feedback to authenticated;
 grant select, insert, update, delete on public.password_change_requests to authenticated;
 grant select, insert, update, delete on public.announcements to authenticated;

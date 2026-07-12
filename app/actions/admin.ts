@@ -8,7 +8,7 @@ import {
 } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { normalizeMeetLink } from "@/lib/meet-links";
-import { getAdminData, getMentorScheduleData } from "@/lib/data";
+import { getAdminAvailabilityData, getAdminData, getMentorScheduleData } from "@/lib/data";
 import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
 import { getBookedSlots } from "@/lib/slot-availability";
 import {
@@ -61,6 +61,16 @@ function requiredValue(formData: FormData, key: string) {
 function normalizeClockTime(value: string) {
   const match = value.match(/^(\d{1,2}):(\d{2})/);
   return match ? `${match[1].padStart(2, "0")}:${match[2]}` : value;
+}
+
+function isValidTimeValue(value: string) {
+  return /^\d{2}:\d{2}$/.test(value);
+}
+
+function addOneHour(time: string) {
+  const [hour, minute] = time.split(":").map(Number);
+  const endHour = (hour + 1) % 24;
+  return `${String(endHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function scheduleFields(formData: FormData) {
@@ -117,6 +127,61 @@ function revalidateBatchSchedule() {
   revalidatePath("/class");
   revalidatePath("/curriculum");
   revalidatePath("/progress");
+}
+
+export async function addAvailabilitySlotAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) {
+    revalidatePath("/admin/slots");
+    return;
+  }
+
+  const dayOfWeek = Number(formData.get("dayOfWeek"));
+  const startTime = normalizeClockTime(requiredValue(formData, "startTime"));
+  const endTimeInput = normalizeClockTime(requiredValue(formData, "endTime"));
+  const endTime = endTimeInput || (isValidTimeValue(startTime) ? addOneHour(startTime) : "");
+
+  if (
+    !Number.isInteger(dayOfWeek) ||
+    dayOfWeek < 0 ||
+    dayOfWeek > 6 ||
+    !isValidTimeValue(startTime) ||
+    !isValidTimeValue(endTime) ||
+    startTime === endTime
+  ) {
+    revalidatePath("/admin/slots");
+    return;
+  }
+
+  await supabase
+    .from("admin_availability_slots")
+    .upsert(
+      {
+        day_of_week: dayOfWeek,
+        start_time: startTime,
+        end_time: endTime,
+      },
+      { onConflict: "day_of_week,start_time" },
+    );
+
+  revalidateBatchSchedule();
+}
+
+export async function removeAvailabilitySlotAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) {
+    revalidatePath("/admin/slots");
+    return;
+  }
+
+  const slotId = requiredValue(formData, "slotId");
+  if (!slotId) {
+    revalidatePath("/admin/slots");
+    return;
+  }
+
+  await supabase.from("admin_availability_slots").delete().eq("id", slotId);
+  revalidateBatchSchedule();
 }
 
 export async function createBatchPauseAction(
@@ -928,9 +993,10 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
   const originalDate = originalDateOverride || String(request.original_date ?? "") || null;
 
   if (status === "approved") {
-    const [adminData, mentorSchedule] = await Promise.all([
+    const [adminData, mentorSchedule, availability] = await Promise.all([
       getAdminData(),
       getMentorScheduleData(),
+      getAdminAvailabilityData(),
     ]);
     const student = adminData.students.find((item) => item.id === request.student_id);
     const batchForStudent = adminData.batches.find((item) => item.id === request.batch_id);
@@ -980,6 +1046,7 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
       requests: mentorSchedule.rescheduleRequests.filter((item) => item.id !== requestId),
       excludedPauses: batchForStudent.pauses,
       excludedPauseTimeZone: batchForStudent.timeZone,
+      availabilityBucket: availability.bucket,
     });
     if (!validSlots.some((option) => option.value === requestSlot)) {
       redirect("/admin/attendance?reschedule=slot-taken");

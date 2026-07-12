@@ -1,6 +1,7 @@
 import type { BatchPause, ClassRescheduleRequest } from "@/lib/course-data";
 import {
   availabilityBucket,
+  type AvailabilityDay,
   type BookedSlot,
 } from "@/lib/slot-availability";
 import {
@@ -63,6 +64,7 @@ export function getStudentRescheduleOptions(
     now = new Date(),
     excludedPauses = [],
     excludedPauseTimeZone = ADMIN_TIME_ZONE,
+    availabilityBucket: availableSlots = availabilityBucket,
   }: {
     bookedSlots?: BookedSlot[];
     requests?: ClassRescheduleRequest[];
@@ -70,6 +72,7 @@ export function getStudentRescheduleOptions(
     now?: Date;
     excludedPauses?: BatchPause[];
     excludedPauseTimeZone?: string;
+    availabilityBucket?: AvailabilityDay[];
   } = {},
 ) {
   const today = new Date(`${dateKeyInTimeZone(now, ADMIN_TIME_ZONE)}T00:00:00.000Z`);
@@ -97,7 +100,7 @@ export function getStudentRescheduleOptions(
     const date = addDays(today, offset);
     const dateKey = toDateKey(date);
     const dayIndex = date.getUTCDay();
-    const bucket = availabilityBucket.find((day) => day.dayIndex === dayIndex);
+    const bucket = availableSlots.find((day) => day.dayIndex === dayIndex);
     if (!bucket) continue;
 
     for (const startTime of bucket.slots) {

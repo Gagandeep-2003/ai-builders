@@ -49,6 +49,12 @@ import {
 } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { applySessionStatuses } from "@/lib/time";
+import {
+  availabilityBucket,
+  buildAvailabilityBucket,
+  type AvailabilityDay,
+  type ManagedAvailabilitySlot,
+} from "@/lib/slot-availability";
 
 export type CurriculumSession = CourseSession & {
   status: "completed" | "current" | "locked";
@@ -107,6 +113,11 @@ export type AdminShellData = Pick<
 
 export type MentorScheduleData = Pick<AdminData, "students" | "batches" | "rescheduleRequests">;
 export type AdminStudentsData = Pick<AdminData, "students" | "batches" | "modules">;
+export type AdminAvailabilityData = {
+  bucket: AvailabilityDay[];
+  managedSlots: ManagedAvailabilitySlot[];
+  usesFallback: boolean;
+};
 export type AchievementData = {
   definitions: BadgeDefinition[];
   awards: StudentBadge[];
@@ -240,6 +251,15 @@ function mapBatchClassSlot(row: DbRow, batchId: string): BatchClassSlot {
     endTime: text(row, "end_time", "18:30"),
     meetLink: normalizeMeetLink(text(row, "meet_link")),
     sortOrder: num(row, "sort_order"),
+  };
+}
+
+function mapManagedAvailabilitySlot(row: DbRow): ManagedAvailabilitySlot {
+  return {
+    id: text(row, "id"),
+    dayIndex: num(row, "day_of_week"),
+    startTime: text(row, "start_time", "00:00").slice(0, 5),
+    endTime: text(row, "end_time", "01:00").slice(0, 5),
   };
 }
 
@@ -1286,6 +1306,38 @@ async function getAdminStudentsDataImpl(): Promise<AdminStudentsData> {
 
 export const getAdminStudentsData = cache(() =>
   measureServer("admin.students", getAdminStudentsDataImpl),
+);
+
+async function getAdminAvailabilityDataImpl(): Promise<AdminAvailabilityData> {
+  if (!isSupabaseConfigured()) {
+    return { bucket: availabilityBucket, managedSlots: [], usesFallback: true };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    return { bucket: availabilityBucket, managedSlots: [], usesFallback: true };
+  }
+
+  const { data: rows, error } = await supabase
+    .from("admin_availability_slots")
+    .select("id, day_of_week, start_time, end_time")
+    .order("day_of_week", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  if (error || !rows) {
+    return { bucket: availabilityBucket, managedSlots: [], usesFallback: true };
+  }
+
+  const managedSlots = rows.map((row) => mapManagedAvailabilitySlot(row));
+  return {
+    bucket: buildAvailabilityBucket(managedSlots),
+    managedSlots,
+    usesFallback: false,
+  };
+}
+
+export const getAdminAvailabilityData = cache(() =>
+  measureServer("admin.availability", getAdminAvailabilityDataImpl),
 );
 
 async function getAdminDataImpl(): Promise<AdminData> {
