@@ -12,7 +12,12 @@ import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatClassEventTime, getAdminClassEvents } from "@/lib/class-events";
+import {
+  formatClassEventTime,
+  formatRescheduleRequestTime,
+  getAdminClassEvents,
+  getRescheduleRequestKind,
+} from "@/lib/class-events";
 import { getAdminData } from "@/lib/data";
 import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 import { formatDate } from "@/lib/utils";
@@ -118,6 +123,13 @@ export default async function AdminDashboardPage() {
     })
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   const pendingPasswordRequests = data.passwordRequests.filter((request) => request.status === "pending");
+  const pendingRescheduleRequests = data.rescheduleRequests
+    .filter((request) => request.status === "pending")
+    .sort((a, b) => {
+      const aTime = new Date(a.requestedAt || a.requestedDate).getTime();
+      const bTime = new Date(b.requestedAt || b.requestedDate).getTime();
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    });
   const studentActivity = data.students
     .map((student) => ({
       student,
@@ -142,6 +154,57 @@ export default async function AdminDashboardPage() {
         <StatCard icon="review" label="Homework Assigned Today" value={homeworkToday} />
         <StatCard icon="megaphone" label="Pending Reviews" value={pendingReviews} />
       </div>
+
+      {pendingRescheduleRequests.length > 0 ? (
+        <section className="rounded-2xl border border-accent-warm/35 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(96,165,250,0.08),rgba(110,231,183,0.08))] p-5 shadow-[0_0_45px_rgba(245,158,11,0.12)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-accent-warm/35 bg-accent-warm/10 px-3 py-1 font-mono text-xs uppercase text-[color:var(--accent-warm)]">
+                  Action needed
+                </span>
+                <StatusBadge status="pending" label={`${pendingRescheduleRequests.length} class request${pendingRescheduleRequests.length === 1 ? "" : "s"}`} />
+              </div>
+              <h2 className="mt-3 font-heading text-2xl font-bold">Students are waiting for class approval</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">
+                Review these before the next class window so students clearly know whether to join their regular class,
+                attend a make-up, or choose another time.
+              </p>
+            </div>
+            <Link
+              href="/admin/attendance#reschedule-requests"
+              className="button-motion inline-flex shrink-0 items-center justify-center rounded-xl bg-accent px-5 py-3 font-bold text-bg-base"
+            >
+              Review requests
+            </Link>
+          </div>
+          <div className="mt-5 grid gap-3 lg:grid-cols-3">
+            {pendingRescheduleRequests.slice(0, 3).map((request) => {
+              const student = data.students.find((item) => item.id === request.studentId);
+              return (
+                <article key={`pending-reschedule-${request.id}`} className="rounded-xl border border-white/10 bg-bg-card/70 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-heading font-bold">{request.studentName}</p>
+                      <p className="mt-1 text-xs text-text-muted">{student?.timeZone ?? request.requestedTimeZone}</p>
+                    </div>
+                    <StatusBadge
+                      status="rescheduled"
+                      label={getRescheduleRequestKind(request) === "rescheduled" ? "Move" : "Make-up"}
+                    />
+                  </div>
+                  <p className="mt-3 text-sm text-text-secondary">
+                    {formatRescheduleRequestTime(request, ADMIN_TIME_ZONE)}
+                  </p>
+                  {request.reason ? (
+                    <p className="mt-2 line-clamp-2 text-xs text-text-muted">{request.reason}</p>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="premium-card rounded-xl p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

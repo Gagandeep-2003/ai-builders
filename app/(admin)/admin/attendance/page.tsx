@@ -54,6 +54,10 @@ export default async function AdminAttendancePage({
         ? "That date falls inside this student's scheduled break. Choose a date after classes resume."
         : params?.reschedule === "invalid-original"
           ? "The original class date does not match this student's schedule."
+        : params?.reschedule === "approved"
+          ? "Class request approved. The student can now see the updated class in their portal."
+        : params?.reschedule === "rejected"
+          ? "Class request rejected. The student will see that the requested time is not scheduled and can choose another slot."
         : params?.reschedule === "deleted"
           ? "The approved one-off class was deleted and removed from the student's schedule."
         : params?.reschedule === "updated"
@@ -66,6 +70,27 @@ export default async function AdminAttendancePage({
       {rescheduleNotice ? (
         <div className="rounded-xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
           {rescheduleNotice}
+        </div>
+      ) : null}
+      {pendingReschedules.length > 0 ? (
+        <div className="rounded-2xl border border-accent-warm/35 bg-accent-warm/10 p-5 shadow-[0_0_35px_rgba(245,158,11,0.12)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-mono text-xs uppercase text-[color:var(--accent-warm)]">Approval queue</p>
+              <h2 className="mt-2 font-heading text-xl font-bold">
+                {pendingReschedules.length} student class request{pendingReschedules.length === 1 ? "" : "s"} need your decision
+              </h2>
+              <p className="mt-2 text-sm text-text-secondary">
+                Approve to place it on the student&apos;s schedule, or reject with a note so they know to pick another time.
+              </p>
+            </div>
+            <a
+              href="#reschedule-requests"
+              className="button-motion inline-flex justify-center rounded-xl border border-accent-warm/35 bg-accent-warm/10 px-4 py-2 font-bold text-[color:var(--accent-warm)]"
+            >
+              Jump to requests
+            </a>
+          </div>
         </div>
       ) : null}
 
@@ -88,7 +113,7 @@ export default async function AdminAttendancePage({
         </div>
       </section>
 
-      <section className="premium-card rounded-xl p-6">
+      <section id="reschedule-requests" className="scroll-mt-6 premium-card rounded-xl p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-xs uppercase text-accent">Reschedule requests</p>

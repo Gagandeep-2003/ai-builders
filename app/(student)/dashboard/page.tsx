@@ -4,6 +4,8 @@ import {
   Trophy,
   Video,
   BookOpenCheck,
+  Clock3,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { AnimatedPage, FadeIn, Stagger } from "@/components/ui/animated";
@@ -14,10 +16,13 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { AchievementStrip } from "@/components/portal/achievement-strip";
 import { BatchPauseNotice } from "@/components/portal/batch-pause-notice";
 import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   daysUntilClassEvent,
   formatClassEventTime,
+  formatRescheduleRequestTime,
   getNextClassEvent,
+  getRescheduleRequestKind,
   getStudentClassEvents,
 } from "@/lib/class-events";
 import { getStudentAchievementData, getStudentDashboardData } from "@/lib/data";
@@ -58,6 +63,14 @@ export default async function DashboardPage() {
     attendance: data.attendance,
     sessions: data.sessions,
   });
+  const pendingClassRequest = data.rescheduleRequests.find((request) => request.status === "pending");
+  const latestRejectedClassRequest = data.rescheduleRequests
+    .filter((request) => request.status === "rejected")
+    .sort((a, b) => {
+      const aTime = new Date(a.reviewedAt || a.requestedAt || a.requestedDate).getTime();
+      const bTime = new Date(b.reviewedAt || b.requestedAt || b.requestedDate).getTime();
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    })[0];
 
   return (
     <AnimatedPage>
@@ -67,6 +80,50 @@ export default async function DashboardPage() {
       />
 
       <BatchPauseNotice batch={data.batch} />
+      {pendingClassRequest ? (
+        <Link
+          href="/class"
+          className="group block rounded-2xl border border-accent-warm/35 bg-accent-warm/10 p-4 shadow-[0_0_30px_rgba(245,158,11,0.1)] transition hover:border-accent-warm/60"
+        >
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent-warm/30 bg-accent-warm/10 text-[color:var(--accent-warm)]">
+              <Clock3 className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-mono text-xs uppercase text-[color:var(--accent-warm)]">Class request pending</p>
+                <StatusBadge
+                  status="pending"
+                  label={getRescheduleRequestKind(pendingClassRequest) === "rescheduled" ? "Move request" : "Make-up request"}
+                />
+              </div>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                Requested {formatRescheduleRequestTime(pendingClassRequest, data.student.timeZone)}. Your current schedule stays the same until your mentor approves it.
+              </p>
+            </div>
+          </div>
+        </Link>
+      ) : latestRejectedClassRequest ? (
+        <Link
+          href="/class"
+          className="group block rounded-2xl border border-danger/35 bg-danger/10 p-4 shadow-[0_0_30px_rgba(251,113,133,0.08)] transition hover:border-danger/60"
+        >
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-danger/30 bg-danger/10 text-[color:var(--danger)]">
+              <XCircle className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-mono text-xs uppercase text-[color:var(--danger)]">Class request not approved</p>
+                <StatusBadge status="rejected" />
+              </div>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                {formatRescheduleRequestTime(latestRejectedClassRequest, data.student.timeZone)} is not scheduled. Open My Class to choose another slot.
+              </p>
+            </div>
+          </div>
+        </Link>
+      ) : null}
 
       <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <FadeIn>

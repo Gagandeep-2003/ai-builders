@@ -1,4 +1,4 @@
-import { CalendarPlus, CheckCircle2, CircleDot } from "lucide-react";
+import { CalendarPlus, CheckCircle2, CircleDot, Clock3, XCircle } from "lucide-react";
 import { requestClassRescheduleAction } from "@/app/actions/class";
 import { ClassLiveCard } from "@/components/portal/class-live-card";
 import { BatchPauseNotice } from "@/components/portal/batch-pause-notice";
@@ -10,6 +10,7 @@ import {
   formatClassEventTime,
   formatRescheduleRequestTime,
   getNextClassEvent,
+  getRescheduleRequestKind,
   getStudentClassEvents,
 } from "@/lib/class-events";
 import { getAdminAvailabilityData, getMentorScheduleData, getStudentClassData } from "@/lib/data";
@@ -66,6 +67,13 @@ export default async function ClassPage({
     availabilityBucket: availability.bucket,
   });
   const pendingRequest = data.rescheduleRequests.find((request) => request.status === "pending");
+  const latestRejectedRequest = data.rescheduleRequests
+    .filter((request) => request.status === "rejected")
+    .sort((a, b) => {
+      const aTime = new Date(a.reviewedAt || a.requestedAt || a.requestedDate).getTime();
+      const bTime = new Date(b.reviewedAt || b.requestedAt || b.requestedDate).getTime();
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    })[0];
   const originalClassOptions = data.sessions
     .filter((session) => getSessionDateTimes(session, data.batch).endsAt.getTime() >= now.getTime())
     .map((session) => ({
@@ -135,11 +143,68 @@ export default async function ClassPage({
           </div>
 
           {pendingRequest ? (
-            <div className="mt-5 rounded-xl border border-accent-warm/30 bg-accent-warm/10 p-4 text-sm text-amber-100">
-              Pending for {formatRescheduleRequestTime(pendingRequest, data.student.timeZone)}
+            <div className="mt-5 rounded-2xl border border-accent-warm/35 bg-accent-warm/10 p-4 shadow-[0_0_30px_rgba(245,158,11,0.12)]">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent-warm/30 bg-accent-warm/10 text-[color:var(--accent-warm)]">
+                  <Clock3 className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-mono text-xs uppercase text-[color:var(--accent-warm)]">
+                      Waiting for mentor approval
+                    </p>
+                    <StatusBadge
+                      status="pending"
+                      label={getRescheduleRequestKind(pendingRequest) === "rescheduled" ? "Move request" : "Make-up request"}
+                    />
+                  </div>
+                  <h3 className="mt-2 font-heading text-lg font-bold text-text-primary">
+                    Request sent for {formatRescheduleRequestTime(pendingRequest, data.student.timeZone)}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-text-secondary">
+                    Your request is not active yet. Keep following your current class schedule until your mentor approves it.
+                    If this was for a missed class, your mentor can approve another time or adjust the class later.
+                  </p>
+                  {pendingRequest.reason ? (
+                    <p className="mt-3 rounded-xl border border-border/70 bg-bg-card/70 p-3 text-sm text-text-muted">
+                      Your note: {pendingRequest.reason}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             </div>
           ) : (
-            <form action={requestClassRescheduleAction} className="mt-5 space-y-3">
+            <>
+              {latestRejectedRequest ? (
+                <div className="mt-5 rounded-2xl border border-danger/35 bg-danger/10 p-4 shadow-[0_0_30px_rgba(251,113,133,0.1)]">
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-danger/30 bg-danger/10 text-[color:var(--danger)]">
+                      <XCircle className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-mono text-xs uppercase text-[color:var(--danger)]">
+                          Last request not approved
+                        </p>
+                        <StatusBadge status="rejected" />
+                      </div>
+                      <h3 className="mt-2 font-heading text-lg font-bold text-text-primary">
+                        {formatRescheduleRequestTime(latestRejectedRequest, data.student.timeZone)} is not scheduled
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-text-secondary">
+                        That requested time was not added to your class timeline. Choose another free slot below,
+                        or your mentor can adjust the missed class later or near the end of the course.
+                      </p>
+                      {latestRejectedRequest.adminNote ? (
+                        <p className="mt-3 rounded-xl border border-border/70 bg-bg-card/70 p-3 text-sm text-text-muted">
+                          Mentor note: {latestRejectedRequest.adminNote}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              <form action={requestClassRescheduleAction} className="mt-5 space-y-3">
               <fieldset className="grid gap-2 sm:grid-cols-2">
                 <label className="cursor-pointer rounded-xl border border-accent/30 bg-accent/5 p-3">
                   <input type="radio" name="requestType" value="reschedule" defaultChecked className="mr-2" />
@@ -197,7 +262,8 @@ export default async function ClassPage({
               <button className="button-motion w-full rounded-xl bg-accent px-5 py-3 font-bold text-bg-base">
                 Send Class Request
               </button>
-            </form>
+              </form>
+            </>
           )}
         </div>
       </section>

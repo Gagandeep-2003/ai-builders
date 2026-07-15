@@ -1077,6 +1077,7 @@ export async function reviewRescheduleRequestAction(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/class");
   revalidatePath("/dashboard");
+  redirect(`/admin/attendance?reschedule=${status}`);
 }
 
 export async function updateApprovedRescheduleOriginalAction(formData: FormData) {
