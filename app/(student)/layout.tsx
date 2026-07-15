@@ -2,6 +2,8 @@ import { requireStudentAccess } from "@/lib/auth";
 import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
 import { StudentStrandsSearch } from "@/components/portal/student-strands-search";
 import { StudentSplashCursor } from "@/components/portal/student-splash-cursor";
+import { ChatNotificationPrompt } from "@/components/chat/chat-notification-prompt";
+import { ChatUnreadPoller } from "@/components/chat/chat-unread-poller";
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar-nav";
 import { getNextClassEvent, getStudentClassEvents } from "@/lib/class-events";
@@ -15,6 +17,7 @@ const links: NavLink[] = [
   { href: "/homework", label: "Homework", icon: "check", priority: true },
   { href: "/resources", label: "Resources", icon: "folder", priority: true },
   { href: "/class", label: "My Class", icon: "calendar", priority: true },
+  { href: "/chat", label: "Mentor Chat", icon: "message", priority: true },
   { href: "/progress", label: "Progress", icon: "chart" },
   { href: "/league", label: "AI Builders League", icon: "league" },
   { href: "/referrals", label: "Refer & Earn", icon: "referrals" },
@@ -45,6 +48,9 @@ export default async function StudentLayout({ children }: { children: React.Reac
           ? "Class rescheduled"
           : "Class link status available",
     } : undefined,
+    "/chat": data.unreadChatCount
+      ? { count: data.unreadChatCount, tone: "accent", label: "Unread mentor messages" }
+      : undefined,
   };
   return (
     <div className="min-h-screen">
@@ -52,6 +58,8 @@ export default async function StudentLayout({ children }: { children: React.Reac
       <StudentSplashCursor studentId={data.student.id} />
       <StudentStrandsSearch studentId={data.student.id} studentName={data.student.fullName} />
       <BadgeCelebration key={data.unseenBadge?.id ?? "no-unseen-badge"} award={data.unseenBadge} />
+      <ChatNotificationPrompt />
+      <ChatUnreadPoller initialUnreadCount={data.unreadChatCount} />
       <PortalAutoSync />
       <SidebarNav links={links} badges={badges} />
       <div className="px-4 py-20 sm:px-6 lg:ml-72 lg:px-10 lg:py-10">

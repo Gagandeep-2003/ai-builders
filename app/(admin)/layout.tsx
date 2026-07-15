@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { AdminCommandCenter, type AdminCommandAction } from "@/components/admin/admin-command-center";
+import { ChatNotificationPrompt } from "@/components/chat/chat-notification-prompt";
+import { ChatUnreadPoller } from "@/components/chat/chat-unread-poller";
 import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
 import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar-nav";
@@ -11,6 +13,7 @@ import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 const links: NavLink[] = [
   { href: "/admin", label: "Dashboard", icon: "dashboard", priority: true },
   { href: "/admin/students", label: "Students", icon: "students", priority: true },
+  { href: "/admin/chat", label: "Student Chat", icon: "message", priority: true },
   { href: "/admin/slots", label: "Slots", icon: "slots" },
   { href: "/admin/progress", label: "Progress", icon: "chart" },
   { href: "/admin/homework", label: "Homework", icon: "homework", priority: true },
@@ -60,6 +63,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     "/admin/homework": pendingHomework ? { count: pendingHomework, tone: "warm", label: "Homework reviews pending" } : undefined,
     "/admin/attendance": pendingReschedules ? { count: pendingReschedules, tone: "accent", label: "Make-up requests pending" } : undefined,
     "/admin/students": onlineStudents ? { count: onlineStudents, tone: "accent", label: "Students online now" } : undefined,
+    "/admin/chat": data.unreadChatCount ? { count: data.unreadChatCount, tone: "accent", label: "Unread student messages" } : undefined,
   };
   const actions: AdminCommandAction[] = [
     {
@@ -85,6 +89,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       tone: "accent",
       count: pendingReschedules,
       keywords: ["reschedule", "makeup", "make-up", "request", "attendance"],
+    },
+    {
+      title: "Open student chat",
+      description: "Message students privately with text or voice notes.",
+      href: "/admin/chat",
+      tone: "accent",
+      count: data.unreadChatCount,
+      keywords: ["chat", "message", "student", "voice"],
     },
     {
       title: "Password requests",
@@ -120,6 +132,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen">
       <CardBorderGlow />
+      <ChatNotificationPrompt />
+      <ChatUnreadPoller initialUnreadCount={data.unreadChatCount} />
       <AdminCommandCenter
         data={{
           todayClasses,

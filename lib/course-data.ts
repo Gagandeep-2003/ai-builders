@@ -8,6 +8,8 @@ export type HomeworkKind = "class_challenge" | "home_task";
 export type ReferralStatus = "pending" | "contacted" | "enrolled" | "rewarded" | "closed";
 export type BadgeCategory = "curriculum" | "homework" | "attendance" | "streak" | "mentor";
 export type BadgeRarity = "common" | "rare" | "epic" | "legendary";
+export type ChatSenderRole = "student" | "admin";
+export type ChatMessageKind = "text" | "voice";
 
 export type HomeworkDetails = {
   moduleNumber: number;
@@ -271,6 +273,27 @@ export type ReferralSubmission = {
   adminNote: string;
   createdAt: string;
   reviewedAt: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  studentId: string;
+  senderRole: ChatSenderRole;
+  senderUserId?: string;
+  kind: ChatMessageKind;
+  body: string;
+  voiceData?: string;
+  voiceMime?: string;
+  voiceDurationSeconds?: number;
+  createdAt: string;
+  readByStudentAt?: string;
+  readByAdminAt?: string;
+};
+
+export type ChatThreadSummary = {
+  student: StudentProfile;
+  lastMessage?: ChatMessage;
+  unreadCount: number;
 };
 
 export const modules: CourseModule[] = [

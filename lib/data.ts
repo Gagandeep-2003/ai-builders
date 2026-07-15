@@ -17,6 +17,8 @@ import {
   type BatchPause,
   type ClassJoinEvent,
   type ClassRescheduleRequest,
+  type ChatMessage,
+  type ChatThreadSummary,
   type CourseModule,
   type CourseSession,
   type FeedbackItem,
@@ -99,6 +101,7 @@ export type StudentShellData = StudentContextData & Pick<
   "rescheduleRequests"
 > & {
   pendingHomeworkCount: number;
+  unreadChatCount: number;
   unseenBadge?: StudentBadge;
 };
 
@@ -109,7 +112,20 @@ export type StudentHomeworkDetailData = StudentContextData & {
 export type AdminShellData = Pick<
   AdminData,
   "students" | "batches" | "sessions" | "homework" | "attendance" | "rescheduleRequests" | "passwordRequests"
->;
+> & {
+  unreadChatCount: number;
+};
+
+export type StudentChatData = StudentContextData & {
+  messages: ChatMessage[];
+};
+
+export type AdminChatData = {
+  students: StudentProfile[];
+  threads: ChatThreadSummary[];
+  selectedStudent?: StudentProfile;
+  messages: ChatMessage[];
+};
 
 export type MentorScheduleData = Pick<AdminData, "students" | "batches" | "rescheduleRequests">;
 export type AdminStudentsData = Pick<AdminData, "students" | "batches" | "modules">;
@@ -321,6 +337,23 @@ function mapStudent(row: DbRow): StudentProfile {
     timeZone: text(row, "time_zone", "Asia/Kolkata"),
     batchId: text(row, "batch_id"),
     enrolledAt: text(row, "enrolled_at"),
+  };
+}
+
+function mapChatMessage(row: DbRow): ChatMessage {
+  return {
+    id: text(row, "id"),
+    studentId: text(row, "student_id"),
+    senderRole: text(row, "sender_role", "student") as ChatMessage["senderRole"],
+    senderUserId: text(row, "sender_user_id") || undefined,
+    kind: text(row, "kind", "text") as ChatMessage["kind"],
+    body: text(row, "body"),
+    voiceData: text(row, "voice_data") || undefined,
+    voiceMime: text(row, "voice_mime") || undefined,
+    voiceDurationSeconds: num(row, "voice_duration_seconds") || undefined,
+    createdAt: text(row, "created_at"),
+    readByStudentAt: text(row, "read_by_student_at") || undefined,
+    readByAdminAt: text(row, "read_by_admin_at") || undefined,
   };
 }
 
@@ -1095,6 +1128,93 @@ export async function getAdminReferralData(): Promise<ReferralSubmission[]> {
   return data?.map((row) => mapReferral(row)) ?? [];
 }
 
+export async function getStudentChatData(): Promise<StudentChatData> {
+  const context = await getStudentContextData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { ...context, messages: [] };
+
+  const { data } = await supabase
+    .from("chat_messages")
+    .select("id, student_id, sender_role, sender_user_id, kind, body, voice_data, voice_mime, voice_duration_seconds, created_at, read_by_student_at, read_by_admin_at")
+    .eq("student_id", context.student.id)
+    .order("created_at", { ascending: true })
+    .limit(200);
+
+  return {
+    ...context,
+    messages: data?.map((row) => mapChatMessage(row)) ?? [],
+  };
+}
+
+export async function getAdminChatData(selectedStudentId?: string): Promise<AdminChatData> {
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    return { students: [demoStudent], threads: [], selectedStudent: demoStudent, messages: [] };
+  }
+
+  const [{ data: studentRows }, { data: messageRows }] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
+      .order("full_name", { ascending: true }),
+    supabase
+      .from("chat_messages")
+      .select("id, student_id, sender_role, sender_user_id, kind, body, voice_data, voice_mime, voice_duration_seconds, created_at, read_by_student_at, read_by_admin_at")
+      .order("created_at", { ascending: false })
+      .limit(600),
+  ]);
+
+  const students = studentRows?.map((row) => mapStudent(row)) ?? [];
+  const messagesDescending = messageRows?.map((row) => mapChatMessage(row)) ?? [];
+  const studentMap = new Map(students.map((student) => [student.id, student]));
+  const grouped = new Map<string, ChatMessage[]>();
+
+  for (const message of messagesDescending) {
+    const bucket = grouped.get(message.studentId) ?? [];
+    bucket.push(message);
+    grouped.set(message.studentId, bucket);
+  }
+
+  const threads = students
+    .map((student) => {
+      const messages = grouped.get(student.id) ?? [];
+      const unreadCount = messages.filter(
+        (message) => message.senderRole === "student" && !message.readByAdminAt,
+      ).length;
+      return {
+        student,
+        lastMessage: messages[0],
+        unreadCount,
+      };
+    })
+    .sort((a, b) => {
+      if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
+      const aTime = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const bTime = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return bTime - aTime || a.student.fullName.localeCompare(b.student.fullName);
+    });
+
+  const selectedStudent =
+    (selectedStudentId ? studentMap.get(selectedStudentId) : undefined) ??
+    threads.find((thread) => thread.unreadCount > 0)?.student ??
+    threads[0]?.student ??
+    students[0];
+
+  if (!selectedStudent) return { students, threads, messages: [] };
+
+  const selectedMessages = (grouped.get(selectedStudent.id) ?? [])
+    .slice()
+    .reverse()
+    .slice(-200);
+
+  return {
+    students,
+    threads,
+    selectedStudent,
+    messages: selectedMessages,
+  };
+}
+
 async function getStudentProfileDataImpl() {
   const context = await getStudentContextData();
   const data = emptyStudentData(context);
@@ -1122,6 +1242,7 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
       ...context,
       pendingHomeworkCount: demoHomework
         .filter((item) => item.status === "pending" || item.status === "revision_requested").length,
+      unreadChatCount: 0,
       rescheduleRequests: [],
     };
   }
@@ -1129,7 +1250,7 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
     .from("homework")
     .select(shellHomeworkSelect)
     .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`);
-  const [{ data: homeworkRows }, { data: rescheduleRows }, { data: unseenRows }] = await Promise.all([
+  const [{ data: homeworkRows }, { data: rescheduleRows }, { data: unseenRows }, chatUnread] = await Promise.all([
     homeworkQuery,
     supabase
       .from("class_reschedule_requests")
@@ -1144,6 +1265,12 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
       .is("seen_at", null)
       .order("awarded_at", { ascending: true })
       .limit(1),
+    supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", context.student.id)
+      .eq("sender_role", "admin")
+      .is("read_by_student_at", null),
   ]);
   const pendingHomeworkCount = (homeworkRows ?? []).filter((row) => {
     const submission = relationRows(row, "submissions")
@@ -1155,6 +1282,7 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
   return {
     ...context,
     pendingHomeworkCount,
+    unreadChatCount: chatUnread.count ?? 0,
     rescheduleRequests: rescheduleRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     unseenBadge,
   };
@@ -1173,6 +1301,7 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
       attendance: fallback.attendance,
       rescheduleRequests: fallback.rescheduleRequests,
       passwordRequests: fallback.passwordRequests,
+      unreadChatCount: 0,
     };
   }
 
@@ -1187,6 +1316,7 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
       attendance: fallback.attendance,
       rescheduleRequests: fallback.rescheduleRequests,
       passwordRequests: fallback.passwordRequests,
+      unreadChatCount: 0,
     };
   }
 
@@ -1199,6 +1329,7 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
     { data: rescheduleRequestRows },
     { data: passwordRequestRows },
     { data: pauseRows },
+    chatUnread,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -1232,6 +1363,11 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
     supabase
       .from("batch_pauses")
       .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
+    supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("sender_role", "student")
+      .is("read_by_admin_at", null),
   ]);
 
   const mappedSessions = (sessionRows ?? [])
@@ -1262,6 +1398,7 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
     attendance: attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance,
     rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
+    unreadChatCount: chatUnread.count ?? 0,
   };
 }
 
