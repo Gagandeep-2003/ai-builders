@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import {
   formatClassEventTime,
   formatRescheduleRequestTime,
+  getActiveRejectedClassRequest,
   getNextClassEvent,
   getRescheduleRequestKind,
   getStudentClassEvents,
@@ -67,13 +68,7 @@ export default async function ClassPage({
     availabilityBucket: availability.bucket,
   });
   const pendingRequest = data.rescheduleRequests.find((request) => request.status === "pending");
-  const latestRejectedRequest = data.rescheduleRequests
-    .filter((request) => request.status === "rejected")
-    .sort((a, b) => {
-      const aTime = new Date(a.reviewedAt || a.requestedAt || a.requestedDate).getTime();
-      const bTime = new Date(b.reviewedAt || b.requestedAt || b.requestedDate).getTime();
-      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
-    })[0];
+  const latestRejectedRequest = getActiveRejectedClassRequest(data.rescheduleRequests, classEvents, now);
   const originalClassOptions = data.sessions
     .filter((session) => getSessionDateTimes(session, data.batch).endsAt.getTime() >= now.getTime())
     .map((session) => ({

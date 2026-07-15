@@ -19,6 +19,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   daysUntilClassEvent,
+  getActiveRejectedClassRequest,
   formatClassEventTime,
   formatRescheduleRequestTime,
   getNextClassEvent,
@@ -64,13 +65,7 @@ export default async function DashboardPage() {
     sessions: data.sessions,
   });
   const pendingClassRequest = data.rescheduleRequests.find((request) => request.status === "pending");
-  const latestRejectedClassRequest = data.rescheduleRequests
-    .filter((request) => request.status === "rejected")
-    .sort((a, b) => {
-      const aTime = new Date(a.reviewedAt || a.requestedAt || a.requestedDate).getTime();
-      const bTime = new Date(b.reviewedAt || b.requestedAt || b.requestedDate).getTime();
-      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
-    })[0];
+  const latestRejectedClassRequest = getActiveRejectedClassRequest(data.rescheduleRequests, classEvents, now);
 
   return (
     <AnimatedPage>

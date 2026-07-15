@@ -74,6 +74,28 @@ export function getRescheduleRequestKind(request: Pick<ClassRescheduleRequest, "
   return request.originalDate ? "rescheduled" as const : "makeup" as const;
 }
 
+function getRequestNoticeTime(request: ClassRescheduleRequest) {
+  const preferredDate = request.reviewedAt || request.requestedAt;
+  const preferredTime = preferredDate ? new Date(preferredDate).getTime() : Number.NaN;
+  if (Number.isFinite(preferredTime)) return preferredTime;
+  return getRescheduleRequestDateTimes(request).startsAt.getTime();
+}
+
+export function getActiveRejectedClassRequest(
+  requests: ClassRescheduleRequest[],
+  events: Pick<ClassEvent, "startsAt" | "endsAt">[],
+  now = new Date(),
+) {
+  return requests
+    .filter((request) => request.status === "rejected")
+    .sort((a, b) => getRequestNoticeTime(b) - getRequestNoticeTime(a))
+    .find((request) => {
+      const noticeTime = getRequestNoticeTime(request);
+      const nextClassAfterDecision = events.find((event) => event.startsAt.getTime() > noticeTime);
+      return Boolean(nextClassAfterDecision && nextClassAfterDecision.endsAt.getTime() >= now.getTime());
+    });
+}
+
 export function getClassEventLabel(event: Pick<ClassEvent, "kind">) {
   if (event.kind === "rescheduled") return "Rescheduled";
   if (event.kind === "makeup") return "Make-up";
