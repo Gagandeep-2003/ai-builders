@@ -128,7 +128,7 @@ export function ChatPanel({
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-border bg-bg-card/80 shadow-2xl shadow-black/20">
+    <section className="flex h-[min(74vh,50rem)] min-h-[34rem] flex-col overflow-hidden rounded-3xl border border-border bg-bg-card/80 shadow-2xl shadow-black/20">
       <div className="flex items-center gap-3 border-b border-border/70 bg-white/[0.03] px-5 py-4">
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-accent to-info font-heading text-sm font-bold text-black">
           {initials(peerName)}
@@ -141,7 +141,7 @@ export function ChatPanel({
 
       <div
         ref={scrollRef}
-        className="max-h-[62vh] min-h-[28rem] space-y-4 overflow-y-auto px-4 py-5 sm:px-6"
+        className="flex-1 space-y-4 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(106,255,193,0.05),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(89,160,255,0.05),transparent_30%)] px-4 py-5 sm:px-6"
       >
         {groupedMessages.length ? (
           groupedMessages.map((message) => {
@@ -187,7 +187,7 @@ export function ChatPanel({
         )}
       </div>
 
-      <form ref={formRef} action={formAction} className="border-t border-border/70 bg-bg-base/80 p-4">
+      <form ref={formRef} action={formAction} className="border-t border-border/70 bg-bg-base/90 p-4">
         {studentId ? <input type="hidden" name="studentId" value={studentId} /> : null}
         <input type="hidden" name="voiceData" value={voiceData} />
         <input type="hidden" name="voiceMime" value={voiceMime} />

@@ -32,6 +32,7 @@ export function ChatUnreadPoller({ initialUnreadCount = 0 }: { initialUnreadCoun
             const body = payload.latest?.trim() || "You have a new private message.";
             new Notification("AI Builders Chat", {
               body,
+              icon: "/android-chrome-192x192.png",
               tag: "ai-builders-chat",
             });
           }
@@ -43,7 +44,8 @@ export function ChatUnreadPoller({ initialUnreadCount = 0 }: { initialUnreadCoun
       }
     }
 
-    const interval = window.setInterval(checkUnread, 45_000);
+    const firstCheck = window.setTimeout(checkUnread, 8_000);
+    const interval = window.setInterval(checkUnread, 25_000);
     const onVisibility = () => {
       if (document.visibilityState === "visible") void checkUnread();
     };
@@ -51,6 +53,7 @@ export function ChatUnreadPoller({ initialUnreadCount = 0 }: { initialUnreadCoun
 
     return () => {
       canceled = true;
+      window.clearTimeout(firstCheck);
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
     };
