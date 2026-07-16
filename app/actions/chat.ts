@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireStudentAccess } from "@/lib/auth";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { sendPushToUserIds } from "@/lib/push-notifications";
+import { createServerSupabaseClient, createServiceRoleSupabaseClient } from "@/lib/supabase/server";
 
 export type ChatActionState = {
   status: "idle" | "success" | "error";
@@ -18,6 +19,11 @@ function value(formData: FormData, key: string) {
 
 function normalizeText(text: string) {
   return text.replace(/\s+\n/g, "\n").trim().slice(0, MAX_TEXT_LENGTH);
+}
+
+function notificationBody(body: string, hasVoice: boolean) {
+  if (body) return body.length > 120 ? `${body.slice(0, 117)}...` : body;
+  return hasVoice ? "Sent you a voice note." : "Sent you a new message.";
 }
 
 type VoicePayload =
@@ -98,6 +104,19 @@ export async function sendStudentChatMessageAction(
   });
 
   if (error) return { status: "error", message: "Message could not be sent. Please try again." };
+  const service = createServiceRoleSupabaseClient();
+  if (service) {
+    const { data: admins } = await service.from("profiles").select("id").eq("role", "admin");
+    await sendPushToUserIds(
+      (admins ?? []).map((admin) => admin.id),
+      {
+        title: `New message from ${profile.fullName}`,
+        body: notificationBody(body, Boolean(voice.voiceData)),
+        url: `/admin/chat?student=${studentId}`,
+        tag: `chat-${studentId}`,
+      },
+    );
+  }
   revalidateChat(studentId);
   return { status: "success", message: "Message sent." };
 }
@@ -133,6 +152,22 @@ export async function sendAdminChatMessageAction(
   });
 
   if (error) return { status: "error", message: "Message could not be sent. Please try again." };
+  const service = createServiceRoleSupabaseClient();
+  if (service) {
+    const { data: student } = await service
+      .from("students")
+      .select("user_id")
+      .eq("id", studentId)
+      .maybeSingle();
+    if (student?.user_id) {
+      await sendPushToUserIds([student.user_id], {
+        title: "New message from your AI Builders mentor",
+        body: notificationBody(body, Boolean(voice.voiceData)),
+        url: "/chat",
+        tag: `chat-${studentId}`,
+      });
+    }
+  }
   revalidateChat(studentId);
   return { status: "success", message: "Message sent." };
 }

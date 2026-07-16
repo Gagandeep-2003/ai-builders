@@ -128,14 +128,17 @@ export function ChatPanel({
   }
 
   return (
-    <section className="flex h-[min(74vh,50rem)] min-h-[34rem] flex-col overflow-hidden rounded-3xl border border-border bg-bg-card/80 shadow-2xl shadow-black/20">
+    <section className="flex h-[min(76vh,54rem)] min-h-[36rem] flex-col overflow-hidden rounded-3xl border border-border bg-bg-card/80 shadow-2xl shadow-black/20">
       <div className="flex items-center gap-3 border-b border-border/70 bg-white/[0.03] px-5 py-4">
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-accent to-info font-heading text-sm font-bold text-black">
           {initials(peerName)}
         </div>
         <div className="min-w-0">
           <p className="truncate font-heading text-lg font-semibold text-text-primary">{peerName}</p>
-          <p className="text-xs text-text-muted">Private course chat</p>
+          <p className="flex items-center gap-1.5 text-xs text-text-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" />
+            Private course chat
+          </p>
         </div>
       </div>
 

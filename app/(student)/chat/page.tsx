@@ -1,4 +1,4 @@
-import { BellRing, MessageSquareText, ShieldCheck } from "lucide-react";
+import { BellRing, MessageSquareText, Mic, ShieldCheck } from "lucide-react";
 import { sendStudentChatMessageAction, markStudentChatReadAction } from "@/app/actions/chat";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { ChatReadMarker } from "@/components/chat/chat-read-marker";
@@ -17,51 +17,34 @@ export default async function StudentChatPage() {
         subtitle="A private space for questions, reminders, feedback, and quick voice notes with your mentor."
       />
 
-      <section className="grid gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <div className="premium-card rounded-2xl p-5">
-            <span className="grid h-12 w-12 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
-              <MessageSquareText className="h-5 w-5" />
-            </span>
-            <h2 className="mt-4 font-heading text-xl font-bold">Talk to your mentor</h2>
-            <p className="mt-3 text-sm leading-6 text-text-secondary">
-              Use this for homework doubts, class timing questions, missed-class updates, and short voice notes.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-accent/25 bg-accent/10 p-5">
-            <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
-                <BellRing className="h-5 w-5" />
+      <section className="space-y-4">
+        <div className="grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-3">
+          {[
+            { icon: MessageSquareText, title: "Direct mentor line", detail: "Homework, classes, and quick questions" },
+            { icon: BellRing, title: "Background alerts", detail: "Messages can reach you outside the portal" },
+            { icon: Mic, title: "Voice notes", detail: "Send a short update when typing is awkward" },
+          ].map((item) => (
+            <div key={item.title} className="flex items-center gap-3 bg-bg-card px-4 py-3.5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
+                <item.icon className="h-4 w-4" />
               </span>
-              <div>
-                <p className="font-heading text-sm font-semibold text-text-primary">Keep alerts on</p>
-                <p className="mt-1 text-xs leading-5 text-text-secondary">
-                  Allow notifications once so new mentor messages can reach you while the portal is open in another tab.
-                </p>
+              <div className="min-w-0">
+                <p className="font-heading text-sm font-semibold text-text-primary">{item.title}</p>
+                <p className="truncate text-xs text-text-muted">{item.detail}</p>
               </div>
             </div>
-          </div>
-          <div className="rounded-2xl border border-info/25 bg-info/10 p-5">
-            <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-info/25 bg-info/10 text-[color:var(--info)]">
-                <ShieldCheck className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="font-heading text-sm font-semibold text-text-primary">Private course support</p>
-                <p className="mt-1 text-xs leading-5 text-text-secondary">
-                  Messages are visible only to you and the AI Builders mentor/admin account.
-                </p>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
-
         <ChatPanel
           action={sendStudentChatMessageAction}
           messages={data.messages}
           currentRole="student"
           peerName="AI Builders Mentor"
         />
+        <div className="flex items-center justify-center gap-2 text-xs text-text-muted">
+          <ShieldCheck className="h-4 w-4 text-accent" />
+          Private between you and the AI Builders mentor/admin account.
+        </div>
       </section>
     </AnimatedPage>
   );

@@ -274,3 +274,15 @@ Current module
 ```
 
 Use IANA timezone names rather than fixed offsets. This keeps daylight saving time correct for international students.
+
+## Background Chat Notifications
+
+Run `supabase/push-notifications-migration.sql` in the Supabase SQL editor, then configure these Vercel environment variables for Production, Preview, and Development:
+
+```txt
+NEXT_PUBLIC_VAPID_PUBLIC_KEY
+VAPID_PRIVATE_KEY
+VAPID_SUBJECT
+```
+
+`VAPID_SUBJECT` should be a contact URI such as `mailto:admin@example.com`. Keep the private key server-only and redeploy after changing the variables. Students must then choose **Enable background chat alerts** once on a supported browser to create their push subscription.
