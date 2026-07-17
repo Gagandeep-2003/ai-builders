@@ -447,8 +447,16 @@ export function ChatPanel({
   }
 
   function insertEmoji(emoji: string) {
-    setBody((value) => (value + emoji).slice(0, MAX_TEXT_LENGTH));
+    setBody((value) => (value + emoji).slice(0, effectiveMaxLength));
     textareaRef.current?.focus();
+  }
+
+  function attachContext(item: ChatContextItem) {
+    // Reserve room for the context marker so the composed message never
+    // exceeds the server's 2000-character limit.
+    const reserved = MAX_TEXT_LENGTH - (buildContextMarker(item).length + 1);
+    setBody((value) => value.slice(0, reserved));
+    setSelectedContext(item);
   }
 
   function handleScroll() {
@@ -463,9 +471,15 @@ export function ChatPanel({
 
   const quickReplies = QUICK_REPLIES[currentRole];
   const showQuickReplies = !body.trim() && !voiceData && !recording && !selectedContext;
-  const nearLimit = body.length > MAX_TEXT_LENGTH - 200;
+  const effectiveMaxLength = selectedContext
+    ? MAX_TEXT_LENGTH - (buildContextMarker(selectedContext).length + 1)
+    : MAX_TEXT_LENGTH;
+  const nearLimit = body.length > effectiveMaxLength - 200;
   const canSend = Boolean(body.trim() || voiceData || selectedContext) && !isPending && !recording;
-  const contextHref = (id: string) => (currentRole === "student" ? `/homework/${id}` : "/admin/homework");
+  const contextHref = (id: string) =>
+    currentRole === "student"
+      ? `/homework/${id}`
+      : `/admin/homework${studentId ? `?student=${studentId}` : ""}`;
 
   return (
     <section
@@ -958,7 +972,7 @@ export function ChatPanel({
                           key={item.id}
                           type="button"
                           onClick={() => {
-                            setSelectedContext(item);
+                            attachContext(item);
                             setAttachOpen(false);
                             textareaRef.current?.focus();
                           }}
@@ -999,7 +1013,7 @@ export function ChatPanel({
               ref={textareaRef}
               rows={1}
               value={body}
-              maxLength={MAX_TEXT_LENGTH}
+              maxLength={effectiveMaxLength}
               onChange={(event) => {
                 setBody(event.target.value);
                 autoGrow();
@@ -1016,7 +1030,7 @@ export function ChatPanel({
             />
             {nearLimit ? (
               <span className="pointer-events-none absolute -top-5 right-2 font-mono text-[0.62rem] tabular-nums text-text-muted">
-                {body.length}/{MAX_TEXT_LENGTH}
+                {body.length}/{effectiveMaxLength}
               </span>
             ) : null}
           </div>

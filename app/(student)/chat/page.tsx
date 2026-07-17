@@ -74,6 +74,7 @@ export default async function StudentChatPage() {
           messages={data.messages}
           currentRole="student"
           peerName="AI Builders Mentor"
+          studentId={data.student.id}
           contextItems={contextItems}
           className="h-[min(72vh,52rem)]"
         />
