@@ -40,6 +40,7 @@ export default async function AdminChatPage({
             currentRole="admin"
             peerName={data.selectedStudent.fullName}
             studentId={data.selectedStudent.id}
+            peerLastSeenAt={data.selectedStudent.lastSeenAt}
           />
         ) : (
           <div className="premium-card grid min-h-[32rem] place-items-center rounded-3xl p-8 text-center">

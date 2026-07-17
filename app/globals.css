@@ -918,6 +918,94 @@ textarea:focus-visible {
     box-shadow: none;
   }
 }
+.chat-console-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(110, 231, 183, 0.08), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(91, 140, 255, 0.08), transparent 30%),
+    rgba(8, 10, 16, 0.55);
+}
+
+[data-theme="light"] .chat-console-shell {
+  border-color: rgba(4, 120, 87, 0.14);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(4, 120, 87, 0.07), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(37, 99, 235, 0.06), transparent 30%),
+    rgba(255, 255, 255, 0.72);
+}
+
+.chat-console-grid {
+  background-image:
+    linear-gradient(rgb(110 231 183 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(117 167 255 / 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+[data-theme="light"] .chat-console-grid {
+  background-image:
+    linear-gradient(rgb(4 120 87 / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(37 99 235 / 0.05) 1px, transparent 1px);
+}
+
+.chat-glass {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 38%),
+    rgba(10, 12, 18, 0.55);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+}
+
+[data-theme="light"] .chat-glass {
+  border-color: rgba(4, 120, 87, 0.15);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.4) 38%),
+    rgba(255, 255, 255, 0.66);
+}
+
+.chat-bubble-peer {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.07), transparent 46%),
+    rgba(16, 19, 28, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .chat-bubble-peer {
+  border-color: rgba(4, 120, 87, 0.16);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.55) 46%),
+    rgba(255, 255, 255, 0.85);
+}
+
+.chat-bubble-own {
+  background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #38bdf8));
+  box-shadow: 0 10px 34px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.chat-avatar-ring {
+  background:
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    conic-gradient(from 140deg, var(--accent), #38bdf8, #a78bfa, var(--accent)) border-box;
+  border: 2px solid transparent;
+}
+
+@keyframes chat-highlight-flash {
+  0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 65%, transparent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
+.chat-highlight > div {
+  animation: chat-highlight-flash 1.6s ease-out 1;
+  border-radius: 1.5rem;
+}
+
 .chat-audio-range {
   appearance: none;
   height: 5px;

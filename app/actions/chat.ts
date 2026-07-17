@@ -22,7 +22,13 @@ function normalizeText(text: string) {
 }
 
 function notificationBody(body: string, hasVoice: boolean) {
-  if (body) return body.length > 120 ? `${body.slice(0, 117)}...` : body;
+  // Homework context markers ([[hw:id|title]]) are a UI concept; show a clean
+  // preview in push notifications instead of the raw marker.
+  const contextMatch = body.match(/^\[\[hw:[^|\]]+\|([^\]]*)\]\]\s*/);
+  const cleanBody = contextMatch ? body.slice(contextMatch[0].length) : body;
+  const prefix = contextMatch ? `About "${contextMatch[1]}": ` : "";
+  const text = `${prefix}${cleanBody}`.trim();
+  if (text) return text.length > 120 ? `${text.slice(0, 117)}...` : text;
   return hasVoice ? "Sent you a voice note." : "Sent you a new message.";
 }
 
