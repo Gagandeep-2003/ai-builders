@@ -10,7 +10,11 @@ export default function LoginPage() {
 
       <section className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,430px)]">
         <div className="mx-auto max-w-xl text-center lg:mx-0 lg:text-left">
-          <Link href="/" className="font-mono text-xs uppercase tracking-[0.22em] text-accent">
+          <Link
+            href="/"
+            className="group inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.22em] text-accent"
+          >
+            <span aria-hidden="true" className="transition group-hover:-translate-x-0.5">←</span>
             AI Builders Academy
           </Link>
           <h2 className="mt-6 font-heading text-4xl font-bold leading-tight text-text-primary sm:text-5xl">

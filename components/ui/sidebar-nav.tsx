@@ -198,7 +198,7 @@ export function SidebarNav({
           <MessageCircle className="h-4 w-4 text-accent/80 transition group-hover:text-accent" />
           <span className="flex-1 text-left">Quick Chat</span>
           <span className="hidden font-mono text-[0.6rem] uppercase tracking-[0.12em] text-text-muted sm:inline">
-            Alt + Space
+            Ctrl/⌘ K
           </span>
         </button>
         {footer}

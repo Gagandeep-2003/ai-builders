@@ -918,6 +918,57 @@ textarea:focus-visible {
     box-shadow: none;
   }
 }
+.chat-audio-range {
+  appearance: none;
+  height: 5px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--accent) var(--audio-progress, 0%), rgba(255, 255, 255, 0.14) var(--audio-progress, 0%));
+  outline-offset: 4px;
+  cursor: pointer;
+}
+
+.chat-audio-range-own {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.72) var(--audio-progress, 0%), rgba(0, 0, 0, 0.2) var(--audio-progress, 0%));
+}
+
+.chat-audio-range::-webkit-slider-thumb {
+  appearance: none;
+  height: 13px;
+  width: 13px;
+  border-radius: 999px;
+  border: none;
+  background: currentColor;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.chat-audio-range::-moz-range-thumb {
+  height: 13px;
+  width: 13px;
+  border-radius: 999px;
+  border: none;
+  background: currentColor;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.chat-recording-bar {
+  animation: chat-recording-bounce 0.9s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+@keyframes chat-recording-bounce {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-recording-bar {
+    animation: none;
+    transform: scaleY(0.7);
+  }
+}
+
 @keyframes badge-ray-spin {
   to { transform: rotate(360deg); }
 }
