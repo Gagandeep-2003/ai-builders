@@ -32,6 +32,21 @@ import { calculateLeagueScore } from "@/lib/league";
 import { formatDate } from "@/lib/utils";
 import { formatSessionTime, getNextSession } from "@/lib/time";
 
+function getGreeting(now: Date, timeZone: string) {
+  let hour = now.getHours();
+  try {
+    hour = Number(
+      new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone }).format(now),
+    ) % 24;
+  } catch {
+    // Fall back to server-local hour if the stored timezone is invalid.
+  }
+  if (hour < 5) return "Up late building";
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default async function DashboardPage() {
   const [data, achievements] = await Promise.all([getStudentDashboardData(), getStudentAchievementData()]);
   const now = new Date();
@@ -70,7 +85,7 @@ export default async function DashboardPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        title={`Welcome back, ${data.student.fullName.split(" ")[0]} 👋`}
+        title={`${getGreeting(now, data.student.timeZone)}, ${data.student.fullName.split(" ")[0]} 👋`}
         subtitle={`Today is ${formatDate(new Date(), { weekday: "long" })}. Your next class is ${nextClassEvent?.kind === "makeup" ? "a make-up class" : nextClassEvent?.kind === "rescheduled" ? "a rescheduled class" : nextSession.title} at ${nextClassEvent ? formatClassEventTime(nextClassEvent, data.student.timeZone) : formatSessionTime(nextSession, data.batch, data.student.timeZone)}.`}
       />
 

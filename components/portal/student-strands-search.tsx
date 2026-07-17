@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   Command,
+  CornerDownLeft,
   Droplets,
+  History,
   MousePointer2,
   Palette,
   Pause,
@@ -36,6 +39,49 @@ export type StudentSearchItem = {
   keywords: string[];
   priority?: number;
 };
+
+const PAGE_NAV_ITEMS: StudentSearchItem[] = [
+  {
+    title: "Dashboard",
+    eyebrow: "Navigate",
+    description: "Your overview: next class, stats, homework, and announcements.",
+    href: "/dashboard",
+    keywords: ["dashboard", "home", "overview", "start"],
+    priority: 2,
+  },
+  {
+    title: "Journey",
+    eyebrow: "Navigate",
+    description: "Your visual learning journey across every module and session.",
+    href: "/journey",
+    keywords: ["journey", "map", "path", "story"],
+    priority: 1,
+  },
+  {
+    title: "Curriculum",
+    eyebrow: "Navigate",
+    description: "All modules and sessions, with tools and expected outputs.",
+    href: "/curriculum",
+    keywords: ["curriculum", "syllabus", "modules", "sessions", "lessons"],
+    priority: 2,
+  },
+  {
+    title: "Homework",
+    eyebrow: "Navigate",
+    description: "Class challenges and home tasks, module by module.",
+    href: "/homework",
+    keywords: ["homework", "tasks", "assignments", "challenges", "work"],
+    priority: 2,
+  },
+  {
+    title: "Resources",
+    eyebrow: "Navigate",
+    description: "Session decks, links, videos, and notes shared by your mentor.",
+    href: "/resources",
+    keywords: ["resources", "library", "decks", "links", "materials"],
+    priority: 2,
+  },
+];
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -75,6 +121,7 @@ function scoreItem(item: StudentSearchItem, query: string) {
   let score = item.priority ?? 0;
   for (const term of terms) {
     if (normalize(item.title).includes(term)) score += 14;
+    if (normalize(item.title).startsWith(term)) score += 6;
     if (normalize(item.eyebrow).includes(term)) score += 8;
     if (item.keywords.some((keyword) => normalize(keyword).includes(term))) score += 6;
     if (haystack.includes(term)) score += 3;
@@ -271,7 +318,7 @@ function playResultTone(context: AudioContext | null, index: number, variant: "r
   oscillator.type = variant === "ready" ? "triangle" : "sine";
   oscillator.frequency.value = variant === "ready" ? 660 : 520 + index * 42;
   gain.gain.setValueAtTime(0.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(variant === "ready" ? 0.045 : 0.034, context.currentTime + 0.018);
+  gain.gain.exponentialRampToValueAtTime(variant === "ready" ? 0.045 : 0.028, context.currentTime + 0.018);
   gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.15);
   oscillator.connect(gain);
   gain.connect(context.destination);
@@ -285,6 +332,35 @@ declare global {
   }
 }
 
+const HELP_ITEMS = [
+  {
+    title: "Find lessons and modules",
+    description: "Try: module 1, session 4, ChatGPT, Canva, ethics, automation.",
+  },
+  {
+    title: "Jump to work",
+    description: "Try: homework, class challenge, home task, submitted, progress.",
+  },
+  {
+    title: "Find live class info",
+    description: "Try: next class, makeup class, schedule, resources, profile.",
+  },
+  {
+    title: "Control appearance",
+    description: "Try: toggle theme, light mode, or dark mode to switch the portal theme.",
+  },
+  {
+    title: "Start a focus timer",
+    description: "Search timer, focus, study timer, or pomodoro; then hold the pressure valve to choose a duration.",
+  },
+  {
+    title: "Control the fluid cursor",
+    description: "Use the Fluid cursor quick action to switch the rainbow trail on or return to the normal cursor.",
+  },
+];
+
+const MAX_RECENT_SEARCHES = 6;
+
 export function StudentStrandsSearch({
   studentId,
   studentName,
@@ -292,12 +368,14 @@ export function StudentStrandsSearch({
   studentId: string;
   studentName: string;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<StudentSearchItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [query, setQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
-  const [searched, setSearched] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [timerSetupOpen, setTimerSetupOpen] = useState(false);
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [focusTotalSeconds, setFocusTotalSeconds] = useState(25 * 60);
@@ -305,60 +383,55 @@ export function StudentStrandsSearch({
   const [waterRelease, setWaterRelease] = useState(false);
   const [splashCursorEnabled, setSplashCursorEnabled] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const lastToneCountRef = useRef(0);
   const { theme } = useTheme();
   const splashCursorPreferenceKey = `ai-builders-splash-cursor-enabled:${studentId}`;
+  const recentSearchesKey = `ai-builders-recent-searches:${studentId}`;
   const firstName = studentName.split(" ")[0] || "Builder";
-  const normalizedSubmittedQuery = normalize(submittedQuery);
-  const isHelp = searched && ["/help", "help", "?"].includes(normalizedSubmittedQuery);
+  const normalizedQuery = normalize(debouncedQuery);
+  const hasQuery = normalizedQuery.length > 0;
+  const isHelp = hasQuery && ["help", "?"].includes(normalizedQuery);
   const isThemeCommand =
-    searched &&
-    (normalizedSubmittedQuery === "toggle theme" ||
-      normalizedSubmittedQuery === "theme" ||
-      normalizedSubmittedQuery.includes("dark mode") ||
-      normalizedSubmittedQuery.includes("light mode") ||
-      (normalizedSubmittedQuery.includes("toggle") && normalizedSubmittedQuery.includes("theme")));
+    hasQuery &&
+    (normalizedQuery === "toggle theme" ||
+      normalizedQuery === "theme" ||
+      normalizedQuery.includes("dark mode") ||
+      normalizedQuery.includes("light mode") ||
+      (normalizedQuery.includes("toggle") && normalizedQuery.includes("theme")));
   const isTimerCommand =
-    searched &&
+    hasQuery &&
     ["timer", "focus", "focus timer", "study timer", "pomodoro", "pressure timer"].some(
-      (command) => normalizedSubmittedQuery === command || normalizedSubmittedQuery.includes(command),
+      (command) => normalizedQuery === command || normalizedQuery.includes(command),
     );
   const isCursorCommand =
-    searched &&
+    hasQuery &&
     ["cursor", "fluid cursor", "splash cursor", "rainbow cursor", "normal cursor"].some(
-      (command) => normalizedSubmittedQuery === command || normalizedSubmittedQuery.includes(command),
+      (command) => normalizedQuery === command || normalizedQuery.includes(command),
     );
+  const isCommand = isHelp || isThemeCommand || isTimerCommand || isCursorCommand;
   const nextTheme = theme === "dark" ? "light" : "dark";
-  const helpItems = [
-    {
-      title: "Find lessons and modules",
-      description: "Try: module 1, session 4, ChatGPT, Canva, ethics, automation.",
-    },
-    {
-      title: "Jump to work",
-      description: "Try: homework, class challenge, home task, submitted, progress.",
-    },
-    {
-      title: "Find live class info",
-      description: "Try: next class, makeup class, schedule, resources, profile.",
-    },
-    {
-      title: "Control appearance",
-      description: "Try: toggle theme, light mode, or dark mode to switch the portal theme.",
-    },
-    {
-      title: "Start a focus timer",
-      description: "Search timer, focus, study timer, or pomodoro; then hold the pressure valve to choose a duration.",
-    },
-    {
-      title: "Control the fluid cursor",
-      description: "Use the Fluid cursor quick action to switch the rainbow trail on or return to the normal cursor.",
-    },
-  ];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(query);
+      setSelectedIndex(0);
+    }, 140);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     const initialStateTimer = window.setTimeout(() => {
       setSplashCursorEnabled(window.localStorage.getItem(splashCursorPreferenceKey) !== "false");
+      try {
+        const stored = JSON.parse(window.localStorage.getItem(recentSearchesKey) ?? "[]");
+        if (Array.isArray(stored)) {
+          setRecentSearches(stored.filter((entry): entry is string => typeof entry === "string").slice(0, MAX_RECENT_SEARCHES));
+        }
+      } catch {
+        // Ignore malformed stored history.
+      }
     }, 0);
 
     const handleState = (event: Event) => {
@@ -371,7 +444,22 @@ export function StudentStrandsSearch({
       window.clearTimeout(initialStateTimer);
       window.removeEventListener("portal:splash-cursor-state", handleState);
     };
-  }, [splashCursorPreferenceKey]);
+  }, [recentSearchesKey, splashCursorPreferenceKey]);
+
+  const rememberSearch = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setRecentSearches((current) => {
+      const next = [trimmed, ...current.filter((entry) => normalize(entry) !== normalize(trimmed))].slice(0, MAX_RECENT_SEARCHES);
+      window.localStorage.setItem(recentSearchesKey, JSON.stringify(next));
+      return next;
+    });
+  }, [recentSearchesKey]);
+
+  const clearRecentSearches = useCallback(() => {
+    setRecentSearches([]);
+    window.localStorage.removeItem(recentSearchesKey);
+  }, [recentSearchesKey]);
 
   function toggleSplashCursor() {
     const enabled = !splashCursorEnabled;
@@ -380,22 +468,23 @@ export function StudentStrandsSearch({
     window.dispatchEvent(new CustomEvent("portal:set-splash-cursor", { detail: { enabled } }));
   }
 
+  const searchableItems = useMemo(() => {
+    const seen = new Set(items.map((item) => `${item.href}::${normalize(item.title)}`));
+    return [
+      ...items,
+      ...PAGE_NAV_ITEMS.filter((item) => !seen.has(`${item.href}::${normalize(item.title)}`)),
+    ];
+  }, [items]);
+
   const results = useMemo(() => {
-    if (
-      !searched ||
-      !submittedQuery.trim() ||
-      isHelp ||
-      isThemeCommand ||
-      isTimerCommand ||
-      isCursorCommand
-    ) return [];
-    return items
-      .map((item) => ({ item, score: scoreItem(item, submittedQuery) }))
+    if (!hasQuery || isCommand) return [];
+    return searchableItems
+      .map((item) => ({ item, score: scoreItem(item, debouncedQuery) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
       .map(({ item }) => item);
-  }, [isCursorCommand, isHelp, isThemeCommand, isTimerCommand, items, searched, submittedQuery]);
+  }, [debouncedQuery, hasQuery, isCommand, searchableItems]);
 
   const ensureAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -422,6 +511,8 @@ export function StudentStrandsSearch({
 
   const speakGreeting = useCallback(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    if (window.sessionStorage.getItem("ai-builders-quick-chat-greeted") === "true") return;
+    window.sessionStorage.setItem("ai-builders-quick-chat-greeted", "true");
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(`Hi ${firstName}. What should we find today?`);
     utterance.rate = 1.03;
@@ -430,32 +521,43 @@ export function StudentStrandsSearch({
     window.speechSynthesis.speak(utterance);
   }, [firstName]);
 
-  const runQuery = useCallback((nextQuery: string) => {
+  const openPalette = useCallback(() => {
     ensureAudioContext();
     playResultTone(audioContextRef.current, 0, "ready");
-    setQuery(nextQuery);
-    setSubmittedQuery(nextQuery);
-    setSearched(false);
-    window.setTimeout(() => setSearched(true), 520);
-  }, [ensureAudioContext]);
+    setOpen(true);
+    void loadSearchItems();
+  }, [ensureAudioContext, loadSearchItems]);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setQuery("");
+    setDebouncedQuery("");
+    setSelectedIndex(0);
+    setTimerSetupOpen(false);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const shortcut = event.code === "Space" && (event.altKey || event.ctrlKey);
-      if (!shortcut) return;
-      event.preventDefault();
-      ensureAudioContext();
-      setOpen((value) => {
-        if (!value) void loadSearchItems();
-        return !value;
-      });
+      const spaceShortcut = event.code === "Space" && (event.altKey || event.ctrlKey);
+      const kShortcut = event.code === "KeyK" && (event.metaKey || event.ctrlKey);
+      if (spaceShortcut || kShortcut) {
+        event.preventDefault();
+        setOpen((value) => {
+          if (!value) {
+            ensureAudioContext();
+            playResultTone(audioContextRef.current, 0, "ready");
+            void loadSearchItems();
+          }
+          return !value;
+        });
+        return;
+      }
+      if (event.key === "Escape" && open) {
+        close();
+      }
     };
 
-    const handleQuickChat = () => {
-      ensureAudioContext();
-      setOpen(true);
-      void loadSearchItems();
-    };
+    const handleQuickChat = () => openPalette();
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("portal:open-quick-chat", handleQuickChat);
@@ -463,7 +565,7 @@ export function StudentStrandsSearch({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("portal:open-quick-chat", handleQuickChat);
     };
-  }, [ensureAudioContext, loadSearchItems]);
+  }, [close, ensureAudioContext, loadSearchItems, open, openPalette]);
 
   useEffect(() => {
     if (!open) return;
@@ -473,12 +575,12 @@ export function StudentStrandsSearch({
   }, [open, speakGreeting]);
 
   useEffect(() => {
-    if (!searched || (results.length === 0 && !isHelp && !isThemeCommand && !isTimerCommand && !isCursorCommand)) return;
-    const count = isHelp ? helpItems.length : isThemeCommand || isTimerCommand || isCursorCommand ? 1 : Math.min(results.length, 4);
-    Array.from({ length: count }).forEach((_, index) => {
-      window.setTimeout(() => playResultTone(audioContextRef.current, index), index * 95);
-    });
-  }, [helpItems.length, isCursorCommand, isHelp, isThemeCommand, isTimerCommand, results.length, searched]);
+    if (!open) return;
+    if (results.length > 0 && results.length !== lastToneCountRef.current) {
+      playResultTone(audioContextRef.current, 0);
+    }
+    lastToneCountRef.current = results.length;
+  }, [open, results.length]);
 
   useEffect(() => {
     if (!focusRunning) return;
@@ -500,19 +602,37 @@ export function StudentStrandsSearch({
     return () => window.clearInterval(timer);
   }, [focusRunning]);
 
-  function close() {
-    setOpen(false);
-    setQuery("");
-    setSubmittedQuery("");
-    setSearched(false);
-    setTimerSetupOpen(false);
+  const openResult = useCallback((item: StudentSearchItem) => {
+    rememberSearch(query || item.title);
+    close();
+    router.push(item.href);
+  }, [close, query, rememberSearch, router]);
+
+  function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (results.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedIndex((index) => (index + 1) % results.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedIndex((index) => (index - 1 + results.length) % results.length);
+    }
   }
+
+  useEffect(() => {
+    const selected = listRef.current?.querySelector<HTMLElement>(`[data-result-index="${selectedIndex}"]`);
+    selected?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
-    const nextQuery = query.trim();
-    if (!nextQuery) return;
-    runQuery(nextQuery);
+    if (isCommand) return;
+    const selected = results[selectedIndex] ?? results[0];
+    if (selected) {
+      ensureAudioContext();
+      playResultTone(audioContextRef.current, 0, "ready");
+      openResult(selected);
+    }
   }
 
   function startFocusTimer(minutes: number) {
@@ -522,13 +642,14 @@ export function StudentStrandsSearch({
     setFocusTotalSeconds(boundedMinutes * 60);
     setFocusRunning(true);
     setTimerSetupOpen(false);
-    setOpen(false);
+    close();
   }
 
   const focusMinutes = Math.floor(focusSeconds / 60);
   const focusRemainder = focusSeconds % 60;
   const focusLabel =
     `${String(focusMinutes).padStart(2, "0")}:${String(focusRemainder).padStart(2, "0")}`;
+  const showLanding = !hasQuery && !timerSetupOpen;
 
   return (
     <>
@@ -551,7 +672,7 @@ export function StudentStrandsSearch({
             <div className="pointer-events-none absolute inset-0 opacity-45">
               <RippleGrid
                 gridColor="#7C3AED"
-                rippleIntensity={searched ? 0.07 : 0.045}
+                rippleIntensity={hasQuery ? 0.07 : 0.045}
                 gridSize={10}
                 gridThickness={16}
                 fadeDistance={1.55}
@@ -568,14 +689,14 @@ export function StudentStrandsSearch({
               <Strands
                 colors={["#F97316", "#7C3AED", "#06B6D4"]}
                 count={3}
-                speed={searched ? 0.92 : 0.48}
-                amplitude={searched ? 1.25 : 0.8}
+                speed={hasQuery ? 0.92 : 0.48}
+                amplitude={hasQuery ? 1.25 : 0.8}
                 waviness={1.05}
                 thickness={0.68}
                 glow={3}
                 taper={3.2}
                 spread={1}
-                intensity={searched ? 0.86 : 0.58}
+                intensity={hasQuery ? 0.86 : 0.58}
                 saturation={2}
                 opacity={0.95}
                 scale={1.45}
@@ -588,7 +709,7 @@ export function StudentStrandsSearch({
                 </span>
                 <div>
                   <p className="font-heading font-bold">Hi {firstName}, what should we find?</p>
-                  <p className="text-xs text-text-muted">Press Option/Alt + Space or Ctrl + Space anytime.</p>
+                  <p className="text-xs text-text-muted">Press Ctrl/⌘ + K or Alt + Space anytime.</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -623,29 +744,57 @@ export function StudentStrandsSearch({
                     ref={inputRef}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={handleInputKeyDown}
                     placeholder="Search lessons, homework, tools, resources, progress..."
+                    aria-label="Search the portal"
                     className="w-full rounded-2xl border border-accent/25 bg-bg-base/84 py-5 pl-14 pr-16 font-heading text-xl font-bold text-text-primary outline-none shadow-[0_0_60px_rgba(110,231,183,0.11)] transition focus:border-accent/70"
                   />
-                  <span className="absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-lg border border-border bg-bg-elevated px-2 py-1 font-mono text-[0.65rem] uppercase text-text-muted sm:inline-flex">
-                    Enter
-                  </span>
+                  {results.length > 0 ? (
+                    <span className="absolute right-4 top-1/2 hidden -translate-y-1/2 items-center gap-1.5 rounded-lg border border-border bg-bg-elevated px-2 py-1 font-mono text-[0.65rem] uppercase text-text-muted sm:inline-flex">
+                      <CornerDownLeft className="h-3 w-3" />
+                      Open
+                    </span>
+                  ) : null}
                 </label>
               </form>
 
               <div className="mx-auto mt-8 w-full max-w-3xl">
-                {!searched ? (
+                {showLanding ? (
                   <>
                     {loadingItems ? (
                       <p className="mb-3 font-mono text-xs uppercase tracking-[0.16em] text-accent">
                         Preparing your course index...
                       </p>
                     ) : null}
+                    {recentSearches.length > 0 ? (
+                      <div className="mb-5 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 font-mono text-[0.62rem] uppercase tracking-[0.16em] text-text-muted">
+                          <History className="h-3.5 w-3.5" />
+                          Recent
+                        </span>
+                        {recentSearches.map((entry) => (
+                          <button
+                            key={entry}
+                            onClick={() => setQuery(entry)}
+                            className="rounded-full border border-border bg-bg-elevated/70 px-3 py-1.5 text-xs text-text-secondary transition hover:border-accent/35 hover:text-accent"
+                          >
+                            {entry}
+                          </button>
+                        ))}
+                        <button
+                          onClick={clearRecentSearches}
+                          className="rounded-full px-2 py-1.5 text-xs text-text-muted transition hover:text-danger"
+                          aria-label="Clear recent searches"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : null}
                     <div className="grid gap-3 sm:grid-cols-2">
                       <button
                         onClick={() => {
                           ensureAudioContext();
                           setTimerSetupOpen(true);
-                          setSearched(true);
                         }}
                         className="group overflow-hidden rounded-2xl border border-cyan-300/20 bg-[radial-gradient(circle_at_85%_0%,rgba(0,240,255,0.13),transparent_45%),rgba(255,255,255,0.025)] p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/45"
                       >
@@ -658,7 +807,7 @@ export function StudentStrandsSearch({
                         </span>
                       </button>
                       <button
-                        onClick={() => runQuery("/help")}
+                        onClick={() => setQuery("/help")}
                         className="group rounded-2xl border border-border bg-white/[0.025] p-4 text-left transition hover:-translate-y-0.5 hover:border-accent/35"
                       >
                         <span className="flex items-center justify-between gap-3">
@@ -670,7 +819,7 @@ export function StudentStrandsSearch({
                         </span>
                       </button>
                       <button
-                        onClick={() => runQuery("next class")}
+                        onClick={() => setQuery("next class")}
                         className="group rounded-2xl border border-border bg-white/[0.025] p-4 text-left transition hover:-translate-y-0.5 hover:border-accent/35"
                       >
                         <span className="flex items-center justify-between gap-3">
@@ -704,7 +853,7 @@ export function StudentStrandsSearch({
                       {["continue homework", "my next class", "module 2 resources", "submitted work", "timer"].map((suggestion) => (
                         <button
                           key={suggestion}
-                          onClick={() => runQuery(suggestion)}
+                          onClick={() => setQuery(suggestion)}
                           className="rounded-full border border-border bg-bg-elevated/70 px-3 py-1.5 text-xs text-text-secondary transition hover:border-accent/35 hover:text-accent"
                         >
                           {suggestion}
@@ -722,7 +871,7 @@ export function StudentStrandsSearch({
                       Search powers
                     </motion.p>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {helpItems.map((item, index) => (
+                      {HELP_ITEMS.map((item, index) => (
                         <motion.div
                           key={item.title}
                           className="rounded-2xl border border-border bg-white/[0.025] p-4"
@@ -818,24 +967,35 @@ export function StudentStrandsSearch({
                 ) : results.length > 0 ? (
                   <div>
                     <motion.p
-                      className="mb-4 font-mono text-xs uppercase tracking-[0.18em] text-accent"
+                      className="mb-4 flex items-center justify-between font-mono text-xs uppercase tracking-[0.18em] text-accent"
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                      Your results are ready
+                      <span>{results.length} result{results.length === 1 ? "" : "s"}</span>
+                      <span className="hidden text-text-muted sm:inline">↑ ↓ to choose · Enter to open</span>
                     </motion.p>
-                    <div className="space-y-3">
+                    <div className="space-y-3" ref={listRef}>
                       {results.map((result, index) => (
                         <motion.div
                           key={`${result.href}-${result.title}`}
-                          initial={{ opacity: 0, y: 18, scale: 0.97 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          transition={{ delay: index * 0.06, type: "spring", stiffness: 260, damping: 22 }}
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: Math.min(index * 0.035, 0.2), duration: 0.2, ease: "easeOut" }}
                         >
                           <Link
                             href={result.href}
-                            onClick={close}
-                            className="group flex items-start justify-between gap-4 rounded-2xl border border-border bg-white/[0.025] p-4 transition hover:border-accent/40 hover:bg-accent/5"
+                            data-result-index={index}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              openResult(result);
+                            }}
+                            onMouseEnter={() => setSelectedIndex(index)}
+                            aria-current={index === selectedIndex ? "true" : undefined}
+                            className={`group flex items-start justify-between gap-4 rounded-2xl border p-4 transition ${
+                              index === selectedIndex
+                                ? "border-accent/50 bg-accent/[0.07]"
+                                : "border-border bg-white/[0.025] hover:border-accent/40 hover:bg-accent/5"
+                            }`}
                           >
                             <div>
                               <p className="font-mono text-[0.66rem] uppercase tracking-[0.16em] text-accent">
@@ -844,12 +1004,27 @@ export function StudentStrandsSearch({
                               <h3 className="mt-1 font-heading text-lg font-bold">{result.title}</h3>
                               <p className="mt-1 line-clamp-2 text-sm text-text-secondary">{result.description}</p>
                             </div>
-                            <ArrowRight className="mt-2 h-5 w-5 shrink-0 text-text-muted transition group-hover:translate-x-1 group-hover:text-accent" />
+                            {index === selectedIndex ? (
+                              <CornerDownLeft className="mt-2 h-5 w-5 shrink-0 text-accent" />
+                            ) : (
+                              <ArrowRight className="mt-2 h-5 w-5 shrink-0 text-text-muted transition group-hover:translate-x-1 group-hover:text-accent" />
+                            )}
                           </Link>
                         </motion.div>
                       ))}
                     </div>
                   </div>
+                ) : loadingItems ? (
+                  <motion.div
+                    className="rounded-2xl border border-border bg-white/[0.025] p-5"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <p className="font-mono text-xs uppercase tracking-[0.16em] text-accent">Indexing...</p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Preparing your course index. Results will appear in a moment.
+                    </p>
+                  </motion.div>
                 ) : (
                   <motion.div
                     className="rounded-2xl border border-border bg-white/[0.025] p-5"
@@ -864,9 +1039,7 @@ export function StudentStrandsSearch({
                       {["ChatGPT", "home task", "Module 2", "resources", "progress"].map((suggestion) => (
                         <button
                           key={suggestion}
-                          onClick={() => {
-                            runQuery(suggestion);
-                          }}
+                          onClick={() => setQuery(suggestion)}
                           className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 text-xs text-accent"
                         >
                           {suggestion}
@@ -883,7 +1056,7 @@ export function StudentStrandsSearch({
                 <Command className="h-3.5 w-3.5" />
                 Student search
               </span>
-              <span>{loadingItems ? "Indexing..." : `${items.length} indexed portal items`}</span>
+              <span>{loadingItems ? "Indexing..." : `${searchableItems.length} indexed portal items`}</span>
             </div>
           </motion.section>
           </motion.div>
