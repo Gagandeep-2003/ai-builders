@@ -96,6 +96,70 @@ body::before {
   mix-blend-mode: multiply;
 }
 
+/* Draw attention to private chat only while unread messages are waiting. */
+.sidebar-unread-chat {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    linear-gradient(
+        105deg,
+        #f472b6 0%,
+        #818cf8 18%,
+        #38bdf8 36%,
+        #6ee7b7 52%,
+        #fbbf24 70%,
+        #fb7185 86%,
+        #f472b6 100%
+      )
+      border-box;
+  background-size: 100% 100%, 280% 100%;
+  animation: sidebar-unread-border-flow 3.6s ease-in-out infinite alternate;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.025),
+    0 0 16px rgb(96 165 250 / 0.11);
+}
+
+.sidebar-unread-chat:hover,
+.sidebar-unread-chat[aria-current="page"] {
+  background:
+    linear-gradient(var(--bg-elevated), var(--bg-elevated)) padding-box,
+    linear-gradient(
+        105deg,
+        #f472b6 0%,
+        #818cf8 18%,
+        #38bdf8 36%,
+        #6ee7b7 52%,
+        #fbbf24 70%,
+        #fb7185 86%,
+        #f472b6 100%
+      )
+      border-box;
+  background-size: 100% 100%, 280% 100%;
+}
+
+[data-theme="light"] .sidebar-unread-chat {
+  box-shadow:
+    0 0 0 1px rgb(15 23 42 / 0.04),
+    0 0 15px rgb(37 99 235 / 0.1);
+}
+
+@keyframes sidebar-unread-border-flow {
+  from {
+    background-position: 0 0, 0% 50%;
+  }
+
+  to {
+    background-position: 0 0, 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-unread-chat {
+    animation: none;
+    background-position: 0 0, 50% 50%;
+  }
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;

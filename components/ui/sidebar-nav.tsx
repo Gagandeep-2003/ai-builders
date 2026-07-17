@@ -137,11 +137,14 @@ export function SidebarNav({
             (link.href !== "/admin" && pathname.startsWith(`${link.href}/`));
           const Icon = navIcons[link.icon];
           const badge = badges[link.href];
+          const hasUnreadChat =
+            (link.href === "/chat" || link.href === "/admin/chat") && Boolean(badge?.count);
 
           return (
             <Link
               key={link.href}
               href={link.href}
+              aria-current={active ? "page" : undefined}
               prefetch={link.priority ? true : null}
               onMouseEnter={() => router.prefetch(link.href)}
               onFocus={() => router.prefetch(link.href)}
@@ -157,10 +160,11 @@ export function SidebarNav({
                 setOpen(false);
               }}
               className={cn(
-                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary transition",
+                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary transition",
                 "hover:bg-white/[0.04] hover:text-text-primary",
                 active &&
                   "bg-accent/10 text-accent shadow-[inset_3px_0_0_rgba(110,231,183,0.85)]",
+                hasUnreadChat && "sidebar-unread-chat",
               )}
             >
               <Icon className="h-4 w-4" />

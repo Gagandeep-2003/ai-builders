@@ -747,9 +747,9 @@ export function ChatPanel({
           })
         ) : (
           <div className="flex min-h-[20rem] items-center justify-center text-center">
-            <div>
+            <div className="w-full max-w-3xl px-4">
               <p className="font-heading text-2xl font-semibold text-text-primary">Start the conversation</p>
-              <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">
+              <p className="mx-auto mt-2 max-w-md text-center text-sm leading-6 text-text-secondary">
                 Send a quick text or a short voice note. Messages stay private between mentor and student.
               </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
