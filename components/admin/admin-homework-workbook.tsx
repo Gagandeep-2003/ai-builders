@@ -39,13 +39,19 @@ export function AdminHomeworkWorkbook({
   batches,
   sessions,
   homework,
+  initialStudentId,
 }: {
   students: StudentProfile[];
   batches: Batch[];
   sessions: CourseSession[];
   homework: HomeworkItem[];
+  initialStudentId?: string;
 }) {
-  const [selectedStudentId, setSelectedStudentId] = useState(students[0]?.id ?? "");
+  const [selectedStudentId, setSelectedStudentId] = useState(() =>
+    initialStudentId && students.some((student) => student.id === initialStudentId)
+      ? initialStudentId
+      : students[0]?.id ?? "",
+  );
   const [openModuleNumber, setOpenModuleNumber] = useState<number | null>(1);
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const selectedStudent = students.find((student) => student.id === selectedStudentId) ?? students[0];

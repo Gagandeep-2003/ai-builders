@@ -5,7 +5,13 @@ import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { getAdminHomeworkData } from "@/lib/data";
 
-export default async function AdminHomeworkPage() {
+export default async function AdminHomeworkPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ student?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const initialStudentId = Array.isArray(params.student) ? params.student[0] : params.student;
   const data = await getAdminHomeworkData();
 
   return (
@@ -20,6 +26,7 @@ export default async function AdminHomeworkPage() {
         batches={data.batches}
         sessions={data.sessions}
         homework={data.homework}
+        initialStudentId={initialStudentId}
       />
 
       <AdminHomeworkTaskManager

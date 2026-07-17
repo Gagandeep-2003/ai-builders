@@ -10,7 +10,11 @@ function messagePreview(thread: ChatThreadSummary) {
   const message = thread.lastMessage;
   if (!message) return "No messages yet";
   const prefix = message.senderRole === "admin" ? "You: " : "";
-  const text = message.body?.trim();
+  const contextMatch = message.body?.match(/^\[\[hw:[^|\]]+\|([^\]]*)\]\]\s*/);
+  const text = (contextMatch
+    ? `📎 ${contextMatch[1]} · ${message.body.slice(contextMatch[0].length)}`
+    : message.body
+  )?.trim();
   if (!text) return `${prefix}Voice note 🎙️`;
   return `${prefix}${text.length > 58 ? `${text.slice(0, 58)}...` : text}`;
 }
@@ -27,6 +31,12 @@ function relativeTime(value?: string) {
   if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
   if (diff < day) return `${Math.floor(diff / hour)}h ago`;
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date);
+}
+
+function isActiveNow(lastSeenAt?: string) {
+  if (!lastSeenAt) return false;
+  const seen = new Date(lastSeenAt).getTime();
+  return Number.isFinite(seen) && Date.now() - seen < 5 * 60_000;
 }
 
 function initials(name: string) {
@@ -120,8 +130,16 @@ export function ChatThreadList({
                     : "border-border bg-bg-card/70 hover:border-accent/25 hover:bg-accent/5",
                 )}
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent to-info font-heading text-sm font-bold text-black">
-                  {initials(thread.student.fullName)}
+                <span className="relative shrink-0">
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-accent to-info font-heading text-sm font-bold text-black">
+                    {initials(thread.student.fullName)}
+                  </span>
+                  {isActiveNow(thread.student.lastSeenAt) ? (
+                    <span
+                      className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-bg-card bg-accent shadow-[0_0_8px_var(--accent)]"
+                      aria-label="Active now"
+                    />
+                  ) : null}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2">
