@@ -628,7 +628,7 @@ export function ChatPanel({
                   className={cn(
                     "group flex items-end gap-2",
                     own ? "justify-end" : "justify-start",
-                    groupWithPrevious ? "mt-2" : "mt-4",
+                    groupWithPrevious ? "mt-3" : "mt-5",
                     "first:mt-0",
                   )}
                 >

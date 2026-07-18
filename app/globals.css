@@ -1050,7 +1050,7 @@ textarea:focus-visible {
 
 .chat-bubble-own {
   background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #38bdf8));
-  box-shadow: 0 10px 34px color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 7px 20px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .chat-avatar-ring {
