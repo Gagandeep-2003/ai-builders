@@ -32,6 +32,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { useChatUnread } from "@/components/chat/chat-unread-state";
 import { playLeagueEntrySound } from "@/lib/league-audio";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +90,7 @@ export function SidebarNav({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const liveChat = useChatUnread();
   const [open, setOpen] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState("");
   const [showNavigationPending, setShowNavigationPending] = useState(false);
@@ -136,9 +138,21 @@ export function SidebarNav({
             pathname === link.href ||
             (link.href !== "/admin" && pathname.startsWith(`${link.href}/`));
           const Icon = navIcons[link.icon];
-          const badge = badges[link.href];
-          const hasUnreadChat =
-            (link.href === "/chat" || link.href === "/admin/chat") && Boolean(badge?.count);
+          const serverBadge = badges[link.href];
+          const isChatLink = link.href === "/chat" || link.href === "/admin/chat";
+          const liveChatCount = isChatLink && liveChat.initialized
+            ? liveChat.count
+            : serverBadge?.count ?? 0;
+          const badge = isChatLink
+            ? liveChatCount > 0
+              ? {
+                  count: liveChatCount,
+                  tone: serverBadge?.tone ?? "accent" as const,
+                  label: serverBadge?.label ?? "Unread private messages",
+                }
+              : undefined
+            : serverBadge;
+          const hasUnreadChat = isChatLink && liveChatCount > 0;
 
           return (
             <Link

@@ -133,7 +133,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-screen">
       <CardBorderGlow />
       <ChatNotificationPrompt />
-      <ChatUnreadPoller initialUnreadCount={data.unreadChatCount} />
+      <ChatUnreadPoller
+        initialUnreadCount={data.unreadChatCount}
+        defaultHref="/admin/chat"
+        defaultTitle="New student message"
+      />
       <AdminCommandCenter
         data={{
           todayClasses,

@@ -6,26 +6,37 @@ export async function GET() {
   const profile = await getCurrentProfile();
   const supabase = await createServerSupabaseClient();
   if (!profile || !supabase) {
-    return NextResponse.json({ count: 0, latest: "" });
+    return NextResponse.json({ count: 0, latest: "", latestId: "", href: "/chat" });
   }
 
   if (profile.role === "admin") {
-    const { count } = await supabase
-      .from("chat_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("sender_role", "student")
-      .is("read_by_admin_at", null);
+    const [{ count }, { data: latest }] = await Promise.all([
+      supabase
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("sender_role", "student")
+        .is("read_by_admin_at", null),
+      supabase
+        .from("chat_messages")
+        .select("id, student_id, body, kind, created_at")
+        .eq("sender_role", "student")
+        .is("read_by_admin_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-    const { data: latest } = await supabase
-      .from("chat_messages")
-      .select("body")
-      .eq("sender_role", "student")
-      .is("read_by_admin_at", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    return NextResponse.json({ count: count ?? 0, latest: latest?.body ?? "New student message" });
+    return NextResponse.json({
+      count: count ?? 0,
+      latest: latest?.body || (latest?.kind === "voice" ? "Sent a voice note." : "New student message"),
+      latestId: latest?.id ?? "",
+      createdAt: latest?.created_at ?? "",
+      href: latest?.student_id
+        ? `/admin/chat?student=${encodeURIComponent(latest.student_id)}`
+        : "/admin/chat",
+      title: "New student message",
+      tag: latest?.student_id ? `chat-${latest.student_id}` : "ai-builders-chat",
+    });
   }
 
   const { data: student } = await supabase
@@ -34,24 +45,35 @@ export async function GET() {
     .eq("user_id", profile.id)
     .maybeSingle();
 
-  if (!student?.id) return NextResponse.json({ count: 0, latest: "" });
+  if (!student?.id) {
+    return NextResponse.json({ count: 0, latest: "", latestId: "", href: "/chat" });
+  }
 
-  const { count } = await supabase
-    .from("chat_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("student_id", student.id)
-    .eq("sender_role", "admin")
-    .is("read_by_student_at", null);
+  const [{ count }, { data: latest }] = await Promise.all([
+    supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", student.id)
+      .eq("sender_role", "admin")
+      .is("read_by_student_at", null),
+    supabase
+      .from("chat_messages")
+      .select("id, body, kind, created_at")
+      .eq("student_id", student.id)
+      .eq("sender_role", "admin")
+      .is("read_by_student_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  const { data: latest } = await supabase
-    .from("chat_messages")
-    .select("body")
-    .eq("student_id", student.id)
-    .eq("sender_role", "admin")
-    .is("read_by_student_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return NextResponse.json({ count: count ?? 0, latest: latest?.body ?? "New mentor message" });
+  return NextResponse.json({
+    count: count ?? 0,
+    latest: latest?.body || (latest?.kind === "voice" ? "Your mentor sent a voice note." : "New mentor message"),
+    latestId: latest?.id ?? "",
+    createdAt: latest?.created_at ?? "",
+    href: "/chat",
+    title: "New message from your mentor",
+    tag: `chat-${student.id}`,
+  });
 }

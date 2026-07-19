@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { AchievementStrip } from "@/components/portal/achievement-strip";
 import { BatchPauseNotice } from "@/components/portal/batch-pause-notice";
+import { ChatDashboardBanner } from "@/components/chat/chat-dashboard-banner";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -90,6 +91,7 @@ export default async function DashboardPage() {
       />
 
       <BatchPauseNotice batch={data.batch} />
+      <ChatDashboardBanner />
       {pendingClassRequest ? (
         <Link
           href="/class"

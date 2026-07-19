@@ -59,7 +59,11 @@ export default async function StudentLayout({ children }: { children: React.Reac
       <StudentStrandsSearch studentId={data.student.id} studentName={data.student.fullName} />
       <BadgeCelebration key={data.unseenBadge?.id ?? "no-unseen-badge"} award={data.unseenBadge} />
       <ChatNotificationPrompt />
-      <ChatUnreadPoller initialUnreadCount={data.unreadChatCount} />
+      <ChatUnreadPoller
+        initialUnreadCount={data.unreadChatCount}
+        defaultHref="/chat"
+        defaultTitle="New message from your mentor"
+      />
       <PortalAutoSync />
       <SidebarNav links={links} badges={badges} />
       <div className="px-4 py-20 sm:px-6 lg:ml-72 lg:px-10 lg:py-10">
