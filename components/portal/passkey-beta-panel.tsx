@@ -148,13 +148,13 @@ export function PasskeyBetaPanel({ studentName }: { studentName: string }) {
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-heading text-xl font-bold">Face ID / device sign-in</h2>
+              <h2 className="font-heading text-xl font-bold">Native device passkey</h2>
               <span className="rounded-md border border-accent/25 bg-accent/8 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] text-accent">
                 Beta
               </span>
             </div>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-              Add a passkey once, then use Apple Face ID, Touch ID, Windows Hello, or your device screen lock whenever you are signed out. Your biometric data stays on the device.
+              Add a secure passkey once, then use Apple Face ID, Touch ID, Windows Hello, a device PIN, or your screen lock whenever you are signed out. Authentication stays inside the device.
             </p>
           </div>
         </div>
@@ -219,12 +219,12 @@ export function PasskeyBetaPanel({ studentName }: { studentName: string }) {
             <div>
               <p className="font-heading font-bold">How sign-in works</p>
               <p className="mt-1 text-sm leading-5 text-text-secondary">
-                Students who are already signed in continue directly into the portal. Face ID is requested only from the login screen after logout or session expiry.
+                Students who are already signed in continue directly into the portal. Native device authentication is requested only from the login screen after logout or session expiry.
               </p>
             </div>
           </div>
           <div className="mt-4 rounded-lg border border-border bg-bg-card p-3 text-sm leading-6 text-text-secondary">
-            On iPhone or iPad, Safari opens Apple&apos;s native Face ID or Touch ID prompt. No camera photo or face model is stored by the portal.
+            This is the strongest passwordless option. The operating system verifies you, and the portal never receives biometric data.
           </div>
           {!supported ? (
             <p className="mt-3 text-xs text-rose-300">This browser does not support secure passkeys.</p>

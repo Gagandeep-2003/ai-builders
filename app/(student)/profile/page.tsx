@@ -1,4 +1,5 @@
 import { PasswordChangePanel } from "@/components/portal/password-change-panel";
+import { FaceUnlockBetaPanel } from "@/components/portal/face-unlock-beta-panel";
 import { PasskeyBetaPanel } from "@/components/portal/passkey-beta-panel";
 import { ProfileContactForm } from "@/components/portal/profile-contact-form";
 import { AnimatedPage } from "@/components/ui/animated";
@@ -57,8 +58,15 @@ export default async function ProfilePage() {
         />
       </section>
 
-      {profile.role === "student" ? (
-        <PasskeyBetaPanel studentName={data.student.fullName} />
+      {profile.role === "student" || profile.role === "admin" ? (
+        <>
+          <PasskeyBetaPanel studentName={data.student.fullName} />
+          <FaceUnlockBetaPanel
+            userId={profile.id}
+            email={profile.email}
+            studentName={profile.fullName}
+          />
+        </>
       ) : null}
 
       <PasswordChangePanel
