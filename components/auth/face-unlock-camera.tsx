@@ -24,6 +24,8 @@ type FaceUnlockCameraProps = {
   onComplete: (result: FaceCaptureResult) => Promise<VerificationResult>;
 };
 
+type CapturePhase = "preparing" | "align" | "calibrate" | "blink" | "capture" | "complete" | "error";
+
 const wait = (duration: number) => new Promise((resolve) => window.setTimeout(resolve, duration));
 
 export function FaceUnlockCamera({
@@ -40,6 +42,7 @@ export function FaceUnlockCamera({
   const [ready, setReady] = useState(false);
   const [complete, setComplete] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [phase, setPhase] = useState<CapturePhase>("preparing");
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +55,7 @@ export function FaceUnlockCamera({
       setError(null);
       setReady(false);
       setComplete(false);
+      setPhase("preparing");
       setMessage("Preparing secure camera...");
       setDetail("Face processing stays in this browser.");
 
@@ -82,12 +86,16 @@ export function FaceUnlockCamera({
         if (cancelled) return;
 
         setReady(true);
+        setPhase("align");
         setMessage("Center your face in the frame");
-        setDetail("Keep one face visible and look toward the camera.");
+        setDetail("No button is needed. Keep one face visible and look toward the camera.");
 
-        let sawOpenEyes = false;
         let sawClosedEyes = false;
-        let openFrames = 0;
+        let closedFrames = 0;
+        let reopenedFrames = 0;
+        let blinkStartedAt = 0;
+        let baseline = 0;
+        const baselineSamples: number[] = [];
         const descriptors: Float32Array[] = [];
         const options = tinyFaceDetectorOptions(faceapi);
 
@@ -100,6 +108,7 @@ export function FaceUnlockCamera({
           if (cancelled) return;
 
           if (detections.length !== 1) {
+            setPhase("align");
             setMessage(detections.length > 1 ? "Only one person should be visible" : "Center your face in the frame");
             setDetail(detections.length > 1 ? "Move other faces out of view." : "Move a little closer and keep the area well lit.");
             await wait(160);
@@ -113,6 +122,7 @@ export function FaceUnlockCamera({
             video.videoHeight,
           );
           if (!framed) {
+            setPhase("align");
             setMessage("Adjust your position");
             setDetail("Keep your full face centered, neither too close nor too far away.");
             await wait(160);
@@ -124,38 +134,68 @@ export function FaceUnlockCamera({
             detection.landmarks.getRightEye(),
           );
 
-          if (!sawOpenEyes) {
-            if (eyeRatio > 0.215) openFrames += 1;
-            else openFrames = 0;
+          if (!baseline) {
+            setPhase("calibrate");
+            baselineSamples.push(eyeRatio);
+            setMessage("Look at the camera normally");
+            setDetail(`Calibrating your eyes automatically ${Math.min(baselineSamples.length, 10)} of 10.`);
 
-            if (openFrames >= 2) {
-              sawOpenEyes = true;
-              setMessage("Blink once");
-              setDetail("This quick live check helps reject a still photo.");
+            if (baselineSamples.length >= 10) {
+              const strongestOpenSamples = [...baselineSamples]
+                .sort((first, second) => second - first)
+                .slice(0, 5);
+              baseline = strongestOpenSamples.reduce((sum, value) => sum + value, 0) / strongestOpenSamples.length;
+              blinkStartedAt = performance.now();
+              setPhase("blink");
+              setMessage("Blink once now");
+              setDetail("Close and reopen both eyes naturally. Capture continues automatically.");
             }
             await wait(130);
             continue;
           }
 
           if (!sawClosedEyes) {
-            if (eyeRatio < 0.19) {
+            setPhase("blink");
+            const closedThreshold = Math.min(0.22, Math.max(0.12, baseline * 0.72));
+            if (eyeRatio < closedThreshold) closedFrames += 1;
+            else closedFrames = 0;
+
+            if (closedFrames >= 1) {
               sawClosedEyes = true;
               setMessage("Great. Open your eyes");
-              setDetail("Hold still while three clear samples are checked.");
+              setDetail("The blink was detected. Reopen your eyes and hold still.");
+            } else {
+              setMessage("Blink once now");
+              setDetail("Close and reopen both eyes naturally. Capture continues automatically.");
+            }
+
+            if (!sawClosedEyes && performance.now() - blinkStartedAt > 12_000) {
+              baseline = 0;
+              baselineSamples.length = 0;
+              closedFrames = 0;
+              blinkStartedAt = 0;
+              setPhase("calibrate");
+              setMessage("Let's recalibrate once");
+              setDetail("Keep your eyes naturally open for a moment, then follow the blink prompt.");
             }
             await wait(130);
             continue;
           }
 
-          if (eyeRatio < 0.205) {
-            await wait(110);
+          const reopenThreshold = Math.max(0.145, baseline * 0.84);
+          if (eyeRatio >= reopenThreshold) reopenedFrames += 1;
+          else reopenedFrames = 0;
+
+          if (reopenedFrames < 2) {
+            await wait(120);
             continue;
           }
 
+          setPhase("capture");
           descriptors.push(detection.descriptor);
           setMessage(`Capturing secure sample ${descriptors.length} of 3`);
-          setDetail("Keep looking toward the camera.");
-          await wait(180);
+          setDetail("No button needed. Hold still and keep looking toward the camera.");
+          await wait(260);
         }
 
         if (cancelled) return;
@@ -168,6 +208,7 @@ export function FaceUnlockCamera({
         if (cancelled) return;
 
         if (!result.ok) {
+          setPhase("error");
           setError(result.message ?? "Face verification did not match. Please try again.");
           setMessage("Face Unlock was not completed");
           setDetail("You can retry or use your password or device passkey.");
@@ -175,6 +216,7 @@ export function FaceUnlockCamera({
         }
 
         setComplete(true);
+        setPhase("complete");
         setMessage(mode === "enroll" ? "Face Unlock is ready" : "Face verified");
         setDetail(mode === "enroll" ? "This browser can now offer camera Face Unlock." : "Opening your portal...");
       } catch (captureError) {
@@ -188,6 +230,7 @@ export function FaceUnlockCamera({
             ? "Camera access was blocked. Allow camera access for this site, then retry."
             : text,
         );
+        setPhase("error");
         setMessage("Camera is unavailable");
         setDetail("Password and native device passkey sign-in are still available.");
       }
@@ -259,7 +302,7 @@ export function FaceUnlockCamera({
             ) : null}
           </div>
 
-          <div className="mt-5 flex items-start gap-3">
+          <div aria-live="polite" className="mt-5 flex items-start gap-3">
             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-accent/25 bg-accent/8 text-accent">
               {complete ? <ShieldCheck className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
             </div>
@@ -268,6 +311,32 @@ export function FaceUnlockCamera({
               <p className="mt-1 text-sm leading-5 text-text-secondary">{detail}</p>
             </div>
           </div>
+
+          {!complete && !error ? (
+            <div className="mt-4 grid grid-cols-3 gap-2" aria-label="Face capture progress">
+              {[
+                { label: "Face ready", active: phase === "align" || phase === "calibrate", done: ["blink", "capture"].includes(phase) },
+                { label: "Live blink", active: phase === "blink", done: phase === "capture" },
+                { label: "Auto capture", active: phase === "capture", done: false },
+              ].map((step, index) => (
+                <div
+                  key={step.label}
+                  className={`rounded-lg border px-3 py-2 text-center text-xs transition ${
+                    step.active
+                      ? "border-accent/45 bg-accent/12 text-accent"
+                      : step.done
+                        ? "border-accent/20 bg-accent/5 text-text-primary"
+                        : "border-border bg-surface/45 text-text-muted"
+                  }`}
+                >
+                  <span className="mb-1 block font-mono text-[9px] uppercase tracking-[0.16em]">
+                    {step.done ? "Done" : `Step ${index + 1}`}
+                  </span>
+                  {step.label}
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           {error ? (
             <div className="mt-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-rose-200">
