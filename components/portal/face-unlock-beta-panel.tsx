@@ -179,7 +179,7 @@ export function FaceUnlockBetaPanel({
                 </span>
               </div>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-                Enroll your face after signing in, then use this browser&apos;s camera on the login page. A live blink is required, and no camera photo is retained.
+                Enroll your face after signing in, then use this browser&apos;s camera on the login page. Capture starts automatically when your face is centered, and no camera photo is retained.
               </p>
             </div>
           </div>
@@ -221,7 +221,7 @@ export function FaceUnlockBetaPanel({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-text-primary">{enrollment.deviceName}</p>
                   <p className="mt-1 text-xs text-text-muted">
-                    Enrolled {formatDate(enrollment.enrolledAt)} · live blink enabled
+                    Enrolled {formatDate(enrollment.enrolledAt)} · automatic capture enabled
                   </p>
                 </div>
                 <button
@@ -237,7 +237,7 @@ export function FaceUnlockBetaPanel({
               </div>
             ) : (
               <div className="mt-3 rounded-lg border border-dashed border-border p-4 text-sm leading-6 text-text-secondary">
-                This browser has not been enrolled. Setup takes three clear face samples and one live blink.
+                This browser has not been enrolled. Center your face once and three clear samples are captured automatically.
               </div>
             )}
           </div>

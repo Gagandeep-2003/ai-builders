@@ -151,7 +151,7 @@ export function FaceUnlockSignIn() {
           </span>
         </button>
         <p className="mt-2 text-center text-xs leading-5 text-text-muted">
-          Same browser only · live blink required · password remains available
+          Same browser only · automatic face capture · password remains available
         </p>
         {error ? (
           <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-rose-200">

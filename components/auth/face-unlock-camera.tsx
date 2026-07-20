@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, CheckCircle2, LoaderCircle, ScanFace, ShieldCheck, X } from "lucide-react";
 import {
   averageFaceDescriptors,
-  getEyeAspectRatio,
   isFaceWellFramed,
   loadFaceUnlockModels,
   tinyFaceDetectorOptions,
@@ -24,7 +23,7 @@ type FaceUnlockCameraProps = {
   onComplete: (result: FaceCaptureResult) => Promise<VerificationResult>;
 };
 
-type CapturePhase = "preparing" | "align" | "calibrate" | "blink" | "capture" | "complete" | "error";
+type CapturePhase = "preparing" | "align" | "steady" | "capture" | "complete" | "error";
 
 const wait = (duration: number) => new Promise((resolve) => window.setTimeout(resolve, duration));
 
@@ -90,12 +89,7 @@ export function FaceUnlockCamera({
         setMessage("Center your face in the frame");
         setDetail("No button is needed. Keep one face visible and look toward the camera.");
 
-        let sawClosedEyes = false;
-        let closedFrames = 0;
-        let reopenedFrames = 0;
-        let blinkStartedAt = 0;
-        let baseline = 0;
-        const baselineSamples: number[] = [];
+        let stableFrames = 0;
         const descriptors: Float32Array[] = [];
         const options = tinyFaceDetectorOptions(faceapi);
 
@@ -108,6 +102,7 @@ export function FaceUnlockCamera({
           if (cancelled) return;
 
           if (detections.length !== 1) {
+            stableFrames = 0;
             setPhase("align");
             setMessage(detections.length > 1 ? "Only one person should be visible" : "Center your face in the frame");
             setDetail(detections.length > 1 ? "Move other faces out of view." : "Move a little closer and keep the area well lit.");
@@ -122,6 +117,7 @@ export function FaceUnlockCamera({
             video.videoHeight,
           );
           if (!framed) {
+            stableFrames = 0;
             setPhase("align");
             setMessage("Adjust your position");
             setDetail("Keep your full face centered, neither too close nor too far away.");
@@ -129,65 +125,12 @@ export function FaceUnlockCamera({
             continue;
           }
 
-          const eyeRatio = getEyeAspectRatio(
-            detection.landmarks.getLeftEye(),
-            detection.landmarks.getRightEye(),
-          );
-
-          if (!baseline) {
-            setPhase("calibrate");
-            baselineSamples.push(eyeRatio);
-            setMessage("Look at the camera normally");
-            setDetail(`Calibrating your eyes automatically ${Math.min(baselineSamples.length, 10)} of 10.`);
-
-            if (baselineSamples.length >= 10) {
-              const strongestOpenSamples = [...baselineSamples]
-                .sort((first, second) => second - first)
-                .slice(0, 5);
-              baseline = strongestOpenSamples.reduce((sum, value) => sum + value, 0) / strongestOpenSamples.length;
-              blinkStartedAt = performance.now();
-              setPhase("blink");
-              setMessage("Blink once now");
-              setDetail("Close and reopen both eyes naturally. Capture continues automatically.");
-            }
-            await wait(130);
-            continue;
-          }
-
-          if (!sawClosedEyes) {
-            setPhase("blink");
-            const closedThreshold = Math.min(0.22, Math.max(0.12, baseline * 0.72));
-            if (eyeRatio < closedThreshold) closedFrames += 1;
-            else closedFrames = 0;
-
-            if (closedFrames >= 1) {
-              sawClosedEyes = true;
-              setMessage("Great. Open your eyes");
-              setDetail("The blink was detected. Reopen your eyes and hold still.");
-            } else {
-              setMessage("Blink once now");
-              setDetail("Close and reopen both eyes naturally. Capture continues automatically.");
-            }
-
-            if (!sawClosedEyes && performance.now() - blinkStartedAt > 12_000) {
-              baseline = 0;
-              baselineSamples.length = 0;
-              closedFrames = 0;
-              blinkStartedAt = 0;
-              setPhase("calibrate");
-              setMessage("Let's recalibrate once");
-              setDetail("Keep your eyes naturally open for a moment, then follow the blink prompt.");
-            }
-            await wait(130);
-            continue;
-          }
-
-          const reopenThreshold = Math.max(0.145, baseline * 0.84);
-          if (eyeRatio >= reopenThreshold) reopenedFrames += 1;
-          else reopenedFrames = 0;
-
-          if (reopenedFrames < 2) {
-            await wait(120);
+          stableFrames += 1;
+          if (stableFrames < 5) {
+            setPhase("steady");
+            setMessage("Face found. Hold still");
+            setDetail(`Automatic capture is preparing ${stableFrames} of 5. Keep looking at the camera.`);
+            await wait(140);
             continue;
           }
 
@@ -315,8 +258,8 @@ export function FaceUnlockCamera({
           {!complete && !error ? (
             <div className="mt-4 grid grid-cols-3 gap-2" aria-label="Face capture progress">
               {[
-                { label: "Face ready", active: phase === "align" || phase === "calibrate", done: ["blink", "capture"].includes(phase) },
-                { label: "Live blink", active: phase === "blink", done: phase === "capture" },
+                { label: "Face ready", active: phase === "align", done: ["steady", "capture"].includes(phase) },
+                { label: "Hold still", active: phase === "steady", done: phase === "capture" },
                 { label: "Auto capture", active: phase === "capture", done: false },
               ].map((step, index) => (
                 <div
