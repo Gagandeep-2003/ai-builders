@@ -57,8 +57,8 @@ export async function registerFaceUnlockDeviceAction(
     .eq("id", identity.userId)
     .maybeSingle();
 
-  if (profileError || !profile || profile.role !== "student") {
-    return { ok: false, message: "Camera Face Unlock is currently available to student accounts only." };
+  if (profileError || !profile || !["student", "admin"].includes(profile.role)) {
+    return { ok: false, message: "Camera Face Unlock is not available for this account." };
   }
 
   const email = String(profile.email || identity.email).trim().toLowerCase();

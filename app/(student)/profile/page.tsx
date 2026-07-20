@@ -58,13 +58,13 @@ export default async function ProfilePage() {
         />
       </section>
 
-      {profile.role === "student" ? (
+      {profile.role === "student" || profile.role === "admin" ? (
         <>
           <PasskeyBetaPanel studentName={data.student.fullName} />
           <FaceUnlockBetaPanel
             userId={profile.id}
-            email={data.student.email}
-            studentName={data.student.fullName}
+            email={profile.email}
+            studentName={profile.fullName}
           />
         </>
       ) : null}

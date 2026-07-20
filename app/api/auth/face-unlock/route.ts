@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     .eq("id", device.user_id)
     .maybeSingle();
 
-  if (profileError || !profile || profile.role !== "student") {
+  if (profileError || !profile || !["student", "admin"].includes(profile.role)) {
     return json({ error: "This account cannot use camera Face Unlock." }, 403);
   }
 
