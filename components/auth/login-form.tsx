@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { motion } from "framer-motion";
 import { LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { loginAction, type LoginState } from "@/app/actions/auth";
+import { PasskeySignInButton } from "@/components/auth/passkey-sign-in-button";
 
 const initialState: LoginState = {};
 
@@ -65,6 +66,8 @@ export function LoginForm() {
           {pending ? "Signing in..." : "Sign in"}
         </button>
       </form>
+
+      <PasskeySignInButton />
 
       <div className="mt-6 flex items-center justify-between gap-4 text-sm">
         <a href="mailto:hello@aibuilders.example?subject=Password%20reset" className="text-text-secondary hover:text-accent">
