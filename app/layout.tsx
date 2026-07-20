@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { ScreenshotPrivacyShield } from "@/components/privacy/screenshot-privacy-shield";
 import { getSiteUrl, siteDescription, siteName } from "@/lib/site";
 import "./globals.css";
 
@@ -75,10 +74,7 @@ export default function RootLayout({
               "try{var t=localStorage.getItem('ai-builders-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}",
           }}
         />
-        <ThemeProvider>
-          <ScreenshotPrivacyShield />
-          {children}
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

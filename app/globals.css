@@ -1592,37 +1592,3 @@ textarea:focus-visible {
     clip-path: inset(0 0 0 18rem);
   }
 }
-
-.screenshot-privacy-shield {
-  position: fixed;
-  inset: 0;
-  z-index: 2147483647;
-  pointer-events: none;
-  background: #000;
-  opacity: 0;
-  visibility: hidden;
-  transition: none;
-}
-
-html[data-screenshot-shield="active"] .screenshot-privacy-shield {
-  opacity: 1;
-  visibility: visible;
-}
-
-@media print {
-  html,
-  body {
-    background: #000 !important;
-  }
-
-  body > *:not(.screenshot-privacy-shield) {
-    visibility: hidden !important;
-  }
-
-  .screenshot-privacy-shield {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    background: #000 !important;
-  }
-}

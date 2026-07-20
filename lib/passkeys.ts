@@ -1,19 +1,10 @@
 "use client";
 
-const LOCK_PREFERENCE_PREFIX = "ai-builders-passkey-lock:";
-const SESSION_UNLOCK_PREFIX = "ai-builders-passkey-unlocked:";
-
-export const PASSKEY_PREFERENCE_EVENT = "ai-builders-passkey-preference-changed";
-
 type PasskeyErrorLike = {
   code?: string;
   message?: string;
   name?: string;
 };
-
-function storageKey(prefix: string, userId: string) {
-  return `${prefix}${userId}`;
-}
 
 export function isPasskeySupported() {
   return Boolean(
@@ -45,42 +36,6 @@ export function getDeviceUnlockLabel() {
   if (/iphone|ipad|ipod/.test(userAgent)) return "Face ID or Touch ID";
   if (userAgent.includes("android")) return "Android device unlock";
   return "Device passkey";
-}
-
-export function isPasskeyReopenLockEnabled(userId: string) {
-  try {
-    return window.localStorage.getItem(storageKey(LOCK_PREFERENCE_PREFIX, userId)) === "enabled";
-  } catch {
-    return false;
-  }
-}
-
-export function enablePasskeyReopenLock(userId: string) {
-  window.localStorage.setItem(storageKey(LOCK_PREFERENCE_PREFIX, userId), "enabled");
-  markPasskeySessionUnlocked(userId);
-  window.dispatchEvent(new CustomEvent(PASSKEY_PREFERENCE_EVENT, { detail: { userId, enabled: true } }));
-}
-
-export function disablePasskeyReopenLock(userId: string) {
-  window.localStorage.removeItem(storageKey(LOCK_PREFERENCE_PREFIX, userId));
-  window.sessionStorage.removeItem(storageKey(SESSION_UNLOCK_PREFIX, userId));
-  window.dispatchEvent(new CustomEvent(PASSKEY_PREFERENCE_EVENT, { detail: { userId, enabled: false } }));
-}
-
-export function isPasskeySessionUnlocked(userId: string) {
-  try {
-    return window.sessionStorage.getItem(storageKey(SESSION_UNLOCK_PREFIX, userId)) === "yes";
-  } catch {
-    return false;
-  }
-}
-
-export function markPasskeySessionUnlocked(userId: string) {
-  try {
-    window.sessionStorage.setItem(storageKey(SESSION_UNLOCK_PREFIX, userId), "yes");
-  } catch {
-    // Storage can be unavailable in hardened browsing modes. The current action still succeeds.
-  }
 }
 
 export function formatPasskeyError(error: unknown, action: "register" | "sign-in" | "manage") {

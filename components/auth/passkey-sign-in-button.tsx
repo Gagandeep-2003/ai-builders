@@ -6,18 +6,22 @@ import { LoaderCircle, ScanFace } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   formatPasskeyError,
+  getDeviceUnlockLabel,
   isPasskeySupported,
-  markPasskeySessionUnlocked,
 } from "@/lib/passkeys";
 
 export function PasskeySignInButton() {
   const router = useRouter();
   const [supported, setSupported] = useState(true);
+  const [deviceLabel, setDeviceLabel] = useState("Face ID / device passkey");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setSupported(isPasskeySupported()));
+    const frame = window.requestAnimationFrame(() => {
+      setSupported(isPasskeySupported());
+      setDeviceLabel(getDeviceUnlockLabel());
+    });
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
@@ -32,8 +36,6 @@ export function PasskeySignInButton() {
       const { data, error: signInError } = await supabase.auth.signInWithPasskey();
       if (signInError) throw signInError;
       if (!data.user) throw new Error("Passkey sign-in returned no user.");
-
-      markPasskeySessionUnlocked(data.user.id);
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -69,14 +71,18 @@ export function PasskeySignInButton() {
         className="button-motion flex w-full items-center justify-center gap-2 rounded-xl border border-accent/35 bg-accent/8 px-5 py-3 font-bold text-accent disabled:cursor-not-allowed disabled:opacity-45"
       >
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ScanFace className="h-4 w-4" />}
-        {pending ? "Checking this device..." : "Face ID / device sign-in"}
+        {pending ? "Checking this device..." : `Sign in with ${deviceLabel}`}
         <span className="rounded-md border border-accent/25 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider">
           Beta
         </span>
       </button>
       {!supported ? (
         <p className="mt-2 text-center text-xs text-text-muted">Passkeys require a supported browser and a secure connection.</p>
-      ) : null}
+      ) : (
+        <p className="mt-2 text-center text-xs text-text-muted">
+          On iPhone, Safari uses Apple&apos;s native Face ID or Touch ID prompt.
+        </p>
+      )}
       {error ? (
         <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-rose-200">
           {error}

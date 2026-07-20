@@ -12,12 +12,9 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  disablePasskeyReopenLock,
-  enablePasskeyReopenLock,
   formatPasskeyError,
   getDeviceUnlockLabel,
   hasPlatformAuthenticator,
-  isPasskeyReopenLockEnabled,
   isPasskeySupported,
 } from "@/lib/passkeys";
 
@@ -37,11 +34,11 @@ function formatPasskeyDate(value?: string) {
   }).format(new Date(value));
 }
 
-export function PasskeyBetaPanel({ userId, studentName }: { userId: string; studentName: string }) {
+export function PasskeyBetaPanel({ studentName }: { studentName: string }) {
   const [supported, setSupported] = useState(true);
   const [platformAvailable, setPlatformAvailable] = useState<boolean | null>(null);
+  const [deviceLabel, setDeviceLabel] = useState("Device passkey");
   const [passkeys, setPasskeys] = useState<PasskeyRecord[]>([]);
-  const [lockEnabled, setLockEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -62,7 +59,7 @@ export function PasskeyBetaPanel({ userId, studentName }: { userId: string; stud
       const browserSupported = isPasskeySupported();
       if (!active) return;
       setSupported(browserSupported);
-      setLockEnabled(isPasskeyReopenLockEnabled(userId));
+      setDeviceLabel(getDeviceUnlockLabel());
 
       if (!browserSupported) {
         setPlatformAvailable(false);
@@ -87,7 +84,7 @@ export function PasskeyBetaPanel({ userId, studentName }: { userId: string; stud
     return () => {
       active = false;
     };
-  }, [loadPasskeys, userId]);
+  }, [loadPasskeys]);
 
   async function addThisDevice() {
     if (working) return;
@@ -101,7 +98,7 @@ export function PasskeyBetaPanel({ userId, studentName }: { userId: string; stud
       if (registerError) throw registerError;
       if (!data?.id) throw new Error("Passkey registration returned no credential.");
 
-      const friendlyName = `${studentName} · ${getDeviceUnlockLabel()}`.slice(0, 120);
+      const friendlyName = `${studentName} · ${deviceLabel}`.slice(0, 120);
       const { error: renameError } = await supabase.auth.passkey.update({
         passkeyId: data.id,
         friendlyName,
@@ -109,9 +106,7 @@ export function PasskeyBetaPanel({ userId, studentName }: { userId: string; stud
       if (renameError) throw renameError;
 
       await loadPasskeys();
-      enablePasskeyReopenLock(userId);
-      setLockEnabled(true);
-      setMessage("This device is ready. Closing and reopening the tab will ask for device verification.");
+      setMessage(`This device is ready. When you are signed out, choose “Sign in with ${deviceLabel}” on the login page.`);
     } catch (registerError) {
       setError(formatPasskeyError(registerError, "register"));
     } finally {
@@ -133,25 +128,13 @@ export function PasskeyBetaPanel({ userId, studentName }: { userId: string; stud
       const supabase = createClient();
       const { error: deleteError } = await supabase.auth.passkey.delete({ passkeyId: passkey.id });
       if (deleteError) throw deleteError;
-      const remaining = await loadPasskeys();
-      if (remaining.length === 0) {
-        disablePasskeyReopenLock(userId);
-        setLockEnabled(false);
-      }
+      await loadPasskeys();
       setMessage("Device passkey removed.");
     } catch (deleteError) {
       setError(formatPasskeyError(deleteError, "manage"));
     } finally {
       setWorking(false);
     }
-  }
-
-  function changeReopenLock(nextEnabled: boolean) {
-    if (nextEnabled) enablePasskeyReopenLock(userId);
-    else disablePasskeyReopenLock(userId);
-    setLockEnabled(nextEnabled);
-    setMessage(nextEnabled ? "Reopen protection is on for this browser." : "Reopen protection is off for this browser.");
-    setError(null);
   }
 
   const canRegister = supported && platformAvailable === true;
@@ -171,7 +154,7 @@ export function PasskeyBetaPanel({ userId, studentName }: { userId: string; stud
               </span>
             </div>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-              Use your device&apos;s Face ID, Touch ID, Windows Hello, or screen lock. Your biometric data stays on the device and is never sent to AI Builders.
+              Add a passkey once, then use Apple Face ID, Touch ID, Windows Hello, or your device screen lock whenever you are signed out. Your biometric data stays on the device.
             </p>
           </div>
         </div>
@@ -234,29 +217,22 @@ export function PasskeyBetaPanel({ userId, studentName }: { userId: string; stud
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
             <div>
-              <p className="font-heading font-bold">Protect reopened tabs</p>
+              <p className="font-heading font-bold">How sign-in works</p>
               <p className="mt-1 text-sm leading-5 text-text-secondary">
-                Ask for device unlock after this browser tab has been closed and opened again. Ordinary refreshes stay unlocked.
+                Students who are already signed in continue directly into the portal. Face ID is requested only from the login screen after logout or session expiry.
               </p>
             </div>
           </div>
-          <label className="mt-4 flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-border bg-bg-card p-3">
-            <span className="text-sm font-medium">Reopen lock</span>
-            <input
-              type="checkbox"
-              checked={lockEnabled}
-              disabled={passkeys.length === 0 || working}
-              onChange={(event) => changeReopenLock(event.target.checked)}
-              className="h-5 w-5 accent-[var(--accent)]"
-            />
-          </label>
+          <div className="mt-4 rounded-lg border border-border bg-bg-card p-3 text-sm leading-6 text-text-secondary">
+            On iPhone or iPad, Safari opens Apple&apos;s native Face ID or Touch ID prompt. No camera photo or face model is stored by the portal.
+          </div>
           {!supported ? (
             <p className="mt-3 text-xs text-rose-300">This browser does not support secure passkeys.</p>
           ) : platformAvailable === false ? (
             <p className="mt-3 text-xs text-amber-300">No built-in device authenticator is available in this browser.</p>
           ) : (
             <p className="mt-3 flex items-center gap-2 text-xs text-text-muted">
-              <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> {getDeviceUnlockLabel()} available
+              <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> {deviceLabel} available
             </p>
           )}
         </div>

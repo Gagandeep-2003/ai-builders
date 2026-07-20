@@ -9,7 +9,6 @@ import { SidebarNav, type NavBadge, type NavLink } from "@/components/ui/sidebar
 import { getNextClassEvent, getStudentClassEvents } from "@/lib/class-events";
 import { getStudentShellData } from "@/lib/data";
 import { BadgeCelebration } from "@/components/portal/badge-celebration";
-import { StudentPasskeyGate } from "@/components/portal/student-passkey-gate";
 
 const links: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard", priority: true },
@@ -26,7 +25,7 @@ const links: NavLink[] = [
 ];
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
-  const profile = await requireStudentAccess();
+  await requireStudentAccess();
   const data = await getStudentShellData();
   const nextClassEvent = getNextClassEvent(
     getStudentClassEvents({
@@ -54,28 +53,22 @@ export default async function StudentLayout({ children }: { children: React.Reac
       : undefined,
   };
   return (
-    <StudentPasskeyGate
-      enabled={profile.role === "student"}
-      userId={profile.id}
-      studentName={data.student.fullName}
-    >
-      <div className="min-h-screen">
-        <CardBorderGlow />
-        <StudentSplashCursor studentId={data.student.id} />
-        <StudentStrandsSearch studentId={data.student.id} studentName={data.student.fullName} />
-        <BadgeCelebration key={data.unseenBadge?.id ?? "no-unseen-badge"} award={data.unseenBadge} />
-        <ChatNotificationPrompt />
-        <ChatUnreadPoller
-          initialUnreadCount={data.unreadChatCount}
-          defaultHref="/chat"
-          defaultTitle="New message from your mentor"
-        />
-        <PortalAutoSync />
-        <SidebarNav links={links} badges={badges} />
-        <div className="px-4 py-20 sm:px-6 lg:ml-72 lg:px-10 lg:py-10">
-          <div className="mx-auto max-w-7xl">{children}</div>
-        </div>
+    <div className="min-h-screen">
+      <CardBorderGlow />
+      <StudentSplashCursor studentId={data.student.id} />
+      <StudentStrandsSearch studentId={data.student.id} studentName={data.student.fullName} />
+      <BadgeCelebration key={data.unseenBadge?.id ?? "no-unseen-badge"} award={data.unseenBadge} />
+      <ChatNotificationPrompt />
+      <ChatUnreadPoller
+        initialUnreadCount={data.unreadChatCount}
+        defaultHref="/chat"
+        defaultTitle="New message from your mentor"
+      />
+      <PortalAutoSync />
+      <SidebarNav links={links} badges={badges} />
+      <div className="px-4 py-20 sm:px-6 lg:ml-72 lg:px-10 lg:py-10">
+        <div className="mx-auto max-w-7xl">{children}</div>
       </div>
-    </StudentPasskeyGate>
+    </div>
   );
 }

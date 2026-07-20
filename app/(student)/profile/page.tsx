@@ -58,7 +58,7 @@ export default async function ProfilePage() {
       </section>
 
       {profile.role === "student" ? (
-        <PasskeyBetaPanel userId={profile.id} studentName={data.student.fullName} />
+        <PasskeyBetaPanel studentName={data.student.fullName} />
       ) : null}
 
       <PasswordChangePanel
