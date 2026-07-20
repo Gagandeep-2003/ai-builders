@@ -1,14 +1,16 @@
 import { PasswordChangePanel } from "@/components/portal/password-change-panel";
+import { PasskeyBetaPanel } from "@/components/portal/passkey-beta-panel";
 import { ProfileContactForm } from "@/components/portal/profile-contact-form";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { getStudentProfileData } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
+import { requireStudentAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
-  const data = await getStudentProfileData();
+  const [data, profile] = await Promise.all([getStudentProfileData(), requireStudentAccess()]);
 
   const lockedRows = [
     ["Name", data.student.fullName],
@@ -54,6 +56,10 @@ export default async function ProfilePage() {
           country={data.student.country || ""}
         />
       </section>
+
+      {profile.role === "student" ? (
+        <PasskeyBetaPanel userId={profile.id} studentName={data.student.fullName} />
+      ) : null}
 
       <PasswordChangePanel
         latestPasswordRequest={latestPasswordRequest}

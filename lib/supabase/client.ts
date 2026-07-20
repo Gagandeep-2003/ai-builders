@@ -8,5 +8,10 @@ export function createClient() {
   const { supabaseUrl, supabaseAnonKey } = requireSupabaseEnv();
   return createBrowserClient(supabaseUrl, supabaseAnonKey, {
     cookieOptions: authCookieOptions,
+    auth: {
+      experimental: {
+        passkey: true,
+      },
+    },
   });
 }
