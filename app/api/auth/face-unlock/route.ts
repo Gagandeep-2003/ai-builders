@@ -102,19 +102,22 @@ export async function POST(request: NextRequest) {
     return json({ error: "Face Unlock could not verify this browser." }, 401);
   }
 
-  const { data: profile, error: profileError } = await service
-    .from("profiles")
-    .select("role, email")
-    .eq("id", device.user_id)
-    .maybeSingle();
-
-  if (profileError || !profile || !["student", "admin"].includes(profile.role)) {
+  const { data: authUserData, error: authUserError } = await service.auth.admin.getUserById(
+    device.user_id,
+  );
+  const authEmail = authUserData.user?.email?.trim().toLowerCase();
+  if (
+    authUserError ||
+    !authUserData.user ||
+    !authEmail ||
+    authEmail !== String(device.login_email).trim().toLowerCase()
+  ) {
     return json({ error: "This account cannot use camera Face Unlock." }, 403);
   }
 
   const { data: link, error: linkError } = await service.auth.admin.generateLink({
     type: "magiclink",
-    email: String(profile.email || email).trim().toLowerCase(),
+    email: authEmail,
   });
 
   if (linkError || !link?.properties?.hashed_token) {
@@ -134,6 +137,5 @@ export async function POST(request: NextRequest) {
   return json({
     ok: true,
     tokenHash: link.properties.hashed_token,
-    role: profile.role,
   });
 }

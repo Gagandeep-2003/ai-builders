@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { getAuthIdentity } from "@/lib/auth";
+import { getAuthIdentity, getCurrentProfile } from "@/lib/auth";
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/server";
 
 type FaceUnlockActionResult = {
@@ -51,13 +51,12 @@ export async function registerFaceUnlockDeviceAction(
     };
   }
 
-  const { data: profile, error: profileError } = await service
-    .from("profiles")
-    .select("role, email")
-    .eq("id", identity.userId)
-    .maybeSingle();
-
-  if (profileError || !profile || !["student", "admin"].includes(profile.role)) {
+  const profile = await getCurrentProfile();
+  if (
+    !profile ||
+    profile.id !== identity.userId ||
+    !["student", "admin"].includes(profile.role)
+  ) {
     return { ok: false, message: "Camera Face Unlock is not available for this account." };
   }
 
