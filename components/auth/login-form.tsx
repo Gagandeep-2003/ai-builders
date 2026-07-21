@@ -28,7 +28,7 @@ export function LoginForm() {
 
       <FaceUnlockSignIn />
 
-      <form action={action} className="mt-8 space-y-4">
+      <form action={action} className="mt-6 space-y-4">
         <label className="block">
           <span className="mb-2 block text-sm text-text-secondary">Email</span>
           <span className="flex items-center gap-3 rounded-xl border border-border bg-bg-elevated px-3 py-3 focus-within:border-accent/55">

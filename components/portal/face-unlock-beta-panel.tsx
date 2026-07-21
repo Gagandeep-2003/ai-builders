@@ -51,6 +51,10 @@ export function FaceUnlockBetaPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const closeCamera = useCallback(() => {
+    setCameraOpen(false);
+  }, []);
+
   useEffect(() => {
     let active = true;
 
@@ -279,7 +283,7 @@ export function FaceUnlockBetaPanel({
         open={cameraOpen}
         mode="enroll"
         accountName={studentName}
-        onCancel={() => setCameraOpen(false)}
+        onCancel={closeCamera}
         onComplete={finishEnrollment}
       />
     </>
