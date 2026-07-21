@@ -26,6 +26,8 @@ export function LoginForm() {
         Continue to your AI Builders workspace, coursework, and class dashboard.
       </p>
 
+      <FaceUnlockSignIn />
+
       <form action={action} className="mt-8 space-y-4">
         <label className="block">
           <span className="mb-2 block text-sm text-text-secondary">Email</span>
@@ -69,7 +71,6 @@ export function LoginForm() {
       </form>
 
       <PasskeySignInButton />
-      <FaceUnlockSignIn />
 
       <div className="mt-6 flex items-center justify-between gap-4 text-sm">
         <a href="mailto:hello@aibuilders.example?subject=Password%20reset" className="text-text-secondary hover:text-accent">
