@@ -116,7 +116,7 @@ export function FaceUnlockSignIn() {
 
   return (
     <>
-      <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-3">
+      <div className="mt-6 rounded-xl border border-cyan-400/25 bg-cyan-400/[0.055] p-3 shadow-[0_14px_34px_rgba(34,211,238,0.06)]">
         {enrollments.length > 1 ? (
           <label className="mb-3 block">
             <span className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.16em] text-text-muted">
@@ -142,16 +142,16 @@ export function FaceUnlockSignIn() {
             setCameraOpen(true);
           }}
           disabled={pending}
-          className="button-motion flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-400/35 bg-cyan-400/10 px-5 py-3 font-bold text-cyan-200 disabled:cursor-not-allowed disabled:opacity-45"
+          className="button-motion flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-400/40 bg-cyan-400/12 px-5 py-3 font-bold text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(34,211,238,0.08)] disabled:cursor-not-allowed disabled:opacity-45"
         >
           {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-          {pending ? "Verifying face..." : "Unlock with camera"}
+          {pending ? "Verifying face..." : "Unlock with Camera Face ID"}
           <span className="rounded-md border border-cyan-400/25 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider">
             Beta
           </span>
         </button>
         <p className="mt-2 text-center text-xs leading-5 text-text-muted">
-          Same browser only · automatic face capture · password remains available
+          Fastest sign-in on this browser · automatic capture · password remains available
         </p>
         {error ? (
           <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-rose-200">

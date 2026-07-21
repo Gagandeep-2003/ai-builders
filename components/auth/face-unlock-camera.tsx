@@ -195,10 +195,10 @@ export function FaceUnlockCamera({
       role="dialog"
       aria-modal="true"
       aria-labelledby="face-unlock-title"
-      className="fixed inset-0 z-[120] grid place-items-center overflow-y-auto bg-black/75 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-[120] grid h-dvh place-items-center overflow-hidden bg-black/75 p-3 backdrop-blur-md sm:p-4"
     >
-      <div className="premium-card my-auto w-full max-w-xl overflow-hidden rounded-xl border border-accent/25 shadow-[0_30px_100px_rgba(0,0,0,0.65)]">
-        <header className="flex items-start justify-between gap-4 border-b border-border p-5 sm:p-6">
+      <div className="premium-card flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-accent/25 shadow-[0_30px_100px_rgba(0,0,0,0.65)] sm:max-h-[calc(100dvh-2rem)]">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-4 sm:px-5 sm:py-4">
           <div className="flex gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
               <ScanFace className="h-5 w-5" />
@@ -222,84 +222,88 @@ export function FaceUnlockCamera({
           </button>
         </header>
 
-        <div className="p-5 sm:p-6">
-          <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-border bg-black">
-            <video
-              ref={videoRef}
-              muted
-              playsInline
-              className={`h-full w-full -scale-x-100 object-cover transition-opacity duration-300 ${ready ? "opacity-100" : "opacity-25"}`}
-            />
-            <div className="pointer-events-none absolute inset-0 grid place-items-center">
-              <div className={`h-[74%] w-[58%] rounded-[48%] border-2 ${complete ? "border-accent" : "border-white/70"} shadow-[0_0_0_999px_rgba(0,0,0,0.28)]`} />
-            </div>
-            {!ready ? (
-              <div className="absolute inset-0 grid place-items-center">
-                <LoaderCircle className="h-8 w-8 animate-spin text-accent" />
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-5 md:grid-cols-[minmax(0,1.4fr)_minmax(250px,0.85fr)] md:overflow-hidden">
+          <div className="min-w-0 self-center">
+            <div className="relative aspect-[4/3] max-h-[min(58dvh,420px)] overflow-hidden rounded-xl border border-border bg-black">
+              <video
+                ref={videoRef}
+                muted
+                playsInline
+                className={`h-full w-full -scale-x-100 object-cover transition-opacity duration-300 ${ready ? "opacity-100" : "opacity-25"}`}
+              />
+              <div className="pointer-events-none absolute inset-0 grid place-items-center">
+                <div className={`h-[74%] w-[58%] rounded-[48%] border-2 ${complete ? "border-accent" : "border-white/70"} shadow-[0_0_0_999px_rgba(0,0,0,0.28)]`} />
               </div>
-            ) : null}
-            {complete ? (
-              <div className="absolute inset-0 grid place-items-center bg-accent/10">
-                <CheckCircle2 className="h-14 w-14 text-accent drop-shadow-[0_0_24px_rgba(110,231,183,0.8)]" />
-              </div>
-            ) : null}
-          </div>
-
-          <div aria-live="polite" className="mt-5 flex items-start gap-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-accent/25 bg-accent/8 text-accent">
-              {complete ? <ShieldCheck className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
-            </div>
-            <div>
-              <p className="font-heading font-bold text-text-primary">{message}</p>
-              <p className="mt-1 text-sm leading-5 text-text-secondary">{detail}</p>
-            </div>
-          </div>
-
-          {!complete && !error ? (
-            <div className="mt-4 grid grid-cols-3 gap-2" aria-label="Face capture progress">
-              {[
-                { label: "Face ready", active: phase === "align", done: ["steady", "capture"].includes(phase) },
-                { label: "Hold still", active: phase === "steady", done: phase === "capture" },
-                { label: "Auto capture", active: phase === "capture", done: false },
-              ].map((step, index) => (
-                <div
-                  key={step.label}
-                  className={`rounded-lg border px-3 py-2 text-center text-xs transition ${
-                    step.active
-                      ? "border-accent/45 bg-accent/12 text-accent"
-                      : step.done
-                        ? "border-accent/20 bg-accent/5 text-text-primary"
-                        : "border-border bg-surface/45 text-text-muted"
-                  }`}
-                >
-                  <span className="mb-1 block font-mono text-[9px] uppercase tracking-[0.16em]">
-                    {step.done ? "Done" : `Step ${index + 1}`}
-                  </span>
-                  {step.label}
+              {!ready ? (
+                <div className="absolute inset-0 grid place-items-center">
+                  <LoaderCircle className="h-8 w-8 animate-spin text-accent" />
                 </div>
-              ))}
+              ) : null}
+              {complete ? (
+                <div className="absolute inset-0 grid place-items-center bg-accent/10">
+                  <CheckCircle2 className="h-14 w-14 text-accent drop-shadow-[0_0_24px_rgba(110,231,183,0.8)]" />
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </div>
 
-          {error ? (
-            <div className="mt-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-rose-200">
-              {error}
+          <div className="flex min-w-0 flex-col md:overflow-y-auto md:pr-1">
+            <div aria-live="polite" className="flex items-start gap-3 rounded-xl border border-border bg-surface/35 p-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-accent/25 bg-accent/8 text-accent">
+                {complete ? <ShieldCheck className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+              </div>
+              <div>
+                <p className="font-heading font-bold text-text-primary">{message}</p>
+                <p className="mt-1 text-sm leading-5 text-text-secondary">{detail}</p>
+              </div>
             </div>
-          ) : null}
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <p className="max-w-sm text-xs leading-5 text-text-muted">
-              No camera photo is retained. Face matching happens only in this browser, and password sign-in always remains available.
-            </p>
-            {error ? (
-              <button
-                type="button"
-                onClick={() => setAttempt((value) => value + 1)}
-                className="button-motion rounded-lg border border-accent/35 bg-accent/8 px-4 py-2 text-sm font-bold text-accent"
-              >
-                Retry camera
-              </button>
+            {!complete && !error ? (
+              <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-1" aria-label="Face capture progress">
+                {[
+                  { label: "Face ready", active: phase === "align", done: ["steady", "capture"].includes(phase) },
+                  { label: "Hold still", active: phase === "steady", done: phase === "capture" },
+                  { label: "Auto capture", active: phase === "capture", done: false },
+                ].map((step, index) => (
+                  <div
+                    key={step.label}
+                    className={`rounded-lg border px-3 py-2 text-center text-xs transition md:flex md:items-center md:justify-between md:text-left ${
+                      step.active
+                        ? "border-accent/45 bg-accent/12 text-accent"
+                        : step.done
+                          ? "border-accent/20 bg-accent/5 text-text-primary"
+                          : "border-border bg-surface/45 text-text-muted"
+                    }`}
+                  >
+                    <span className="mb-1 block font-mono text-[9px] uppercase tracking-[0.16em] md:mb-0">
+                      {step.done ? "Done" : `Step ${index + 1}`}
+                    </span>
+                    {step.label}
+                  </div>
+                ))}
+              </div>
             ) : null}
+
+            {error ? (
+              <div className="mt-3 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-rose-200">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="mt-auto pt-3">
+              <p className="text-xs leading-5 text-text-muted">
+                No camera photo is retained. Face matching happens only in this browser, and password sign-in always remains available.
+              </p>
+              {error ? (
+                <button
+                  type="button"
+                  onClick={() => setAttempt((value) => value + 1)}
+                  className="button-motion mt-3 w-full rounded-lg border border-accent/35 bg-accent/8 px-4 py-2 text-sm font-bold text-accent"
+                >
+                  Retry camera
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
