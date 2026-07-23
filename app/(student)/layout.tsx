@@ -2,6 +2,7 @@ import { requireStudentAccess } from "@/lib/auth";
 import { PortalAutoSync } from "@/components/portal/portal-auto-sync";
 import { StudentStrandsSearch } from "@/components/portal/student-strands-search";
 import { StudentSplashCursor } from "@/components/portal/student-splash-cursor";
+import { ReferralCampaignLaunch } from "@/components/portal/referral-campaign-launch";
 import { ChatNotificationPrompt } from "@/components/chat/chat-notification-prompt";
 import { ChatUnreadPoller } from "@/components/chat/chat-unread-poller";
 import { CardBorderGlow } from "@/components/ui/card-border-glow";
@@ -20,7 +21,7 @@ const links: NavLink[] = [
   { href: "/chat", label: "Mentor Chat", icon: "message", priority: true },
   { href: "/progress", label: "Progress", icon: "chart" },
   { href: "/league", label: "AI Builders League", icon: "league" },
-  { href: "/referrals", label: "Refer & Earn", icon: "referrals" },
+  { href: "/referrals", label: "$100 Refer & Earn", icon: "referrals" },
   { href: "/profile", label: "Profile", icon: "profile" },
 ];
 
@@ -57,6 +58,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
       <CardBorderGlow />
       <StudentSplashCursor studentId={data.student.id} />
       <StudentStrandsSearch studentId={data.student.id} studentName={data.student.fullName} />
+      <ReferralCampaignLaunch studentId={data.student.id} studentName={data.student.fullName} />
       <BadgeCelebration key={data.unseenBadge?.id ?? "no-unseen-badge"} award={data.unseenBadge} />
       <ChatNotificationPrompt />
       <ChatUnreadPoller

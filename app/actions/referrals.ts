@@ -61,7 +61,7 @@ export async function createReferralAction(
   revalidatePath("/admin/referrals");
   return {
     ok: true,
-    message: "Referral sent. Your mentor will review it and update the status here.",
+    message: "Referral submitted. Your $100 reward tracker will update as your mentor contacts the new learner and confirms eligibility.",
   };
 }
 
