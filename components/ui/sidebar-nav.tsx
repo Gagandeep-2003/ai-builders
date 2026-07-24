@@ -154,6 +154,8 @@ export function SidebarNav({
               : undefined
             : serverBadge;
           const hasUnreadChat = isChatLink && liveChatCount > 0;
+          const isLinkPending =
+            showNavigationPending && navigatingTo === link.href;
 
           return (
             <Link
@@ -185,9 +187,49 @@ export function SidebarNav({
                 isReferralLink && active && "referral-gold-nav-link-active",
               )}
             >
-              <Icon className="h-4 w-4" />
-              <span className="min-w-0 flex-1 truncate">{link.label}</span>
-              {showNavigationPending && navigatingTo === link.href ? (
+              {isReferralLink ? (
+                <span
+                  className="referral-invitation-medallion"
+                  aria-hidden="true"
+                >
+                  <Icon className="referral-invitation-icon h-3.5 w-3.5" />
+                </span>
+              ) : (
+                <Icon className="h-4 w-4" />
+              )}
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate",
+                  isReferralLink && "referral-invitation-label",
+                )}
+              >
+                {link.label}
+              </span>
+              {isReferralLink ? (
+                <span
+                  className="referral-invitation-trailing"
+                  aria-live="polite"
+                >
+                  {isLinkPending ? (
+                    <>
+                      <LoaderCircle
+                        className="referral-invitation-spinner h-3.5 w-3.5 animate-spin"
+                        aria-hidden="true"
+                      />
+                      <span className="sr-only">
+                        Opening referral rewards
+                      </span>
+                    </>
+                  ) : (
+                    <span
+                      className="referral-invitation-seal"
+                      aria-hidden="true"
+                    >
+                      $100
+                    </span>
+                  )}
+                </span>
+              ) : isLinkPending ? (
                 <LoaderCircle className="h-3.5 w-3.5 animate-spin text-accent" />
               ) : null}
               {badge && badge.count > 0 ? (
