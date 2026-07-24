@@ -137,6 +137,7 @@ export function SidebarNav({
           const active =
             pathname === link.href ||
             (link.href !== "/admin" && pathname.startsWith(`${link.href}/`));
+          const isReferralLink = link.href === "/referrals";
           const Icon = navIcons[link.icon];
           const serverBadge = badges[link.href];
           const isChatLink = link.href === "/chat" || link.href === "/admin/chat";
@@ -177,8 +178,11 @@ export function SidebarNav({
                 "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary transition",
                 "hover:bg-white/[0.04] hover:text-text-primary",
                 active &&
+                  !isReferralLink &&
                   "bg-accent/10 text-accent shadow-[inset_3px_0_0_rgba(110,231,183,0.85)]",
                 hasUnreadChat && "sidebar-unread-chat",
+                isReferralLink && "referral-gold-nav-link",
+                isReferralLink && active && "referral-gold-nav-link-active",
               )}
             >
               <Icon className="h-4 w-4" />
