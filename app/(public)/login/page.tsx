@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginForm } from "@/components/auth/login-form";
+
+export const metadata: Metadata = {
+  title: "Student Login",
+  description: "Sign in to the private AI Builders Academy student portal.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function LoginPage() {
   return (
@@ -29,8 +39,8 @@ export default function LoginPage() {
               Class dashboard
             </div>
             <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
-              <span className="block font-heading text-lg font-bold text-text-primary">96</span>
-              Coursework tasks
+              <span className="block font-heading text-lg font-bold text-text-primary">24</span>
+              Live sessions
             </div>
             <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
               <span className="block font-heading text-lg font-bold text-text-primary">3</span>
