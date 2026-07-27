@@ -1147,8 +1147,7 @@ export async function deleteApprovedRescheduleAction(formData: FormData) {
 export async function createAdminRescheduleAction(formData: FormData) {
   const supabase = await getAdminClient();
   if (!supabase) {
-    revalidatePath("/admin/attendance");
-    return;
+    redirect("/admin/attendance?reschedule=create-error");
   }
 
   const studentId = String(formData.get("studentId") ?? "");
@@ -1171,20 +1170,23 @@ export async function createAdminRescheduleAction(formData: FormData) {
     !requestedEndTime ||
     (requestType === "reschedule" && !originalDate)
   ) {
-    revalidatePath("/admin/attendance");
-    return;
+    redirect("/admin/attendance?reschedule=create-error");
   }
 
-  const { data: student } = await supabase
+  const { data: student, error: studentError } = await supabase
     .from("students")
     .select("batch_id, batches(meet_link)")
     .eq("id", studentId)
     .maybeSingle();
 
   const batchId = String(student?.batch_id ?? "");
-  if (!batchId) {
-    revalidatePath("/admin/attendance");
-    return;
+  if (studentError || !batchId) {
+    console.error("[admin-reschedules] Student schedule lookup failed.", {
+      code: studentError?.code,
+      message: studentError?.message,
+      studentId,
+    });
+    redirect("/admin/attendance?reschedule=create-error");
   }
 
   const batch = student?.batches;
@@ -1210,7 +1212,7 @@ export async function createAdminRescheduleAction(formData: FormData) {
     }
   }
 
-  await supabase.from("class_reschedule_requests").insert({
+  const insertPayload = {
     student_id: studentId,
     batch_id: batchId,
     original_date: originalDate,
@@ -1223,10 +1225,35 @@ export async function createAdminRescheduleAction(formData: FormData) {
     admin_note: adminNote,
     meet_link: meetLink || normalizeMeetLink(batchMeetLink),
     reviewed_at: new Date().toISOString(),
-  });
+  };
+
+  let { error: insertError } = await supabase
+    .from("class_reschedule_requests")
+    .insert(insertPayload);
+
+  if (insertError) {
+    const serviceSupabase = createServiceRoleSupabaseClient();
+    if (serviceSupabase) {
+      const fallbackResult = await serviceSupabase
+        .from("class_reschedule_requests")
+        .insert(insertPayload);
+      insertError = fallbackResult.error;
+    }
+  }
+
+  if (insertError) {
+    console.error("[admin-reschedules] Approved class creation failed.", {
+      code: insertError.code,
+      message: insertError.message,
+      studentId,
+      requestedDate,
+    });
+    redirect("/admin/attendance?reschedule=create-error");
+  }
 
   revalidatePath("/admin");
   revalidatePath("/admin/attendance");
   revalidatePath("/class");
   revalidatePath("/dashboard");
+  redirect("/admin/attendance?reschedule=created");
 }

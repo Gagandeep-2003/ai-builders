@@ -748,6 +748,56 @@ const shellHomeworkSelect =
   "id, session_id, batch_id, assigned_student_id, submissions(student_id, status)";
 const rescheduleSelect =
   "id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)";
+const studentRescheduleSelect =
+  "id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at";
+
+type ServerSupabaseClient = NonNullable<
+  Awaited<ReturnType<typeof createServerSupabaseClient>>
+>;
+
+async function loadStudentRescheduleRequests(
+  studentId: string,
+  authenticatedClient: ServerSupabaseClient,
+): Promise<ClassRescheduleRequest[]> {
+  const authenticatedResult = await authenticatedClient
+    .from("class_reschedule_requests")
+    .select(studentRescheduleSelect)
+    .eq("student_id", studentId)
+    .order("requested_at", { ascending: false })
+    .limit(50);
+
+  if (!authenticatedResult.error && (authenticatedResult.data?.length ?? 0) > 0) {
+    return (authenticatedResult.data ?? []).map((row) => mapRescheduleRequest(row));
+  }
+
+  const serviceClient = createServiceRoleSupabaseClient();
+  if (!serviceClient) {
+    if (authenticatedResult.error) {
+      console.error("[student-reschedules] Student request loading failed.", {
+        code: authenticatedResult.error.code,
+        message: authenticatedResult.error.message,
+      });
+    }
+    return [];
+  }
+
+  const serviceResult = await serviceClient
+    .from("class_reschedule_requests")
+    .select(studentRescheduleSelect)
+    .eq("student_id", studentId)
+    .order("requested_at", { ascending: false })
+    .limit(50);
+
+  if (serviceResult.error) {
+    console.error("[student-reschedules] Fallback request loading failed.", {
+      code: serviceResult.error.code,
+      message: serviceResult.error.message,
+    });
+    return [];
+  }
+
+  return (serviceResult.data ?? []).map((row) => mapRescheduleRequest(row));
+}
 
 const getCachedStudentRow = unstable_cache(
   async (userId: string) => {
@@ -894,7 +944,7 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
     { data: announcementRows },
     { data: attendanceRows },
     { data: feedbackRows },
-    { data: rescheduleRequestRows },
+    rescheduleRequests,
     { data: passwordRequestRows },
   ] =
     await Promise.all([
@@ -923,12 +973,7 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
         .eq("student_id", effectiveStudent.id)
         .order("created_at", { ascending: false })
         .limit(10),
-      supabase
-        .from("class_reschedule_requests")
-        .select(rescheduleSelect)
-        .eq("student_id", effectiveStudent.id)
-        .order("requested_at", { ascending: false })
-        .limit(10),
+      loadStudentRescheduleRequests(effectiveStudent.id, supabase),
       supabase
         .from("password_change_requests")
         .select("id, student_id, status, reason, admin_note, requested_at, reviewed_at, used_at, students(full_name)")
@@ -952,7 +997,7 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,
     attendance,
     feedback,
-    rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
+    rescheduleRequests,
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
   };
 }
@@ -1021,13 +1066,8 @@ async function getStudentClassDataImpl() {
   const data = emptyStudentData(context);
   const supabase = await createServerSupabaseClient();
   if (!supabase) return data;
-  const { data: rows } = await supabase
-    .from("class_reschedule_requests")
-    .select(rescheduleSelect)
-    .eq("student_id", context.student.id)
-    .order("requested_at", { ascending: false })
-    .limit(10);
-  return { ...data, rescheduleRequests: rows?.map((row) => mapRescheduleRequest(row)) ?? [] };
+  const rescheduleRequests = await loadStudentRescheduleRequests(context.student.id, supabase);
+  return { ...data, rescheduleRequests };
 }
 
 export const getStudentClassData = cache(() => measureServer("student.class", getStudentClassDataImpl));
@@ -1250,14 +1290,9 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
     .from("homework")
     .select(shellHomeworkSelect)
     .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`);
-  const [{ data: homeworkRows }, { data: rescheduleRows }, { data: unseenRows }, chatUnread] = await Promise.all([
+  const [{ data: homeworkRows }, rescheduleRequests, { data: unseenRows }, chatUnread] = await Promise.all([
     homeworkQuery,
-    supabase
-      .from("class_reschedule_requests")
-      .select(rescheduleSelect)
-      .eq("student_id", context.student.id)
-      .order("requested_at", { ascending: false })
-      .limit(10),
+    loadStudentRescheduleRequests(context.student.id, supabase),
     supabase
       .from("student_badges")
       .select("id, student_id, badge_id, source, mentor_note, awarded_at, seen_at, badge_definitions(*)")
@@ -1283,7 +1318,7 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
     ...context,
     pendingHomeworkCount,
     unreadChatCount: chatUnread.count ?? 0,
-    rescheduleRequests: rescheduleRows?.map((row) => mapRescheduleRequest(row)) ?? [],
+    rescheduleRequests,
     unseenBadge,
   };
 }

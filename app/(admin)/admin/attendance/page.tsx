@@ -54,6 +54,10 @@ export default async function AdminAttendancePage({
         ? "That date falls inside this student's scheduled break. Choose a date after classes resume."
         : params?.reschedule === "invalid-original"
           ? "The original class date does not match this student's schedule."
+        : params?.reschedule === "created"
+          ? "Make-up class added. It is now visible in the student's My Class schedule."
+        : params?.reschedule === "create-error"
+          ? "The class could not be saved, so nothing was added to the student's schedule. Please try again."
         : params?.reschedule === "approved"
           ? "Class request approved. The student can now see the updated class in their portal."
         : params?.reschedule === "rejected"
@@ -63,12 +67,19 @@ export default async function AdminAttendancePage({
         : params?.reschedule === "updated"
           ? "The approved class now replaces the selected regular occurrence."
           : "";
+  const rescheduleNoticeIsError = params?.reschedule === "create-error";
 
   return (
     <AnimatedPage>
       <PageHeader title="Attendance" subtitle="Select a session and mark each student as present, absent, or rescheduled." />
       {rescheduleNotice ? (
-        <div className="rounded-xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
+        <div
+          className={`rounded-xl border p-4 text-sm ${
+            rescheduleNoticeIsError
+              ? "border-danger/35 bg-danger/10 text-danger"
+              : "border-accent/30 bg-accent/10 text-accent"
+          }`}
+        >
           {rescheduleNotice}
         </div>
       ) : null}
