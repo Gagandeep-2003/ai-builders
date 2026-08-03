@@ -1,6 +1,7 @@
 import { AttendanceStatusForm } from "@/components/admin/attendance-status-form";
 import {
   reviewRescheduleRequestAction,
+  updateApprovedRescheduleMeetLinkAction,
   updateApprovedRescheduleOriginalAction,
 } from "@/app/actions/admin";
 import { DeleteApprovedClassButton } from "@/components/admin/delete-approved-class-button";
@@ -66,8 +67,12 @@ export default async function AdminAttendancePage({
           ? "The approved one-off class was deleted and removed from the student's schedule."
         : params?.reschedule === "updated"
           ? "The approved class now replaces the selected regular occurrence."
+        : params?.reschedule === "link-updated"
+          ? "Meet link updated. The student can use it from My Class when joining opens."
+        : params?.reschedule === "invalid-link"
+          ? "Enter a valid Google Meet link before saving."
           : "";
-  const rescheduleNoticeIsError = params?.reschedule === "create-error";
+  const rescheduleNoticeIsError = ["create-error", "invalid-link"].includes(params?.reschedule ?? "");
 
   return (
     <AnimatedPage>
@@ -267,6 +272,24 @@ export default async function AdminAttendancePage({
                       {request.reason ? <p className={request.adminNote ? "mt-2" : ""}><span className="text-text-primary">Student reason:</span> {request.reason}</p> : null}
                     </div>
                   ) : null}
+                  <form action={updateApprovedRescheduleMeetLinkAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input type="hidden" name="requestId" value={request.id} />
+                    <input
+                      name="meetLink"
+                      type="url"
+                      required
+                      defaultValue={request.meetLink}
+                      placeholder="https://meet.google.com/..."
+                      aria-label={`Meet link for ${request.studentName}`}
+                      className="min-w-0 flex-1 rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm"
+                    />
+                    <SubmitButton
+                      pendingLabel="Saving..."
+                      className="button-motion rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-bold text-accent"
+                    >
+                      Save Meet link
+                    </SubmitButton>
+                  </form>
                   {!request.originalDate ? (
                     <form action={updateApprovedRescheduleOriginalAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
                       <input type="hidden" name="requestId" value={request.id} />

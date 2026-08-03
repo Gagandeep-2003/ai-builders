@@ -30,19 +30,35 @@ export type ClassEvent = {
   tag: string;
 };
 
+function addCalendarDay(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
 export function getRescheduleRequestDateTimes(request: ClassRescheduleRequest) {
-  return {
-    startsAt: zonedDateTimeToUtc(
-      request.requestedDate,
-      request.requestedStartTime,
-      request.requestedTimeZone,
-    ),
-    endsAt: zonedDateTimeToUtc(
-      request.requestedDate,
+  const startsAt = zonedDateTimeToUtc(
+    request.requestedDate,
+    request.requestedStartTime,
+    request.requestedTimeZone,
+  );
+  let endsAt = zonedDateTimeToUtc(
+    request.requestedDate,
+    request.requestedEndTime,
+    request.requestedTimeZone,
+  );
+
+  // A class ending after midnight belongs to the following local calendar day.
+  if (endsAt.getTime() <= startsAt.getTime()) {
+    endsAt = zonedDateTimeToUtc(
+      addCalendarDay(request.requestedDate),
       request.requestedEndTime,
       request.requestedTimeZone,
-    ),
-  };
+    );
+  }
+
+  return { startsAt, endsAt };
 }
 
 export function formatClassEventTime(event: Pick<ClassEvent, "startsAt" | "endsAt">, timeZone: string) {

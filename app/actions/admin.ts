@@ -1124,6 +1124,29 @@ export async function updateApprovedRescheduleOriginalAction(formData: FormData)
   redirect("/admin/attendance?reschedule=updated");
 }
 
+export async function updateApprovedRescheduleMeetLinkAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) return;
+
+  const requestId = requiredValue(formData, "requestId");
+  const meetLink = normalizeMeetLink(requiredValue(formData, "meetLink"));
+  if (!requestId || !meetLink) {
+    redirect("/admin/attendance?reschedule=invalid-link");
+  }
+
+  await supabase
+    .from("class_reschedule_requests")
+    .update({ meet_link: meetLink })
+    .eq("id", requestId)
+    .eq("status", "approved");
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/attendance");
+  revalidatePath("/class");
+  revalidatePath("/dashboard");
+  redirect("/admin/attendance?reschedule=link-updated");
+}
+
 export async function deleteApprovedRescheduleAction(formData: FormData) {
   const supabase = await getAdminClient();
   if (!supabase) return;
