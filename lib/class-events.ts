@@ -9,8 +9,6 @@ import {
   formatInTimeZone,
   getSessionDateTimes,
   getSessionScheduleDate,
-  dateKeyInTimeZone,
-  isBatchPausedOnDate,
   zonedDateTimeToUtc,
 } from "@/lib/time";
 
@@ -152,9 +150,6 @@ export function getStudentClassEvents({
     .filter((request) => request.status === "approved")
     .flatMap((request) => {
       const schedule = getRescheduleRequestDateTimes(request);
-      if (isBatchPausedOnDate(batch, dateKeyInTimeZone(schedule.startsAt, batch.timeZone))) {
-        return [];
-      }
       const kind = getRescheduleRequestKind(request);
       const originalSession = request.originalDate
         ? sessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)
@@ -250,9 +245,6 @@ export function getAdminClassEvents({
       if (!batch || !student) return [];
 
       const schedule = getRescheduleRequestDateTimes(request);
-      if (isBatchPausedOnDate(batch, dateKeyInTimeZone(schedule.startsAt, batch.timeZone))) {
-        return [];
-      }
       const kind = getRescheduleRequestKind(request);
       const originalSession = request.originalDate
         ? sessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)
