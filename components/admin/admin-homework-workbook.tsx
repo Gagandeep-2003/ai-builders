@@ -3,12 +3,22 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from "react";
-import { ChevronDown, FileText, MonitorSmartphone, Paperclip, UserRound } from "lucide-react";
+import {
+  BrainCircuit,
+  CheckCircle2,
+  ChevronDown,
+  FileText,
+  MonitorSmartphone,
+  Paperclip,
+  UserRound,
+  XCircle,
+} from "lucide-react";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { HomeworkReviewForm } from "@/components/admin/homework-review-form";
 import type { Batch, CourseSession, HomeworkItem, StudentProfile } from "@/lib/course-data";
 import { formatDuration, formatHomeworkKind } from "@/lib/homework-utils";
+import type { AdminModuleThreeQuizActivity } from "@/lib/module-three-quizzes";
 import { cn, formatDate } from "@/lib/utils";
 
 function getStudentSubmission(homework: HomeworkItem, studentId: string) {
@@ -39,12 +49,14 @@ export function AdminHomeworkWorkbook({
   batches,
   sessions,
   homework,
+  quizActivities,
   initialStudentId,
 }: {
   students: StudentProfile[];
   batches: Batch[];
   sessions: CourseSession[];
   homework: HomeworkItem[];
+  quizActivities: AdminModuleThreeQuizActivity[];
   initialStudentId?: string;
 }) {
   const [selectedStudentId, setSelectedStudentId] = useState(() =>
@@ -65,14 +77,17 @@ export function AdminHomeworkWorkbook({
           const submission = getStudentSubmission(item, student.id);
           return submission?.status === "submitted" || submission?.status === "reviewed";
         }).length;
+        const completedQuizzes = quizActivities.filter((activity) =>
+          activity.attempts.some((attempt) => attempt.studentId === student.id),
+        ).length;
 
         return {
           student,
-          assigned: assigned.length,
-          completed,
+          assigned: assigned.length + quizActivities.length,
+          completed: completed + completedQuizzes,
         };
       }),
-    [homework, students],
+    [homework, quizActivities, students],
   );
 
   const groupedSessions = useMemo(
@@ -85,15 +100,21 @@ export function AdminHomeworkWorkbook({
           const submission = selectedStudent ? getStudentSubmission(item, selectedStudent.id) : null;
           return submission?.status === "submitted" || submission?.status === "reviewed";
         }).length;
+        const quizActivity = quizActivities.find((activity) => activity.sessionId === session.id);
+        const quizAttempts = selectedStudent
+          ? quizActivity?.attempts.filter((attempt) => attempt.studentId === selectedStudent.id) ?? []
+          : [];
 
         return {
           session,
           items,
-          completed,
-          total: items.length,
+          quizActivity,
+          quizAttempts,
+          completed: completed + (quizAttempts.length ? 1 : 0),
+          total: items.length + (quizActivity ? 1 : 0),
         };
       }),
-    [homework, selectedStudent, sessions],
+    [homework, quizActivities, selectedStudent, sessions],
   );
   const moduleGroups = useMemo(
     () =>
@@ -195,7 +216,7 @@ export function AdminHomeworkWorkbook({
             </button>
             {moduleOpen ? (
             <div className="space-y-3 border-t border-border/60 p-5">
-              {module.sessions.map(({ session, items, completed, total }) => {
+              {module.sessions.map(({ session, items, quizActivity, quizAttempts, completed, total }) => {
                 const sessionOpen = openSessionId === session.id;
                 return (
                 <section key={session.id} className="rounded-xl border border-border/70 bg-white/[0.02]">
@@ -219,7 +240,7 @@ export function AdminHomeworkWorkbook({
 
                   {sessionOpen ? (
                   <div className="border-t border-border/60 p-4">
-                    {items.length ? (
+                    {items.length || quizActivity ? (
                       <div className="space-y-3">
                         {items.map((item) => {
                           const submission = getStudentSubmission(item, selectedStudent.id);
@@ -350,6 +371,106 @@ export function AdminHomeworkWorkbook({
                             </article>
                           );
                         })}
+                        {quizActivity ? (() => {
+                          const latestAttempt = quizAttempts[0];
+                          const latestReview = latestAttempt?.review;
+                          const bestScore = quizAttempts.length
+                            ? Math.max(...quizAttempts.map((attempt) => attempt.score))
+                            : 0;
+
+                          return (
+                            <article className="rounded-xl border border-info/25 bg-info/[0.045] p-4">
+                              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <BrainCircuit className="h-4 w-4 text-info" />
+                                    <p className="font-mono text-xs uppercase text-info">Knowledge check · auto-scored</p>
+                                  </div>
+                                  <h4 className="mt-2 font-heading font-bold">{quizActivity.quiz.title}</h4>
+                                  <p className="mt-2 text-sm leading-6 text-text-secondary">
+                                    {quizActivity.quiz.description}
+                                  </p>
+
+                                  {latestAttempt && latestReview ? (
+                                    <>
+                                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                        <div className="rounded-lg border border-border/70 bg-bg-base/35 p-3">
+                                          <p className="font-mono text-[10px] uppercase text-text-muted">Latest score</p>
+                                          <p className="mt-1 font-heading text-lg font-bold text-info">
+                                            {latestAttempt.score}/{latestAttempt.totalQuestions}
+                                          </p>
+                                        </div>
+                                        <div className="rounded-lg border border-border/70 bg-bg-base/35 p-3">
+                                          <p className="font-mono text-[10px] uppercase text-text-muted">Best score</p>
+                                          <p className="mt-1 font-heading text-lg font-bold text-accent">
+                                            {bestScore}/{latestAttempt.totalQuestions}
+                                          </p>
+                                        </div>
+                                        <div className="rounded-lg border border-border/70 bg-bg-base/35 p-3">
+                                          <p className="font-mono text-[10px] uppercase text-text-muted">Attempts</p>
+                                          <p className="mt-1 font-heading text-lg font-bold">{quizAttempts.length}</p>
+                                        </div>
+                                      </div>
+                                      <p className="mt-3 font-mono text-[11px] text-text-muted">
+                                        Latest attempt {formatDate(latestAttempt.completedAt)}
+                                      </p>
+                                      <div className="mt-4 space-y-2">
+                                        {latestReview.questions.map((result, index) => {
+                                          const question = quizActivity.quiz.questions.find(
+                                            (item) => item.id === result.questionId,
+                                          );
+                                          if (!question) return null;
+                                          return (
+                                            <div
+                                              key={result.questionId}
+                                              className="rounded-lg border border-border/70 bg-bg-base/35 p-3"
+                                            >
+                                              <div className="flex items-start gap-2">
+                                                {result.isCorrect ? (
+                                                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                                                ) : (
+                                                  <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                                                )}
+                                                <div className="min-w-0">
+                                                  <p className="text-sm font-semibold">
+                                                    {index + 1}. {question.prompt}
+                                                  </p>
+                                                  <p className="mt-1 text-xs leading-5 text-text-secondary">
+                                                    Answered: {question.options[result.selectedIndex] ?? "No answer"}
+                                                  </p>
+                                                  {!result.isCorrect ? (
+                                                    <p className="mt-1 text-xs leading-5 text-accent">
+                                                      Correct: {question.options[result.correctIndex]}
+                                                    </p>
+                                                  ) : null}
+                                                  <p className="mt-1 text-xs leading-5 text-text-muted">
+                                                    {result.explanation}
+                                                  </p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="mt-4 rounded-lg border border-border/70 bg-bg-base/35 p-3 text-sm text-text-secondary">
+                                      This student has not attempted the session quiz yet.
+                                    </div>
+                                  )}
+                                </div>
+                                <span className={cn(
+                                  "shrink-0 rounded-full border px-3 py-1 font-mono text-[10px] uppercase",
+                                  latestAttempt
+                                    ? "border-info/35 bg-info/10 text-info"
+                                    : "border-border bg-bg-elevated text-text-muted",
+                                )}>
+                                  {latestAttempt ? "Completed" : "Pending"}
+                                </span>
+                              </div>
+                            </article>
+                          );
+                        })() : null}
                       </div>
                     ) : (
                       <div className="rounded-xl border border-border/70 bg-white/[0.025] p-4 text-sm text-text-secondary">

@@ -4,6 +4,8 @@ import { AdminHomeworkWorkbook } from "@/components/admin/admin-homework-workboo
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { getAdminHomeworkData } from "@/lib/data";
+import { reviewModuleThreeQuiz } from "@/lib/module-three-quiz-answers";
+import { moduleThreeQuizzes } from "@/lib/module-three-quizzes";
 
 export default async function AdminHomeworkPage({
   searchParams,
@@ -13,12 +15,29 @@ export default async function AdminHomeworkPage({
   const params = await searchParams;
   const initialStudentId = Array.isArray(params.student) ? params.student[0] : params.student;
   const data = await getAdminHomeworkData();
+  const quizActivities = moduleThreeQuizzes.flatMap((quiz) => {
+    const session = data.sessions.find((item) => item.globalNumber === quiz.sessionGlobalNumber);
+    if (!session) return [];
+
+    return [{
+      sessionId: session.id,
+      sessionNumber: session.sessionNumber,
+      quiz,
+      attempts: data.quizAttempts
+        .filter((attempt) => attempt.quizId === quiz.id && attempt.sessionId === session.id)
+        .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
+        .map((attempt) => ({
+          ...attempt,
+          review: reviewModuleThreeQuiz(attempt.quizId, attempt.selectedAnswers),
+        })),
+    }];
+  });
 
   return (
     <AnimatedPage>
       <PageHeader
         title="Homework Manager"
-        subtitle="Review each student session by session, with class challenges, home tasks, status, and completion time."
+        subtitle="Review each student session by session, including project submissions, auto-scored quizzes, status, and completion time."
       />
 
       <AdminHomeworkWorkbook
@@ -26,6 +45,7 @@ export default async function AdminHomeworkPage({
         batches={data.batches}
         sessions={data.sessions}
         homework={data.homework}
+        quizActivities={quizActivities}
         initialStudentId={initialStudentId}
       />
 

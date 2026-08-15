@@ -7,6 +7,7 @@ import { ProgressRing } from "@/components/portal/progress-ring";
 import { AchievementGallery } from "@/components/portal/achievement-gallery";
 import { calculateBadgeProgress } from "@/lib/achievements";
 import { getStudentAchievementData, getStudentProgressData } from "@/lib/data";
+import { moduleThreeQuizzes } from "@/lib/module-three-quizzes";
 import { formatDate, percent } from "@/lib/utils";
 
 export default async function ProgressPage() {
@@ -15,6 +16,7 @@ export default async function ProgressPage() {
     definitions: achievements.definitions,
     awards: achievements.awards,
     homework: data.homework,
+    quizAttempts: data.quizAttempts,
     attendance: data.attendance,
     sessions: data.sessions,
   });
@@ -26,10 +28,16 @@ export default async function ProgressPage() {
   }));
   const homeworkByModule = data.modules.map((module) => {
     const items = data.homework.filter((item) => item.moduleId === module.id);
+    const quizzes = moduleThreeQuizzes.filter(
+      (quiz) => Math.ceil(quiz.sessionGlobalNumber / 8) === module.orderIndex,
+    );
+    const attemptedQuizIds = new Set(data.quizAttempts.map((attempt) => attempt.quizId));
     return {
       module: `M${module.orderIndex}`,
-      total: items.length,
-      completed: items.filter((item) => item.status === "submitted" || item.status === "reviewed").length,
+      total: items.length + quizzes.length,
+      completed:
+        items.filter((item) => item.status === "submitted" || item.status === "reviewed").length
+        + quizzes.filter((quiz) => attemptedQuizIds.has(quiz.id)).length,
     };
   });
 
@@ -37,7 +45,7 @@ export default async function ProgressPage() {
     <AnimatedPage className="print:text-black">
       <PageHeader
         title="Progress Report"
-        subtitle="Completion, attendance, homework, and recent tutor feedback."
+        subtitle="Completion, attendance, coursework, and recent tutor feedback."
         action={<PrintButton />}
       />
 
@@ -73,7 +81,7 @@ export default async function ProgressPage() {
           <AttendanceDonut data={attendanceSummary} />
         </section>
         <section className="premium-card print-card rounded-xl p-6">
-          <h2 className="font-heading text-2xl font-bold">Homework completion</h2>
+          <h2 className="font-heading text-2xl font-bold">Coursework completion</h2>
           <HomeworkBarChart data={homeworkByModule} />
         </section>
       </div>

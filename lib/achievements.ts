@@ -4,6 +4,7 @@ import type {
   BadgeProgress,
   CourseSession,
   HomeworkItem,
+  QuizAttempt,
   StudentBadge,
 } from "@/lib/course-data";
 
@@ -26,7 +27,7 @@ const rows: CatalogRow[] = [
   ["streak-5", "Unbroken Five", "Attend five classes in a row.", "zap", "#facc15", "streak", "epic", 5, false],
   ["reviewed-5", "Builder Five", "Earn mentor approval on five activities.", "hammer", "#2dd4bf", "homework", "rare", 5, false],
   ["reviewed-10", "Tenfold Builder", "Earn mentor approval on ten activities.", "layers", "#a78bfa", "homework", "epic", 10, false],
-  ["perfect-session", "Session Sweep", "Complete all four activities from one session.", "sparkles", "#f472b6", "homework", "epic", 4, false],
+  ["perfect-session", "Session Sweep", "Complete every activity in one session.", "sparkles", "#f472b6", "homework", "epic", 1, false],
   ["module-1", "Agentic Explorer", "Complete all eight sessions in Module 1.", "brain", "#6ee7b7", "curriculum", "epic", 8, false],
   ["module-2", "App Alchemist", "Complete all eight sessions in Module 2.", "code", "#38bdf8", "curriculum", "epic", 8, false],
   ["module-3", "Automation Architect", "Complete all eight sessions in Module 3.", "workflow", "#c084fc", "curriculum", "epic", 8, false],
@@ -67,12 +68,14 @@ export function calculateBadgeProgress({
   definitions = badgeCatalog,
   awards,
   homework,
+  quizAttempts = [],
   attendance,
   sessions,
 }: {
   definitions?: BadgeDefinition[];
   awards: StudentBadge[];
   homework: HomeworkItem[];
+  quizAttempts?: QuizAttempt[];
   attendance: AttendanceItem[];
   sessions: Array<CourseSession & { status?: string }>;
 }): BadgeProgress[] {
@@ -80,6 +83,17 @@ export function calculateBadgeProgress({
   const reviewed = homework.filter((item) => item.status === "reviewed");
   const reviewedBySession = new Map<string, number>();
   reviewed.forEach((item) => reviewedBySession.set(item.sessionId, (reviewedBySession.get(item.sessionId) ?? 0) + 1));
+  const legacyPerfectSession = sessions.some((session) =>
+    session.globalNumber <= 16 && (reviewedBySession.get(session.id) ?? 0) >= 4,
+  );
+  const moduleThreePerfectSession = sessions.some((session) => {
+    if (session.globalNumber < 17 || session.globalNumber > 24) return false;
+    const reviewedProjects = reviewed.filter(
+      (item) => item.sessionId === session.id && item.contentUrl.startsWith("internal://module3-n8n/"),
+    ).length;
+    const quizComplete = quizAttempts.some((attempt) => attempt.sessionId === session.id);
+    return reviewedProjects >= 2 && quizComplete;
+  });
   const moduleCompleted = (moduleNumber: number) =>
     sessions.filter((item) => Math.ceil(item.globalNumber / 8) === moduleNumber && item.status === "completed").length;
   const streak = currentAttendanceStreak(attendance);
@@ -90,7 +104,7 @@ export function calculateBadgeProgress({
     "streak-5": streak,
     "reviewed-5": reviewed.length,
     "reviewed-10": reviewed.length,
-    "perfect-session": Math.max(0, ...reviewedBySession.values()),
+    "perfect-session": legacyPerfectSession || moduleThreePerfectSession ? 1 : 0,
     "module-1": moduleCompleted(1),
     "module-2": moduleCompleted(2),
     "module-3": moduleCompleted(3),

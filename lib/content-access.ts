@@ -28,6 +28,29 @@ export function getSessionAccessBoundary(sessions: StatusSession[]): SessionAcce
   };
 }
 
+export function getReachedSessionAccessBoundary(
+  sessions: StatusSession[],
+): SessionAccessBoundary {
+  const orderedSessions = [...sessions].sort((a, b) => a.globalNumber - b.globalNumber);
+  const completedSessions = orderedSessions.filter((session) => session.status === "completed");
+  const lastCompleted = completedSessions.at(-1);
+  const currentSession = orderedSessions.find((session) => session.status === "current");
+  const fallbackSession = orderedSessions[0];
+  const reachedSession = [lastCompleted, currentSession]
+    .filter((session): session is StatusSession => Boolean(session))
+    .sort((a, b) => a.globalNumber - b.globalNumber)
+    .at(-1) ?? fallbackSession;
+  const maxUnlockedGlobalNumber = reachedSession?.globalNumber ?? 0;
+
+  return {
+    maxUnlockedGlobalNumber,
+    currentSession: reachedSession,
+    unlockedSessionIds: orderedSessions
+      .filter((session) => session.globalNumber <= maxUnlockedGlobalNumber)
+      .map((session) => session.id),
+  };
+}
+
 export function isSessionUnlocked(
   session: Pick<CourseSession, "globalNumber"> | undefined,
   boundary: Pick<SessionAccessBoundary, "maxUnlockedGlobalNumber">,

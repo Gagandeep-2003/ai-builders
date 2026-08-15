@@ -1,20 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpenCheck, CheckCircle2, ChevronDown } from "lucide-react";
+import { BookOpenCheck, CheckCircle2, ChevronDown, LockKeyhole } from "lucide-react";
+import { ModuleThreeQuizCard } from "@/components/portal/module-three-quiz";
 import { HomeworkCard } from "@/components/ui/homework-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import type { CourseSession, HomeworkItem } from "@/lib/course-data";
-import { getSessionAccessBoundary } from "@/lib/content-access";
+import { getReachedSessionAccessBoundary } from "@/lib/content-access";
+import type { ModuleThreeQuizActivity } from "@/lib/module-three-quizzes";
 import { cn } from "@/lib/utils";
 
 export function HomeworkTracker({
   homework,
   sessions,
+  quizActivities,
   initialSessionId,
 }: {
   homework: HomeworkItem[];
   sessions: CourseSession[];
+  quizActivities: ModuleThreeQuizActivity[];
   initialSessionId?: string;
 }) {
   const availableSessions = useMemo(
@@ -22,11 +26,14 @@ export function HomeworkTracker({
     [sessions],
   );
   const accessBoundary = useMemo(
-    () => getSessionAccessBoundary(sessions),
+    () => getReachedSessionAccessBoundary(sessions),
     [sessions],
   );
   const firstSessionWithWork =
-    availableSessions.find((session) => homework.some((item) => item.sessionId === session.id))?.id ??
+    availableSessions.find((session) =>
+      homework.some((item) => item.sessionId === session.id) ||
+      quizActivities.some((activity) => activity.sessionId === session.id)
+    )?.id ??
     availableSessions[0]?.id;
   const initialAvailableSessionId = availableSessions.some((session) => session.id === initialSessionId)
     ? initialSessionId
@@ -36,18 +43,28 @@ export function HomeworkTracker({
     () =>
       availableSessions.map((session) => {
         const items = homework.filter((item) => item.sessionId === session.id);
-        const completed = items.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
+        const quiz = quizActivities.find((activity) => activity.sessionId === session.id);
+        const completedTasks = items.filter(
+          (item) => item.status === "submitted" || item.status === "reviewed",
+        ).length;
         return {
           session,
           items,
-          completed,
-          total: items.length,
+          quiz,
+          completed: completedTasks + (quiz?.attempts.length ? 1 : 0),
+          total: items.length + (quiz ? 1 : 0),
         };
       }),
-    [availableSessions, homework],
+    [availableSessions, homework, quizActivities],
   );
   const active = grouped.find((item) => item.session.id === activeSessionId) ?? grouped[0];
-  const overallCompleted = homework.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
+  const activeReached = Boolean(
+    active && active.session.globalNumber <= accessBoundary.maxUnlockedGlobalNumber,
+  );
+  const overallCompleted =
+    homework.filter((item) => item.status === "submitted" || item.status === "reviewed").length +
+    quizActivities.filter((activity) => activity.attempts.length > 0).length;
+  const overallTotal = homework.length + quizActivities.length;
   const moduleGroups = useMemo(
     () =>
       [1, 2, 3]
@@ -69,11 +86,11 @@ export function HomeworkTracker({
           <div>
             <h2 className="font-heading text-xl font-bold">Session Workbook</h2>
             <p className="mt-1 text-sm text-text-secondary">
-              {overallCompleted}/{homework.length} items completed
+              {overallCompleted}/{overallTotal} activities completed
             </p>
           </div>
         </div>
-        <ProgressBar className="mt-5" value={overallCompleted} max={Math.max(homework.length, 1)} label="Workbook progress" />
+        <ProgressBar className="mt-5" value={overallCompleted} max={Math.max(overallTotal, 1)} label="Workbook progress" />
 
         <div className="mt-6 max-h-[70vh] space-y-5 overflow-y-auto pr-1 scrollbar-soft">
           {moduleGroups.map((module) => (
@@ -147,26 +164,66 @@ export function HomeworkTracker({
                   Module {Math.ceil(active.session.globalNumber / 8)} · Session {active.session.sessionNumber}
                 </p>
                 <h2 className="mt-2 font-heading text-2xl font-bold">{active.session.title}</h2>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
-                  {active.session.focus}
-                </p>
+                {activeReached ? (
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
+                    {active.session.focus}
+                  </p>
+                ) : (
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
+                    This session is visible on your course map. Its project briefs, tools, and
+                    knowledge check unlock when you reach it.
+                  </p>
+                )}
               </div>
               <ChevronDown className="hidden h-5 w-5 text-text-muted md:block" />
             </div>
           </div>
         ) : null}
 
-        {active?.items.length ? (
+        {active && !activeReached ? (
+          <article className="premium-card overflow-hidden rounded-xl border border-accent/20">
+            <div className="relative p-7 sm:p-8">
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-2/3 bg-[radial-gradient(circle_at_right,rgba(110,231,183,0.1),transparent_66%)]" />
+              <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
+                  <LockKeyhole className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="font-mono text-xs uppercase text-accent">Session preview</p>
+                  <h3 className="mt-2 font-heading text-2xl font-bold">
+                    Your next workspace is still sealed
+                  </h3>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
+                    Reach Session {active.session.sessionNumber} to reveal one class challenge,
+                    one home task, the n8n tools used, and a short five-question knowledge check.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2 font-mono text-[11px] uppercase text-text-muted">
+                    <span className="rounded-full border border-border bg-white/[0.025] px-3 py-1.5">
+                      1 class challenge
+                    </span>
+                    <span className="rounded-full border border-border bg-white/[0.025] px-3 py-1.5">
+                      1 home task
+                    </span>
+                    <span className="rounded-full border border-border bg-white/[0.025] px-3 py-1.5">
+                      5 quiz questions
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        ) : active?.items.length || active?.quiz ? (
           <div className="grid gap-4">
-            {active.items
+            {[...active.items]
               .sort((a, b) => a.kind.localeCompare(b.kind))
               .map((item) => (
                 <HomeworkCard
                   key={item.id}
                   homework={item}
-                  toolsUnlocked={active.session.globalNumber <= accessBoundary.maxUnlockedGlobalNumber}
+                  toolsUnlocked={activeReached}
                 />
               ))}
+            {active.quiz ? <ModuleThreeQuizCard activity={active.quiz} /> : null}
           </div>
         ) : (
           <div className="premium-card rounded-xl p-10 text-center">

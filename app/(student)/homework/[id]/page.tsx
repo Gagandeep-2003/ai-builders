@@ -10,7 +10,10 @@ import { PendingLink } from "@/components/ui/pending-link";
 import { getStudentHomeworkDetailData } from "@/lib/data";
 import { formatDuration, formatHomeworkKind, getGoogleDocEmbedUrl, isTrustedTaskDuration } from "@/lib/homework-utils";
 import { formatDate } from "@/lib/utils";
-import { getSessionAccessBoundary, isSessionUnlocked } from "@/lib/content-access";
+import {
+  getReachedSessionAccessBoundary,
+  isSessionUnlocked,
+} from "@/lib/content-access";
 
 function DetailList({ title, items }: { title: string; items?: string[] }) {
   if (!items?.length) return null;
@@ -78,13 +81,17 @@ export default async function HomeworkDetailPage({
 
   if (!homework) notFound();
 
-  const embedUrl = getGoogleDocEmbedUrl(homework.contentUrl);
+  const isInternalTask = homework.contentUrl?.startsWith("internal://") ?? false;
+  const embedUrl = isInternalTask ? "" : getGoogleDocEmbedUrl(homework.contentUrl);
   const moduleNumber = Math.ceil(
     (data.sessions.find((session) => session.id === homework.sessionId)?.globalNumber ?? 1) / 8,
   );
   const sessionNumber = data.sessions.find((session) => session.id === homework.sessionId)?.sessionNumber ?? 1;
   const homeworkSession = data.sessions.find((session) => session.id === homework.sessionId);
-  const toolsUnlocked = isSessionUnlocked(homeworkSession, getSessionAccessBoundary(data.sessions));
+  const toolsUnlocked = isSessionUnlocked(
+    homeworkSession,
+    getReachedSessionAccessBoundary(data.sessions),
+  );
   const isCompleted = homework.status === "submitted" || homework.status === "reviewed";
   const hasStaleTiming =
     isCompleted && typeof homework.timeSpentSeconds === "number" && !isTrustedTaskDuration(homework.timeSpentSeconds);
@@ -162,7 +169,7 @@ export default async function HomeworkDetailPage({
             ) : taskDetails.tools.length > 0 ? (
               <ToolAccessHint className="mt-4" />
             ) : null}
-            {homework.contentUrl ? (
+            {homework.contentUrl && !isInternalTask ? (
               <a
                 href={homework.contentUrl}
                 target="_blank"
@@ -270,7 +277,7 @@ export default async function HomeworkDetailPage({
       <HomeworkDocumentViewer
         homeworkId={homework.id}
         sessionId={homework.sessionId}
-        src={homework.contentUrl ? embedUrl : ""}
+        src={embedUrl}
         title={homework.title}
         initialStartedAt={homework.startedAt}
         initialTimeSpentSeconds={homework.timeSpentSeconds}

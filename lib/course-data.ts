@@ -151,6 +151,17 @@ export type HomeworkSubmissionSummary = {
   reviewedBy?: string;
 };
 
+export type QuizAttempt = {
+  id: string;
+  studentId: string;
+  quizId: string;
+  sessionId: string;
+  selectedAnswers: number[];
+  score: number;
+  totalQuestions: number;
+  completedAt: string;
+};
+
 export type BadgeDefinition = {
   id: string;
   slug: string;
@@ -315,9 +326,9 @@ export const modules: CourseModule[] = [
   },
   {
     id: "m3",
-    title: "Automation Studio: Agents & Workflows",
+    title: "Automation Studio: n8n Workflows",
     description:
-      "Students move from AI agent foundations to real automation workflows with n8n, Zapier, ClawBot, and a final showcase.",
+      "Students learn n8n step by step, connect Google tools safely, and finish with practical Streamlit and personal assistant workflows.",
     orderIndex: 3,
     sessionCount: 8,
   },
@@ -345,14 +356,14 @@ const sessionBlueprints = [
     ["Showcase Session: Present Your Smart AI App", "Present AI-powered applications and projects built throughout the module with a clear product narrative.", ["Gamma AI"], "Module 2 smart app showcase"],
   ],
   [
-    ["AI Agents and Tools", "Understand how AI agents work, what tools power them, and how agents differ from ordinary AI chat workflows.", ["AI Tools"], "AI agent concept map"],
-    ["Introduction to AI Automation", "Learn automation logic through examples such as n8n workflows that summarize emails and post to Slack.", ["n8n"], "Automation logic map"],
-    ["Build Your First AI Workflow", "Build a trigger-to-output workflow where a form submission is processed by AI and routed to an output such as an email notification.", ["n8n", "Gemini"], "First AI workflow"],
-    ["AI Workflow: Content Pipeline", "Build a complete content pipeline where AI generates a blog post, social caption, image alt text, and a ready-to-publish package.", ["n8n"], "AI content pipeline"],
-    ["Advanced Automations using Zapier", "Create advanced multi-step automation workflows that connect apps and automate complex processes.", ["Zapier"], "Advanced Zapier workflow"],
-    ["Introduction to ClawBot", "Install, configure, and launch a VPS-based automation hub with ClawBot foundations.", ["ClawBot"], "ClawBot automation hub setup"],
-    ["Mastering ClawBot Skills", "Implement document and file handling skills, integrate channel connectors, and extend ClawBot with custom skills.", ["ClawBot"], "Custom ClawBot skill"],
-    ["Showcase Session: Present Your Smart AI App", "Present final automation projects built throughout the module and explain the workflow, tools, and impact.", ["ClawBot", "Gamma AI"], "Module 3 automation showcase"],
+    ["Meet n8n: Your First Workflow", "Learn the n8n canvas, triggers, actions, connections, test runs, and how data moves from one node to the next.", ["n8n"], "A tested two-node n8n workflow"],
+    ["Connect Google Tools Safely", "Set up a Google Cloud project, enable the required APIs, configure OAuth, and connect Google credentials to n8n safely.", ["n8n"], "Working Google credentials in n8n"],
+    ["Quiz Champion", "Build a form-based quiz workflow that checks a score, branches into two outcomes, saves the result in Google Sheets, and sends a message.", ["n8n"], "Quiz Champion workflow"],
+    ["Sheets to Gmail: Formatted HTML", "Process a new Google Sheets row, prepare clean submission data, send a formatted HTML email, and mark the row as sent.", ["n8n"], "Sheets-to-Gmail workflow"],
+    ["AI Story Generator", "Send a controlled prompt to Gemini from n8n, extract the generated story, save it, and email the finished result.", ["n8n"], "AI story generator workflow"],
+    ["Streamlit Foundations", "Learn how Streamlit pages, text inputs, buttons, forms, feedback messages, and local app runs work.", ["n8n"], "Simple Streamlit interface"],
+    ["Streamlit Meets n8n", "Connect a Streamlit interface to an n8n webhook, send JSON, wait for a response, and handle loading and errors clearly.", ["n8n"], "Streamlit-to-n8n mini app"],
+    ["Personal Assistant Capstone", "Build and explain a practical personal assistant workflow with an AI model, memory, selected tools, safe inputs, and a Streamlit interface.", ["n8n"], "Personal assistant capstone"],
   ],
 ] as const;
 
@@ -574,11 +585,11 @@ export const demoResources: ResourceItem[] = [
     id: "res-4",
     moduleId: "m3",
     sessionId: "m3s4",
-    title: "n8n Content Pipeline Checklist",
+    title: "n8n Sheets to Gmail Checklist",
     type: "link",
     url: "https://example.com/n8n-content-pipeline",
     createdAt: "2026-08-19T10:00:00.000Z",
-    sessionName: "AI Workflow: Content Pipeline",
+    sessionName: "Sheets to Gmail: Formatted HTML",
   },
 ];
 
