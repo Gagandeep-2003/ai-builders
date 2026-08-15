@@ -77,6 +77,7 @@ export default async function DashboardPage() {
     definitions: achievements.definitions,
     awards: achievements.awards,
     homework: data.homework,
+    quizAttempts: data.quizAttempts,
     attendance: data.attendance,
     sessions: data.sessions,
   });

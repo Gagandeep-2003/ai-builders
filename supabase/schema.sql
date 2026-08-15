@@ -125,6 +125,20 @@ create table public.submissions (
   unique (homework_id, student_id)
 );
 
+create table public.quiz_attempts (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.students(id) on delete cascade,
+  quiz_id text not null,
+  session_id uuid not null references public.sessions(id) on delete cascade,
+  selected_answers jsonb not null default '[]'::jsonb
+    check (jsonb_typeof(selected_answers) = 'array'),
+  score integer not null check (score >= 0),
+  total_questions integer not null default 5
+    check (total_questions > 0 and score <= total_questions),
+  completed_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 create table public.badge_definitions (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
@@ -290,6 +304,8 @@ create index sessions_module_id_idx on public.sessions (module_id);
 create index homework_batch_id_idx on public.homework (batch_id);
 create index homework_assigned_student_id_idx on public.homework (assigned_student_id);
 create index submissions_student_id_idx on public.submissions (student_id);
+create index quiz_attempts_student_completed_idx on public.quiz_attempts (student_id, completed_at desc);
+create index quiz_attempts_session_student_idx on public.quiz_attempts (session_id, student_id);
 create index student_badges_student_id_idx on public.student_badges (student_id);
 create index student_badges_seen_at_idx on public.student_badges (student_id, seen_at);
 create index submission_evidence_student_id_idx on public.submission_evidence (student_id);
@@ -436,6 +452,7 @@ alter table public.students enable row level security;
 alter table public.sessions enable row level security;
 alter table public.homework enable row level security;
 alter table public.submissions enable row level security;
+alter table public.quiz_attempts enable row level security;
 alter table public.badge_definitions enable row level security;
 alter table public.student_badges enable row level security;
 alter table public.submission_evidence enable row level security;
@@ -558,6 +575,18 @@ with check (student_id = private.current_student_id() or private.is_admin());
 
 create policy "submissions_delete_admin"
 on public.submissions for delete
+using (private.is_admin());
+
+create policy "quiz_attempts_select_self_or_admin"
+on public.quiz_attempts for select
+using (student_id = private.current_student_id() or private.is_admin());
+
+create policy "quiz_attempts_insert_self_or_admin"
+on public.quiz_attempts for insert
+with check (student_id = private.current_student_id() or private.is_admin());
+
+create policy "quiz_attempts_delete_admin"
+on public.quiz_attempts for delete
 using (private.is_admin());
 
 create policy "badge_definitions_select_authenticated"
@@ -737,6 +766,8 @@ grant select, insert, update, delete on public.students to authenticated;
 grant select, insert, update, delete on public.sessions to authenticated;
 grant select, insert, update, delete on public.homework to authenticated;
 grant select, insert, update, delete on public.submissions to authenticated;
+grant select, insert, delete on public.quiz_attempts to authenticated;
+grant all on public.quiz_attempts to service_role;
 grant select, insert, update, delete on public.badge_definitions to authenticated;
 grant select, insert, update, delete on public.student_badges to authenticated;
 grant select, insert, update, delete on public.submission_evidence to authenticated;

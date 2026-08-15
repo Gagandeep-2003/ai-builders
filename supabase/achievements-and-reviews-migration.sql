@@ -43,7 +43,7 @@ values
   ('10000000-0000-4000-8000-000000000004', 'streak-5', 'Unbroken Five', 'Attend five classes in a row.', 'zap', '#facc15', 'streak', 'epic', 5, false, 40),
   ('10000000-0000-4000-8000-000000000005', 'reviewed-5', 'Builder Five', 'Earn mentor approval on five activities.', 'hammer', '#2dd4bf', 'homework', 'rare', 5, false, 50),
   ('10000000-0000-4000-8000-000000000006', 'reviewed-10', 'Tenfold Builder', 'Earn mentor approval on ten activities.', 'layers', '#a78bfa', 'homework', 'epic', 10, false, 60),
-  ('10000000-0000-4000-8000-000000000007', 'perfect-session', 'Session Sweep', 'Complete all four activities from one session.', 'sparkles', '#f472b6', 'homework', 'epic', 4, false, 70),
+  ('10000000-0000-4000-8000-000000000007', 'perfect-session', 'Session Sweep', 'Complete every project and the knowledge check from one session.', 'sparkles', '#f472b6', 'homework', 'epic', 1, false, 70),
   ('10000000-0000-4000-8000-000000000008', 'module-1', 'Agentic Explorer', 'Complete all eight sessions in Module 1.', 'brain', '#6ee7b7', 'curriculum', 'epic', 8, false, 80),
   ('10000000-0000-4000-8000-000000000009', 'module-2', 'App Alchemist', 'Complete all eight sessions in Module 2.', 'code', '#38bdf8', 'curriculum', 'epic', 8, false, 90),
   ('10000000-0000-4000-8000-000000000010', 'module-3', 'Automation Architect', 'Complete all eight sessions in Module 3.', 'workflow', '#c084fc', 'curriculum', 'epic', 8, false, 100),
@@ -91,9 +91,38 @@ begin
       ('reviewed-5', reviewed_count >= 5),
       ('reviewed-10', reviewed_count >= 10),
       ('perfect-session', exists (
-        select 1 from public.submissions sub join public.homework h on h.id = sub.homework_id
-        where sub.student_id = target_student_id and sub.status = 'reviewed'
-        group by h.session_id having count(distinct h.id) >= 4
+        select 1
+        from public.sessions session
+        join public.modules module on module.id = session.module_id
+        where
+          (
+            module.order_index in (1, 2)
+            and (
+              select count(distinct homework.id)
+              from public.homework homework
+              join public.submissions submission on submission.homework_id = homework.id
+              where homework.session_id = session.id
+                and submission.student_id = target_student_id
+                and submission.status = 'reviewed'
+            ) >= 4
+          )
+          or (
+            module.order_index = 3
+            and (
+              select count(distinct homework.id)
+              from public.homework homework
+              join public.submissions submission on submission.homework_id = homework.id
+              where homework.session_id = session.id
+                and homework.content_url like 'internal://module3-n8n/%'
+                and submission.student_id = target_student_id
+                and submission.status = 'reviewed'
+            ) >= 2
+            and exists (
+              select 1 from public.quiz_attempts attempt
+              where attempt.student_id = target_student_id
+                and attempt.session_id = session.id
+            )
+          )
       )),
       ('module-1', exists (
         select 1 from public.attendance a join public.sessions s on s.id = a.session_id
@@ -179,6 +208,9 @@ create trigger submissions_refresh_badges after insert or update of status or de
 for each row execute function private.refresh_badges_after_activity();
 drop trigger if exists attendance_refresh_badges on public.attendance;
 create trigger attendance_refresh_badges after insert or update of status or delete on public.attendance
+for each row execute function private.refresh_badges_after_activity();
+drop trigger if exists quiz_attempts_refresh_badges on public.quiz_attempts;
+create trigger quiz_attempts_refresh_badges after insert or delete on public.quiz_attempts
 for each row execute function private.refresh_badges_after_activity();
 
 alter table public.badge_definitions enable row level security;
