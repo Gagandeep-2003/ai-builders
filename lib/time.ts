@@ -1,4 +1,4 @@
-import type { Batch, BatchClassSlot, CourseSession } from "@/lib/course-data";
+import type { Batch, BatchClassSlot, CourseSession, StudentProfile } from "@/lib/course-data";
 import { normalizeMeetLink } from "@/lib/meet-links";
 
 export const ADMIN_TIME_ZONE = "Asia/Kolkata";
@@ -51,6 +51,35 @@ function addDays(date: string, days: number) {
   const { year, month, day } = parseDate(date);
   const value = new Date(Date.UTC(year, month - 1, day + days));
   return toDateKey(value);
+}
+
+export function getStudentCourseBatch(student: StudentProfile, batch: Batch): Batch {
+  if (student.courseLevel <= 1 || !student.levelStartedOn) return batch;
+
+  return {
+    ...batch,
+    startDate: student.levelStartedOn,
+  };
+}
+
+export function getNextBatchClassDate(batch: Batch, now = new Date()) {
+  const timeZone = batch.timeZone || DEFAULT_TIME_ZONE;
+  const today = dateKeyInTimeZone(now, timeZone);
+  const slots = sortedClassSlots(batch);
+
+  for (let dayOffset = 0; dayOffset < 370; dayOffset += 1) {
+    const date = addDays(today, dayOffset);
+    if (isBatchPausedOnDate(batch, date)) continue;
+    const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeekForDateKey(date));
+
+    for (const slot of daySlots) {
+      if (zonedDateTimeToUtc(date, slot.startTime, timeZone).getTime() > now.getTime()) {
+        return date;
+      }
+    }
+  }
+
+  return addDays(today, 1);
 }
 
 function sortedClassSlots(batch: Batch) {

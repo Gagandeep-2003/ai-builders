@@ -1,18 +1,19 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { CalendarRange, ChevronDown, PauseCircle, PencilLine, PlayCircle, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { CalendarRange, ChevronDown, GraduationCap, PauseCircle, PencilLine, PlayCircle, Plus, Search, Trash2, UserRound } from "lucide-react";
 import {
   createBatchPauseAction,
   endBatchPauseAction,
+  promoteStudentToLevel2Action,
   createStudentAction,
   removeStudentAction,
   updateStudentAction,
   type AdminActionState,
 } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
-import type { Batch, CourseModule, StudentProfile } from "@/lib/course-data";
-import { commonTimeZones } from "@/lib/time";
+import type { Batch, CourseModule, CourseSession, StudentProfile } from "@/lib/course-data";
+import { applySessionStatuses, commonTimeZones, getNextSession, getStudentCourseBatch } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const weekdays = [
@@ -282,12 +283,21 @@ function StudentEditor({
   student,
   batch,
   modules,
+  sessions,
 }: {
   student: StudentProfile;
   batch?: Batch;
   modules: CourseModule[];
+  sessions: CourseSession[];
 }) {
   const [state, action] = useActionState(updateStudentAction, initialAdminActionState);
+  const effectiveBatch = batch ? getStudentCourseBatch(student, batch) : undefined;
+  const currentSession = effectiveBatch
+    ? getNextSession(applySessionStatuses(sessions, effectiveBatch))
+    : undefined;
+  const coursePosition = currentSession
+    ? `Level ${student.courseLevel} · Module ${Math.ceil(currentSession.globalNumber / 8)} · Session ${currentSession.sessionNumber}`
+    : `Level ${student.courseLevel}`;
 
   return (
     <details className="group rounded-xl border border-border/70 bg-bg-card">
@@ -298,7 +308,7 @@ function StudentEditor({
         <span className="min-w-0 flex-1">
           <span className="block font-heading font-bold">{student.fullName}</span>
           <span className="mt-1 block truncate text-xs text-text-secondary">
-            {student.email} · {batch?.days ?? "No schedule"} · {student.timeZone}
+            {coursePosition} · {batch?.days ?? "No schedule"} · {student.timeZone}
           </span>
         </span>
         <PencilLine className="h-4 w-4 text-text-muted" />
@@ -319,6 +329,7 @@ function StudentEditor({
           Save all student changes
         </SubmitButton>
       </form>
+      <LevelProgressionManager student={student} />
       {batch ? <BatchPauseManager batch={batch} /> : null}
       <form action={removeStudentAction} className="border-t border-border/70 p-4">
         <input type="hidden" name="studentId" value={student.id} />
@@ -331,6 +342,52 @@ function StudentEditor({
         </SubmitButton>
       </form>
     </details>
+  );
+}
+
+function LevelProgressionManager({ student }: { student: StudentProfile }) {
+  const [state, action] = useActionState(
+    promoteStudentToLevel2Action,
+    initialAdminActionState,
+  );
+
+  return (
+    <section className="border-t border-border/70 p-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-accent/25 bg-accent/10 text-accent">
+            <GraduationCap className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="font-mono text-xs uppercase text-accent">Course level</p>
+            <h3 className="mt-1 font-heading font-bold">Level {student.courseLevel}</h3>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-text-secondary">
+              {student.courseLevel >= 2
+                ? `Level 2 progression began on ${student.levelStartedOn ?? "the assigned start date"}. The module and session counter now advances from Module 1 · Session 1.`
+                : "Move this student to Level 2 when Level 1 is complete. Their next scheduled class becomes Module 1 · Session 1, without changing earlier records."}
+            </p>
+          </div>
+        </div>
+        {student.courseLevel < 2 ? (
+          <form action={action} className="shrink-0">
+            <input type="hidden" name="studentId" value={student.id} />
+            <SubmitButton
+              pendingLabel="Moving to Level 2..."
+              className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-bg-base"
+            >
+              Move to Level 2
+            </SubmitButton>
+          </form>
+        ) : (
+          <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 font-mono text-xs uppercase text-accent">
+            Level 2 active
+          </span>
+        )}
+      </div>
+      <div className="mt-3">
+        <ActionNotice state={state} />
+      </div>
+    </section>
   );
 }
 
@@ -434,10 +491,12 @@ export function StudentManager({
   students,
   batches,
   modules,
+  sessions,
 }: {
   students: StudentProfile[];
   batches: Batch[];
   modules: CourseModule[];
+  sessions: CourseSession[];
 }) {
   const [createState, createAction] = useActionState(
     createStudentAction,
@@ -540,6 +599,7 @@ export function StudentManager({
                 student={student}
                 batch={batches.find((batch) => batch.id === student.batchId)}
                 modules={modules}
+                sessions={sessions}
               />
             ))}
           </div>

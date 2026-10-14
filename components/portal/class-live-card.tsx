@@ -10,10 +10,12 @@ export function ClassLiveCard({
   batch,
   nextSession,
   viewerTimeZone,
+  courseLevel,
 }: {
   batch: Batch;
   nextSession: CourseSession;
   viewerTimeZone: string;
+  courseLevel: number;
 }) {
   const [nearClass, setNearClass] = useState(false);
   const [canJoin, setCanJoin] = useState(false);
@@ -48,6 +50,9 @@ export function ClassLiveCard({
             <div>
               <p className="font-mono text-xs uppercase text-text-muted">Batch</p>
               <h2 className="font-heading text-2xl font-bold">{batch.name}</h2>
+              <p className="mt-1 font-mono text-xs uppercase text-accent">
+                Level {courseLevel} · Module {Math.ceil(nextSession.globalNumber / 8)} · Session {nextSession.sessionNumber}
+              </p>
             </div>
           </div>
           <p className="mt-5 text-text-secondary">

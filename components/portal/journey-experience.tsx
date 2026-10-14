@@ -596,7 +596,7 @@ export function JourneyExperience({
         <div className="premium-card min-w-0 rounded-xl p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="font-mono text-xs uppercase text-accent">Student journey</p>
+              <p className="font-mono text-xs uppercase text-accent">Level {student.courseLevel} · Student journey</p>
               <h1 className="mt-3 max-w-3xl font-heading text-4xl font-black leading-tight md:text-5xl">
                 Explore your AI builder path
               </h1>
@@ -621,7 +621,13 @@ export function JourneyExperience({
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
               ["Progress", `${journeyPercent}%`, Trophy],
-              ["Next", nextSession?.title ?? "Showcase", ArrowRight],
+              [
+                "Next",
+                nextSession
+                  ? `Level ${student.courseLevel} · M${Math.ceil(nextSession.globalNumber / 8)} S${nextSession.sessionNumber}`
+                  : "Showcase",
+                ArrowRight,
+              ],
               ["Focus", activeModule?.title ?? "AI Builders", Sparkles],
             ].map(([label, value, Icon]) => (
               <div key={String(label)} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">

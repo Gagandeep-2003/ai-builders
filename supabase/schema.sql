@@ -77,6 +77,8 @@ create table public.students (
   country text not null default '',
   time_zone text not null default 'Asia/Kolkata',
   batch_id uuid references public.batches(id) on delete set null,
+  course_level integer not null default 1 check (course_level between 1 and 2),
+  level_started_on date,
   enrolled_at timestamptz not null default now()
 );
 

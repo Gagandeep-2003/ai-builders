@@ -4,13 +4,13 @@ import { CurriculumTabs } from "@/components/portal/curriculum-tabs";
 import { getStudentContextData } from "@/lib/data";
 
 export default async function CurriculumPage() {
-  const { modules, sessions } = await getStudentContextData();
+  const { student, modules, sessions } = await getStudentContextData();
 
   return (
     <AnimatedPage>
       <PageHeader
         title="Full Curriculum"
-        subtitle="Explore all 24 sessions, from AI literacy to app building and workflow automation."
+        subtitle={`Level ${student.courseLevel} · Explore all 24 sessions across Modules 1, 2, and 3.`}
       />
       <CurriculumTabs modules={modules} sessions={sessions} />
     </AnimatedPage>
