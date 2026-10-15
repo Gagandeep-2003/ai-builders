@@ -16,7 +16,6 @@ export default async function AdminStudentsPage() {
         students={data.students}
         batches={data.batches}
         modules={data.modules}
-        sessions={data.sessions}
       />
     </AnimatedPage>
   );

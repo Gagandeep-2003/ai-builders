@@ -21,8 +21,6 @@ type StudentRow = {
   time_zone?: string | null;
   batch_id: string;
   enrolled_at?: string | null;
-  course_level?: number | null;
-  level_started_on?: string | null;
 };
 
 type SlotRow = {
@@ -112,8 +110,6 @@ function mapStudent(row: StudentRow): StudentProfile {
     timeZone: row.time_zone || ADMIN_TIME_ZONE,
     batchId: row.batch_id,
     enrolledAt: row.enrolled_at ?? "",
-    courseLevel: row.course_level ?? 1,
-    levelStartedOn: row.level_started_on ?? undefined,
   };
 }
 
@@ -293,7 +289,7 @@ async function runMentorReminders(request: Request) {
   ] = await Promise.all([
     supabase
       .from("students")
-      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, course_level, level_started_on"),
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at"),
     supabase
       .from("batches")
       .select("id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, batch_class_slots(id, batch_id, label, day_of_week, start_time, end_time, meet_link, sort_order)"),

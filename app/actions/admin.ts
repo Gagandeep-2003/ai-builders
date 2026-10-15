@@ -15,7 +15,6 @@ import {
   ADMIN_TIME_ZONE,
   dateKeyInTimeZone,
   getSessionScheduleDate,
-  getNextBatchClassDate,
   isBatchPausedOnDate,
   zonedDateTimeToUtc,
 } from "@/lib/time";
@@ -107,7 +106,6 @@ function scheduleFields(formData: FormData) {
 }
 
 function revalidateStudentManagement() {
-  updateTag("student-context");
   revalidatePath("/admin");
   revalidatePath("/admin/students");
   revalidatePath("/admin/progress");
@@ -115,58 +113,6 @@ function revalidateStudentManagement() {
   revalidatePath("/dashboard");
   revalidatePath("/class");
   revalidatePath("/profile");
-}
-
-export async function promoteStudentToLevel2Action(
-  _previousState: AdminActionState,
-  formData: FormData,
-): Promise<AdminActionState> {
-  const supabase = await getAdminClient();
-  if (!supabase) {
-    return { status: "error", message: "Admin access could not be verified." };
-  }
-
-  const studentId = requiredValue(formData, "studentId");
-  if (!studentId) {
-    return { status: "error", message: "The student could not be identified." };
-  }
-
-  const mentorSchedule = await getMentorScheduleData();
-  const student = mentorSchedule.students.find((item) => item.id === studentId);
-  const batch = mentorSchedule.batches.find((item) => item.id === student?.batchId);
-
-  if (!student || !batch) {
-    return { status: "error", message: "Assign a class schedule before moving this student to Level 2." };
-  }
-
-  if (student.courseLevel >= 2) {
-    return { status: "success", message: `${student.fullName} is already on Level 2.` };
-  }
-
-  const levelStartedOn = getNextBatchClassDate(batch);
-  const { error } = await supabase
-    .from("students")
-    .update({ course_level: 2, level_started_on: levelStartedOn })
-    .eq("id", studentId)
-    .eq("course_level", 1);
-
-  if (error) {
-    return {
-      status: "error",
-      message: error.code === "42703" || error.code === "PGRST204"
-        ? "Run supabase/level-2-progression-migration.sql in Supabase first."
-        : error.message,
-    };
-  }
-
-  revalidateStudentManagement();
-  revalidatePath("/curriculum");
-  revalidatePath("/progress");
-
-  return {
-    status: "success",
-    message: `${student.fullName} will begin Level 2 · Module 1 · Session 1 on ${levelStartedOn}.`,
-  };
 }
 
 function revalidateBatchSchedule() {

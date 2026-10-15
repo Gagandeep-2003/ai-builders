@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { filterUnlockedHomework, getSessionAccessBoundary } from "@/lib/content-access";
 import type { HomeworkItem, StudentProfile } from "@/lib/course-data";
 import { getAdminAchievementData, getAdminData } from "@/lib/data";
-import { applySessionStatuses, formatSessionTime, getNextSession, getStudentCourseBatch } from "@/lib/time";
+import { applySessionStatuses, formatSessionTime, getNextSession } from "@/lib/time";
 import { StudentBadgeManager } from "@/components/admin/student-badge-manager";
 
 function isHomeworkAssignedToStudent(homework: HomeworkItem, student: StudentProfile) {
@@ -26,8 +26,7 @@ export default async function AdminProgressPage() {
   const summaries = data.students
     .map((student) => {
       const batch = data.batches.find((item) => item.id === student.batchId);
-      const effectiveBatch = batch ? getStudentCourseBatch(student, batch) : undefined;
-      const sessions = effectiveBatch ? applySessionStatuses(data.sessions, effectiveBatch) : [];
+      const sessions = batch ? applySessionStatuses(data.sessions, batch) : [];
       const access = getSessionAccessBoundary(sessions);
       const currentSession = access.currentSession;
       const unlockedSessions = sessions.filter((session) => session.globalNumber <= access.maxUnlockedGlobalNumber);
@@ -46,7 +45,7 @@ export default async function AdminProgressPage() {
       const present = attendance.filter((item) => item.status === "present").length;
       const absent = attendance.filter((item) => item.status === "absent").length;
       const rescheduled = attendance.filter((item) => item.status === "rescheduled").length;
-      const nextSession = effectiveBatch ? getNextSession(sessions) : undefined;
+      const nextSession = batch ? getNextSession(sessions) : undefined;
       const completedSessions = Math.max(
         unlockedSessions.filter((session) => session.status === "completed").length,
         present,
@@ -54,7 +53,7 @@ export default async function AdminProgressPage() {
 
       return {
         student,
-        batch: effectiveBatch,
+        batch,
         currentSession,
         nextSession,
         completedSessions,
@@ -126,7 +125,7 @@ export default async function AdminProgressPage() {
                     <p className="font-mono text-xs uppercase text-accent">Current learning point</p>
                     <h3 className="mt-2 font-heading text-lg font-bold">
                       {summary.currentSession
-                        ? `Level ${summary.student.courseLevel} · Module ${moduleNumber} · Session ${summary.currentSession.sessionNumber}`
+                        ? `Module ${moduleNumber} · Session ${summary.currentSession.sessionNumber}`
                         : "No session schedule"}
                     </h3>
                     <p className="mt-2 text-sm leading-6 text-text-secondary">
