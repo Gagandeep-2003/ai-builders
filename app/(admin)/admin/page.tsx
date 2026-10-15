@@ -291,7 +291,7 @@ export default async function AdminDashboardPage() {
                   <p className="mt-2 text-sm text-text-secondary">
                     {event.kind !== "regular"
                       ? event.detail
-                      : `Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
+                      : `${event.detail} · ${event.title}`}
                   </p>
                   <p className="mt-1 text-xs text-text-muted">{event.batch.name}</p>
                   <p className="mt-3 font-mono text-xs text-accent">
@@ -304,7 +304,7 @@ export default async function AdminDashboardPage() {
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <StatusBadge
                     status={event.kind !== "regular" ? "rescheduled" : event.status}
-                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
+                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `L${event.student?.courseLevel ?? 1} M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
                   />
                   <a
                     href={event.meetLink}
@@ -350,14 +350,14 @@ export default async function AdminDashboardPage() {
                   <p className="mt-2 text-sm text-text-secondary">
                     {event.kind !== "regular"
                       ? event.detail
-                      : `Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
+                      : `${event.detail} · ${event.title}`}
                   </p>
                   <p className="mt-1 text-xs text-text-muted">{event.batch.name}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <StatusBadge
                     status={event.kind !== "regular" ? "rescheduled" : event.status}
-                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
+                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `L${event.student?.courseLevel ?? 1} M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
                   />
                   <a
                     href={event.meetLink}

@@ -203,7 +203,9 @@ export default async function DashboardPage() {
         <section className="premium-card rounded-xl p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="font-mono text-xs uppercase text-accent">Current Module</p>
+              <p className="font-mono text-xs uppercase text-accent">
+                Level {data.student.courseLevel} · Current Module
+              </p>
               <h2 className="mt-3 font-heading text-2xl font-bold">{currentModule.title}</h2>
               <p className="mt-3 max-w-2xl text-text-secondary">{currentModule.description}</p>
             </div>
@@ -219,7 +221,9 @@ export default async function DashboardPage() {
           />
           <div className="mt-6 rounded-xl border border-border/70 bg-white/[0.025] p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-mono text-xs uppercase text-text-muted">Next class</p>
+              <p className="font-mono text-xs uppercase text-text-muted">
+                Level {data.student.courseLevel} · Module {currentModule.orderIndex} · Session {nextSession.sessionNumber}
+              </p>
               {nextClassEvent?.kind !== "regular" ? (
                 <span className="rounded-full border border-info/30 bg-info/10 px-2.5 py-1 font-mono text-[11px] uppercase text-blue-100">
                   {nextClassEvent?.tag} class
