@@ -73,7 +73,7 @@ export default async function ClassPage({
     .filter((session) => getSessionDateTimes(session, data.batch).endsAt.getTime() >= now.getTime())
     .map((session) => ({
       value: getSessionScheduleDate(session, data.batch),
-      label: `Level ${data.student.courseLevel} · Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}: ${session.title} · ${formatSessionTime(session, data.batch, data.student.timeZone)}`,
+      label: `Session ${session.globalNumber}: ${session.title} · ${formatSessionTime(session, data.batch, data.student.timeZone)}`,
     }));
   const upcomingClassEvents = classEvents
     .filter((event) => event.endsAt.getTime() >= now.getTime())
@@ -119,12 +119,7 @@ export default async function ClassPage({
             viewerTimeZone={data.student.timeZone}
           />
         ) : (
-          <ClassLiveCard
-            batch={data.batch}
-            nextSession={nextSession}
-            viewerTimeZone={data.student.timeZone}
-            courseLevel={data.student.courseLevel}
-          />
+          <ClassLiveCard batch={data.batch} nextSession={nextSession} viewerTimeZone={data.student.timeZone} />
         )}
 
         <div className="premium-card rounded-xl p-5">
@@ -364,7 +359,7 @@ export default async function ClassPage({
                 <div>
                   <p className="font-heading font-bold">{session.title}</p>
                   <p className="mt-1 text-sm text-text-secondary">
-                    Level {data.student.courseLevel} · Module {Math.ceil(session.globalNumber / 8)} · Session {session.sessionNumber} · {replacement
+                    Session {session.globalNumber} · {replacement
                       ? formatClassEventTime(replacement, data.student.timeZone)
                       : formatSessionTime(session, data.batch, data.student.timeZone)}
                   </p>

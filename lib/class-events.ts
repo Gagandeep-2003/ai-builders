@@ -9,7 +9,6 @@ import {
   formatInTimeZone,
   getSessionDateTimes,
   getSessionScheduleDate,
-  getStudentCourseBatch,
   zonedDateTimeToUtc,
 } from "@/lib/time";
 
@@ -157,7 +156,7 @@ export function getStudentClassEvents({
       student,
       session,
       title: session.title,
-      detail: `Level ${student.courseLevel} · Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
+      detail: `Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
       status: session.status ?? "current",
       tag: "Regular",
     }];
@@ -219,7 +218,6 @@ export function getAdminClassEvents({
   const regularEvents: ClassEvent[] = students.flatMap((student) => {
     const batch = batches.find((item) => item.id === student.batchId);
     if (!batch) return [];
-    const effectiveBatch = getStudentCourseBatch(student, batch);
     const replacedDates = new Set(
       requests
         .filter(
@@ -232,8 +230,8 @@ export function getAdminClassEvents({
     );
 
     return sessions.flatMap((session) => {
-      if (replacedDates.has(getSessionScheduleDate(session, effectiveBatch))) return [];
-      const schedule = getSessionDateTimes(session, effectiveBatch);
+      if (replacedDates.has(getSessionScheduleDate(session, batch))) return [];
+      const schedule = getSessionDateTimes(session, batch);
       const attendanceStatus = attendance.find(
         (item) => item.studentId === student.id && item.sessionId === session.id,
       )?.status;
@@ -244,11 +242,11 @@ export function getAdminClassEvents({
         startsAt: schedule.startsAt,
         endsAt: schedule.endsAt,
         meetLink: schedule.meetLink,
-        batch: effectiveBatch,
+        batch,
         student,
         session,
         title: session.title,
-        detail: `Level ${student.courseLevel} · Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
+        detail: `Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
         status: attendanceStatus ?? "current",
         tag: "Regular",
       }];
@@ -261,20 +259,19 @@ export function getAdminClassEvents({
       const batch = batches.find((item) => item.id === request.batchId);
       const student = students.find((item) => item.id === request.studentId);
       if (!batch || !student) return [];
-      const effectiveBatch = getStudentCourseBatch(student, batch);
 
       const schedule = getRescheduleRequestDateTimes(request);
       const kind = getRescheduleRequestKind(request);
       const originalSession = request.originalDate
-        ? sessions.find((session) => getSessionScheduleDate(session, effectiveBatch) === request.originalDate)
+        ? sessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)
         : undefined;
       return [{
         id: `${kind}-${request.id}`,
         kind,
         startsAt: schedule.startsAt,
         endsAt: schedule.endsAt,
-        meetLink: request.meetLink || effectiveBatch.meetLink,
-        batch: effectiveBatch,
+        meetLink: request.meetLink || batch.meetLink,
+        batch,
         student,
         session: originalSession,
         request,

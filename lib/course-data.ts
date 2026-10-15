@@ -60,8 +60,6 @@ export type StudentProfile = {
   timeZone: string;
   batchId: string;
   enrolledAt: string;
-  courseLevel: number;
-  levelStartedOn?: string;
 };
 
 export type Batch = {
@@ -415,7 +413,6 @@ export const demoStudent: StudentProfile = {
   timeZone: "Asia/Kolkata",
   batchId: "summer-alpha",
   enrolledAt: "2026-06-01T09:00:00.000Z",
-  courseLevel: 1,
 };
 
 export const demoBatch: Batch = {

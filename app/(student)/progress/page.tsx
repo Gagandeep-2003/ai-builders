@@ -37,7 +37,7 @@ export default async function ProgressPage() {
     <AnimatedPage className="print:text-black">
       <PageHeader
         title="Progress Report"
-        subtitle={`Level ${data.student.courseLevel} · Completion, attendance, homework, and recent tutor feedback.`}
+        subtitle="Completion, attendance, homework, and recent tutor feedback."
         action={<PrintButton />}
       />
 
@@ -59,7 +59,7 @@ export default async function ProgressPage() {
                   key={module.id}
                   value={moduleCompleted}
                   max={module.sessionCount}
-                  label={`Level ${data.student.courseLevel} · Module ${module.orderIndex} · ${module.title}`}
+                  label={module.title}
                 />
               );
             })}
