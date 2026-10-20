@@ -1,6 +1,7 @@
 import type { HomeworkDetails, HomeworkKind } from "@/lib/course-data";
+import { moduleThreeN8nCoursework } from "@/lib/module-three-coursework";
 
-type CourseworkTask = {
+export type CourseworkTask = {
   type: HomeworkKind;
   title: string;
   description: string;
@@ -13,7 +14,7 @@ type CourseworkTask = {
   checklist?: string[];
 };
 
-type CourseworkSession = {
+export type CourseworkSession = {
   moduleNumber: number;
   moduleTitle: string;
   sessionNumber: number;
@@ -1053,7 +1054,12 @@ function detailKey(moduleNumber: number, sessionNumber: number, kind: HomeworkKi
   return `${moduleNumber}:${sessionNumber}:${kind}:${normalizeTaskTitle(title)}`;
 }
 
-const allCoursework = [...moduleOneCoursework, ...moduleTwoCoursework, ...moduleThreeCoursework];
+const allCoursework = [
+  ...moduleOneCoursework,
+  ...moduleTwoCoursework,
+  ...moduleThreeN8nCoursework,
+  ...moduleThreeCoursework,
+];
 
 const courseworkByDocId = new Map<string, CourseworkDetail>(
   allCoursework.flatMap((session) =>

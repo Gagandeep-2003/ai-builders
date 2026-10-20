@@ -35,14 +35,20 @@ import {
   type SubmissionStatus,
   type StudentProfile,
   type BadgeDefinition,
+  type QuizAttempt,
   type StudentBadge,
 } from "@/lib/course-data";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { getAuthIdentity } from "@/lib/auth";
-import { filterUnlockedResources } from "@/lib/content-access";
+import {
+  filterUnlockedResources,
+  getReachedSessionAccessBoundary,
+  isSessionUnlocked,
+} from "@/lib/content-access";
 import { badgeCatalog } from "@/lib/achievements";
 import { getCourseworkDetail } from "@/lib/coursework-details";
+import { moduleThreeN8nCoursework } from "@/lib/module-three-coursework";
 import { normalizeMeetLink } from "@/lib/meet-links";
 import { measureServer } from "@/lib/performance";
 import {
@@ -72,6 +78,7 @@ export type DashboardData = {
   announcements: Announcement[];
   attendance: AttendanceItem[];
   feedback: FeedbackItem[];
+  quizAttempts: QuizAttempt[];
   rescheduleRequests: ClassRescheduleRequest[];
   passwordRequests: PasswordChangeRequest[];
 };
@@ -86,6 +93,7 @@ export type AdminData = {
   announcements: Announcement[];
   attendance: AttendanceItem[];
   feedback: FeedbackItem[];
+  quizAttempts: QuizAttempt[];
   classJoinEvents: ClassJoinEvent[];
   rescheduleRequests: ClassRescheduleRequest[];
   passwordRequests: PasswordChangeRequest[];
@@ -155,6 +163,7 @@ function fallbackDashboardData(): DashboardData {
     announcements: demoAnnouncements,
     attendance: demoAttendance,
     feedback: demoFeedback,
+    quizAttempts: [],
     rescheduleRequests: [],
     passwordRequests: demoPasswordChangeRequests,
   };
@@ -171,6 +180,7 @@ function fallbackAdminData(): AdminData {
     announcements: demoAnnouncements,
     attendance: demoAttendance,
     feedback: demoFeedback,
+    quizAttempts: [],
     classJoinEvents: demoClassJoinEvents,
     rescheduleRequests: [],
     passwordRequests: demoPasswordChangeRequests,
@@ -232,18 +242,116 @@ function relationRows(row: DbRow, key: string) {
   return Array.isArray(value) ? value.filter(isDbRow) : [];
 }
 
-function mapModule(row: DbRow): CourseModule {
+const MODULE_THREE_CANONICAL_PREFIX = "internal://module3-n8n/";
+
+function homeworkModuleOrder(row: DbRow) {
+  const session = relation(row, "sessions");
+  const courseModule = session ? relation(session, "modules") : null;
+  return courseModule ? num(courseModule, "order_index") : 0;
+}
+
+function homeworkSessionNumber(row: DbRow) {
+  const session = relation(row, "sessions");
+  return session ? num(session, "session_number") : 0;
+}
+
+function canonicalModuleThreeTask(row: DbRow) {
+  const kind = text(row, "kind") as HomeworkKind;
+  const courseworkSession = moduleThreeN8nCoursework.find(
+    (session) => session.sessionNumber === homeworkSessionNumber(row),
+  );
+
+  return courseworkSession?.tasks.find((task) => task.type === kind);
+}
+
+function overlayCanonicalModuleThreeTask(row: DbRow) {
+  const task = canonicalModuleThreeTask(row);
+  if (!task) return row;
+
   return {
+    ...row,
+    title: task.title,
+    description: task.description,
+    content_url: task.googleDocLink,
+  };
+}
+
+function isCanonicalModuleThreeHomework(row: DbRow) {
+  return homeworkModuleOrder(row) === 3 &&
+    text(row, "content_url").startsWith(MODULE_THREE_CANONICAL_PREFIX);
+}
+
+function preferCanonicalModuleThreeHomework(rows: DbRow[] | null | undefined) {
+  const list = rows ?? [];
+  const nonModuleThreeRows = list.filter((row) => homeworkModuleOrder(row) !== 3);
+  const moduleThreeRows = list.filter((row) => homeworkModuleOrder(row) === 3);
+  const groupedRows = new Map<string, DbRow[]>();
+
+  for (const row of moduleThreeRows) {
+    const key = text(row, "session_id");
+    groupedRows.set(key, [...(groupedRows.get(key) ?? []), row]);
+  }
+
+  const canonicalRows = [...groupedRows.values()]
+    .sort((a, b) => homeworkSessionNumber(a[0]) - homeworkSessionNumber(b[0]))
+    .flatMap((sessionRows) =>
+      (["class_challenge", "home_task"] as const).flatMap((kind) => {
+        const matchingRows = sessionRows.filter((row) => text(row, "kind") === kind);
+        const backingRow = matchingRows.find(isCanonicalModuleThreeHomework) ?? matchingRows[0];
+        if (!backingRow) return [];
+        return [isCanonicalModuleThreeHomework(backingRow)
+          ? backingRow
+          : overlayCanonicalModuleThreeTask(backingRow)];
+      }),
+    );
+
+  return [...nonModuleThreeRows, ...canonicalRows];
+}
+
+function mapQuizAttempt(row: DbRow): QuizAttempt {
+  const selectedAnswers = Array.isArray(row.selected_answers)
+    ? row.selected_answers.filter((answer): answer is number => Number.isInteger(answer))
+    : [];
+
+  return {
+    id: text(row, "id"),
+    studentId: text(row, "student_id"),
+    quizId: text(row, "quiz_id"),
+    sessionId: text(row, "session_id"),
+    selectedAnswers,
+    score: num(row, "score"),
+    totalQuestions: num(row, "total_questions", 5),
+    completedAt: text(row, "completed_at"),
+  };
+}
+
+function mapModule(row: DbRow): CourseModule {
+  const mappedModule = {
     id: text(row, "id"),
     title: text(row, "title"),
     description: text(row, "description"),
     orderIndex: num(row, "order_index"),
     sessionCount: num(row, "session_count", 8),
   };
+
+  const canonicalModule = modules.find(
+    (module) => module.orderIndex === mappedModule.orderIndex,
+  );
+
+  if (mappedModule.orderIndex !== 3 || !canonicalModule) {
+    return mappedModule;
+  }
+
+  return {
+    ...mappedModule,
+    title: canonicalModule.title,
+    description: canonicalModule.description,
+    sessionCount: canonicalModule.sessionCount,
+  };
 }
 
 function mapSession(row: DbRow, globalNumber: number): CourseSession {
-  return {
+  const mappedSession = {
     id: text(row, "id"),
     moduleId: text(row, "module_id"),
     title: text(row, "title"),
@@ -254,6 +362,24 @@ function mapSession(row: DbRow, globalNumber: number): CourseSession {
     studentOutput: text(row, "student_output"),
     description: text(row, "description"),
     date: text(row, "session_date"),
+  };
+
+  const canonicalSession = sessions.find(
+    (session) => session.globalNumber === globalNumber,
+  );
+
+  if (globalNumber < 17 || globalNumber > 24 || !canonicalSession) {
+    return mappedSession;
+  }
+
+  return {
+    ...mappedSession,
+    title: canonicalSession.title,
+    sessionNumber: canonicalSession.sessionNumber,
+    focus: canonicalSession.focus,
+    toolsCovered: canonicalSession.toolsCovered,
+    studentOutput: canonicalSession.studentOutput,
+    description: canonicalSession.description,
   };
 }
 
@@ -743,9 +869,9 @@ export async function getCurriculum(batch = demoBatch): Promise<{
 const studentSelect =
   "id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at), batches(id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order))";
 const homeworkSelect =
-  "id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, notes, started_at, submitted_at, reviewed_at, reviewed_by, mentor_feedback)";
+  "id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id, session_number, modules(order_index)), submissions(student_id, status, notes, started_at, submitted_at, reviewed_at, reviewed_by, mentor_feedback)";
 const shellHomeworkSelect =
-  "id, session_id, batch_id, assigned_student_id, submissions(student_id, status)";
+  "id, session_id, batch_id, assigned_student_id, content_url, sessions(module_id, modules(order_index)), submissions(student_id, status)";
 const rescheduleSelect =
   "id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)";
 const studentRescheduleSelect =
@@ -754,6 +880,40 @@ const studentRescheduleSelect =
 type ServerSupabaseClient = NonNullable<
   Awaited<ReturnType<typeof createServerSupabaseClient>>
 >;
+
+const quizAttemptSelect =
+  "id, student_id, quiz_id, session_id, selected_answers, score, total_questions, completed_at";
+
+function isMissingQuizAttemptsTable(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return error.code === "42P01" || error.code === "PGRST205" ||
+    error.message?.includes("quiz_attempts") === true;
+}
+
+async function loadQuizAttempts(
+  supabase: ServerSupabaseClient,
+  studentId?: string,
+): Promise<QuizAttempt[]> {
+  let query = supabase
+    .from("quiz_attempts")
+    .select(quizAttemptSelect)
+    .order("completed_at", { ascending: false });
+
+  if (studentId) query = query.eq("student_id", studentId);
+  const { data, error } = await query;
+
+  if (error) {
+    if (!isMissingQuizAttemptsTable(error)) {
+      console.error("[quiz-attempts] Unable to load quiz attempts.", {
+        code: error.code,
+        message: error.message,
+      });
+    }
+    return [];
+  }
+
+  return (data ?? []).map((row) => mapQuizAttempt(row));
+}
 
 async function loadStudentRescheduleRequests(
   studentId: string,
@@ -926,6 +1086,7 @@ function emptyStudentData(context: StudentContextData): DashboardData {
     announcements: [],
     attendance: [],
     feedback: [],
+    quizAttempts: [],
     rescheduleRequests: [],
     passwordRequests: [],
   };
@@ -944,6 +1105,7 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
     { data: announcementRows },
     { data: attendanceRows },
     { data: feedbackRows },
+    quizAttempts,
     rescheduleRequests,
     { data: passwordRequestRows },
   ] =
@@ -973,6 +1135,7 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
         .eq("student_id", effectiveStudent.id)
         .order("created_at", { ascending: false })
         .limit(10),
+      loadQuizAttempts(supabase, effectiveStudent.id),
       loadStudentRescheduleRequests(effectiveStudent.id, supabase),
       supabase
         .from("password_change_requests")
@@ -982,7 +1145,8 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
         .limit(5),
     ]);
 
-  const homework = homeworkRows?.map((row) => mapHomework(row, effectiveStudent.id)) ?? demoHomework;
+  const homework = preferCanonicalModuleThreeHomework(homeworkRows)
+    .map((row) => mapHomework(row, effectiveStudent.id));
   const resources = filterUnlockedResources(resourceRows?.map((row) => mapResource(row)) ?? demoResources, curriculumSessions);
   const feedback = feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback;
   const attendance = attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance;
@@ -997,6 +1161,7 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,
     attendance,
     feedback,
+    quizAttempts,
     rescheduleRequests,
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
   };
@@ -1009,14 +1174,19 @@ async function getStudentHomeworkDataImpl() {
   const data = emptyStudentData(context);
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { ...data, homework: demoHomework };
-  const { data: rows } = await supabase
-    .from("homework")
-    .select(homeworkSelect)
-    .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
-    .order("due_date", { ascending: true });
+  const [{ data: rows }, quizAttempts] = await Promise.all([
+    supabase
+      .from("homework")
+      .select(homeworkSelect)
+      .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
+      .order("due_date", { ascending: true }),
+    loadQuizAttempts(supabase, context.student.id),
+  ]);
   return {
     ...data,
-    homework: rows?.map((row) => mapHomework(row, context.student.id)) ?? demoHomework,
+    homework: preferCanonicalModuleThreeHomework(rows)
+      .map((row) => mapHomework(row, context.student.id)),
+    quizAttempts,
   };
 }
 
@@ -1026,7 +1196,14 @@ async function getStudentHomeworkDetailDataImpl(homeworkId: string): Promise<Stu
   const context = await getStudentContextData();
   const fallbackHomework = demoHomework.find((item) => item.id === homeworkId);
   const supabase = await createServerSupabaseClient();
-  if (!supabase) return { ...context, homework: fallbackHomework };
+  if (!supabase) {
+    const fallbackSession = context.sessions.find(
+      (session) => session.id === fallbackHomework?.sessionId,
+    );
+    return isSessionUnlocked(fallbackSession, getReachedSessionAccessBoundary(context.sessions))
+      ? { ...context, homework: fallbackHomework }
+      : { ...context };
+  }
 
   const { data: row } = await supabase
     .from("homework")
@@ -1036,7 +1213,24 @@ async function getStudentHomeworkDetailDataImpl(homeworkId: string): Promise<Stu
     .maybeSingle();
 
   if (!row) return { ...context };
-  const homework = mapHomework(row, context.student.id);
+
+  let selectedRow: DbRow = row;
+  if (homeworkModuleOrder(row) === 3 && !isCanonicalModuleThreeHomework(row)) {
+    const { count } = await supabase
+      .from("homework")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", text(row, "session_id"))
+      .eq("kind", text(row, "kind"))
+      .like("content_url", `${MODULE_THREE_CANONICAL_PREFIX}%`);
+    if ((count ?? 0) > 0) return { ...context };
+    selectedRow = overlayCanonicalModuleThreeTask(row);
+  }
+
+  const homework = mapHomework(selectedRow, context.student.id);
+  const homeworkSession = context.sessions.find((session) => session.id === homework.sessionId);
+  if (!isSessionUnlocked(homeworkSession, getReachedSessionAccessBoundary(context.sessions))) {
+    return { ...context };
+  }
   return { ...context, homework };
 }
 
@@ -1307,7 +1501,7 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
       .eq("sender_role", "admin")
       .is("read_by_student_at", null),
   ]);
-  const pendingHomeworkCount = (homeworkRows ?? []).filter((row) => {
+  const pendingHomeworkCount = preferCanonicalModuleThreeHomework(homeworkRows).filter((row) => {
     const submission = relationRows(row, "submissions")
       .find((item) => text(item, "student_id") === context.student.id);
     const status = submission ? text(submission, "status", "pending") : "pending";
@@ -1421,7 +1615,7 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
       pauseRows,
     )) ?? [demoBatch],
     sessions: mappedSessions.length ? mappedSessions : sessions,
-    homework: homeworkRows?.map((row) => {
+    homework: preferCanonicalModuleThreeHomework(homeworkRows).map((row) => {
       const mapped = mapHomework(row);
       return {
         ...mapped,
@@ -1429,7 +1623,7 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
           ? "submitted"
           : mapped.status,
       };
-    }) ?? demoHomework,
+    }),
     attendance: attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance,
     rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
@@ -1532,6 +1726,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
     { data: rescheduleRequestRows },
     { data: passwordRequestRows },
     { data: pauseRows },
+    quizAttempts,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -1586,6 +1781,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
     supabase
       .from("batch_pauses")
       .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
+    loadQuizAttempts(supabase),
   ]);
 
   if (!moduleRows || !sessionRows) return fallbackAdminData();
@@ -1609,7 +1805,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
     modules: mappedModules,
     sessions: mappedSessions,
     homework:
-      homeworkRows?.map((row) => {
+      preferCanonicalModuleThreeHomework(homeworkRows).map((row) => {
         const mapped = mapHomework(row);
         const submissions = relationRows(row, "submissions");
         return {
@@ -1618,11 +1814,12 @@ async function getAdminDataImpl(): Promise<AdminData> {
             ? "submitted"
             : mapped.status,
         };
-      }) ?? demoHomework,
+      }),
     resources: resourceRows?.map((row) => mapResource(row)) ?? demoResources,
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,
     attendance: attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance,
     feedback: feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback,
+    quizAttempts,
     classJoinEvents: classJoinEventRows?.map((row) => mapClassJoinEvent(row)) ?? demoClassJoinEvents,
     rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
