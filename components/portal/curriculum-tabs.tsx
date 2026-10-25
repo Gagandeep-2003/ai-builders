@@ -28,6 +28,8 @@ export function CurriculumTabs({
           return (
             <button
               key={module.id}
+              type="button"
+              aria-pressed={active}
               onClick={() => setActiveModule(module.id)}
               className={cn(
                 "relative min-w-fit rounded-xl px-4 py-2.5 text-sm text-text-secondary transition",

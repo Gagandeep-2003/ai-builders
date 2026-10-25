@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BookOpenCheck, CheckCircle2, ChevronDown } from "lucide-react";
 import { HomeworkCard } from "@/components/ui/homework-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -17,6 +18,7 @@ export function HomeworkTracker({
   sessions: CourseSession[];
   initialSessionId?: string;
 }) {
+  const searchParams = useSearchParams();
   const availableSessions = useMemo(
     () => [...sessions].sort((a, b) => a.globalNumber - b.globalNumber),
     [sessions],
@@ -47,13 +49,20 @@ export function HomeworkTracker({
     [availableSessions, homework],
   );
   const active = grouped.find((item) => item.session.id === activeSessionId) ?? grouped[0];
-  const overallCompleted = homework.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
+  const eligibleHomework = homework.filter(
+    (item) => item.accessState !== "skipped" && item.accessState !== "not_enrolled",
+  );
+  const overallCompleted = eligibleHomework.filter(
+    (item) => item.status === "submitted" || item.status === "reviewed",
+  ).length;
   const moduleGroups = useMemo(
     () =>
-      [1, 2, 3]
+      [...new Set(grouped.map((item) => item.session.moduleNumber ?? Math.ceil(item.session.globalNumber / 8)))]
         .map((moduleNumber) => ({
           moduleNumber,
-          sessions: grouped.filter((item) => Math.ceil(item.session.globalNumber / 8) === moduleNumber),
+          sessions: grouped.filter(
+            (item) => (item.session.moduleNumber ?? Math.ceil(item.session.globalNumber / 8)) === moduleNumber,
+          ),
         }))
         .filter((module) => module.sessions.length > 0),
     [grouped],
@@ -69,11 +78,11 @@ export function HomeworkTracker({
           <div>
             <h2 className="font-heading text-xl font-bold">Session Workbook</h2>
             <p className="mt-1 text-sm text-text-secondary">
-              {overallCompleted}/{homework.length} items completed
+              {overallCompleted}/{eligibleHomework.length} enrolled items completed
             </p>
           </div>
         </div>
-        <ProgressBar className="mt-5" value={overallCompleted} max={Math.max(homework.length, 1)} label="Workbook progress" />
+        <ProgressBar className="mt-5" value={overallCompleted} max={Math.max(eligibleHomework.length, 1)} label="Workbook progress" />
 
         <div className="mt-6 max-h-[70vh] space-y-5 overflow-y-auto pr-1 scrollbar-soft">
           {moduleGroups.map((module) => (
@@ -94,10 +103,12 @@ export function HomeworkTracker({
                       key={session.id}
                       onClick={() => {
                         setActiveSessionId(session.id);
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set("session", session.id);
                         window.history.replaceState(
                           window.history.state,
                           "",
-                          `/homework?session=${encodeURIComponent(session.id)}`,
+                          `/homework?${params.toString()}`,
                         );
                       }}
                       className={cn(
@@ -144,7 +155,7 @@ export function HomeworkTracker({
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase text-accent">
-                  Module {Math.ceil(active.session.globalNumber / 8)} · Session {active.session.sessionNumber}
+                  Module {active.session.moduleNumber ?? Math.ceil(active.session.globalNumber / 8)} · Session {active.session.sessionNumber}
                 </p>
                 <h2 className="mt-2 font-heading text-2xl font-bold">{active.session.title}</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
@@ -164,7 +175,10 @@ export function HomeworkTracker({
                 <HomeworkCard
                   key={item.id}
                   homework={item}
-                  toolsUnlocked={active.session.globalNumber <= accessBoundary.maxUnlockedGlobalNumber}
+                  toolsUnlocked={
+                    item.accessState === "available" &&
+                    active.session.globalNumber <= accessBoundary.maxUnlockedGlobalNumber
+                  }
                 />
               ))}
           </div>

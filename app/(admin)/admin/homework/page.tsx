@@ -13,6 +13,7 @@ export default async function AdminHomeworkPage({
   const params = await searchParams;
   const initialStudentId = Array.isArray(params.student) ? params.student[0] : params.student;
   const data = await getAdminHomeworkData();
+  const levelOneSessions = data.sessions.filter((session) => (session.courseLevel ?? 1) === 1);
 
   return (
     <AnimatedPage>
@@ -40,10 +41,13 @@ export default async function AdminHomeworkPage({
         <summary className="cursor-pointer list-none">
           <div>
             <p className="font-mono text-xs uppercase text-accent">Admin tool</p>
-            <h2 className="mt-2 font-heading text-2xl font-bold">Add class challenge or home task</h2>
+            <h2 className="mt-2 font-heading text-2xl font-bold">Add Level 1 class challenge or home task</h2>
             <p className="mt-2 text-sm text-text-secondary">
               For each module session, add two batch-level items: one Class Challenge Google Doc and one Home Task Google Doc.
               Students in that batch will see them automatically.
+            </p>
+            <p className="mt-2 text-sm text-text-muted">
+              Level 2 activities are managed by the validated course catalog and cannot be added or edited from this form.
             </p>
           </div>
         </summary>
@@ -64,12 +68,14 @@ export default async function AdminHomeworkPage({
             <span className="font-mono text-xs uppercase text-text-muted">Module session</span>
             <select name="sessionId" className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm text-text-primary">
               {[1, 2, 3].map((moduleNumber) => (
-                <optgroup key={moduleNumber} label={`Module ${moduleNumber}`}>
-                  {data.sessions
-                    .filter((session) => Math.ceil(session.globalNumber / 8) === moduleNumber)
+                <optgroup key={moduleNumber} label={`Level 1 · Module ${moduleNumber}`}>
+                  {levelOneSessions
+                    .filter((session) =>
+                      (session.moduleNumber ?? Math.ceil(session.globalNumber / 8)) === moduleNumber
+                    )
                     .map((session) => (
                       <option key={session.id} value={session.id}>
-                        Module {moduleNumber} · Session {session.sessionNumber}: {session.title}
+                        Level 1 · Module {moduleNumber} · Session {session.sessionNumber}: {session.title}
                       </option>
                     ))}
                 </optgroup>

@@ -53,6 +53,9 @@ export function ClassLiveCard({
           <p className="mt-5 text-text-secondary">
             {formatSessionTime(nextSession, batch, viewerTimeZone)}
           </p>
+          <p className="mt-2 font-mono text-xs uppercase text-accent">
+            Level {nextSession.courseLevel ?? 1} · Module {nextSession.moduleNumber ?? Math.ceil(nextSession.globalNumber / 8)} · Session {nextSession.sessionNumber}
+          </p>
           <p className="mt-2 font-mono text-xs text-text-muted">
             Batch timezone: {batch.timeZone}
           </p>

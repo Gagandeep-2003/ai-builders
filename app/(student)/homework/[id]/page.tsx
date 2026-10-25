@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ClipboardList, FileCheck2, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CircleOff, ClipboardList, FileCheck2, Lightbulb, Sparkles } from "lucide-react";
 import { HomeworkDocumentViewer } from "@/components/portal/homework-document-viewer";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
@@ -79,12 +79,16 @@ export default async function HomeworkDetailPage({
   if (!homework) notFound();
 
   const embedUrl = getGoogleDocEmbedUrl(homework.contentUrl);
-  const moduleNumber = Math.ceil(
-    (data.sessions.find((session) => session.id === homework.sessionId)?.globalNumber ?? 1) / 8,
+  const homeworkCurriculum = data.curricula.find((curriculum) => curriculum.level === (homework.courseLevel ?? 1));
+  const curriculumSessions = homeworkCurriculum?.sessions ?? data.sessions;
+  const homeworkSession = curriculumSessions.find((session) => session.id === homework.sessionId);
+  const moduleNumber = homework.moduleNumber ?? homeworkSession?.moduleNumber ?? Math.ceil((homeworkSession?.globalNumber ?? 1) / 8);
+  const sessionNumber = homeworkSession?.sessionNumber ?? 1;
+  const toolsUnlocked = homework.accessState === "available" && isSessionUnlocked(
+    homeworkSession,
+    getSessionAccessBoundary(curriculumSessions),
   );
-  const sessionNumber = data.sessions.find((session) => session.id === homework.sessionId)?.sessionNumber ?? 1;
-  const homeworkSession = data.sessions.find((session) => session.id === homework.sessionId);
-  const toolsUnlocked = isSessionUnlocked(homeworkSession, getSessionAccessBoundary(data.sessions));
+  const readOnly = homework.accessState === "skipped" || homework.accessState === "not_enrolled" || homework.accessState === "locked";
   const isCompleted = homework.status === "submitted" || homework.status === "reviewed";
   const hasStaleTiming =
     isCompleted && typeof homework.timeSpentSeconds === "number" && !isTrustedTaskDuration(homework.timeSpentSeconds);
@@ -108,7 +112,7 @@ export default async function HomeworkDetailPage({
   return (
     <AnimatedPage>
       <PendingLink
-        href={`/homework?session=${encodeURIComponent(homework.sessionId)}`}
+        href={`/homework?level=${homework.courseLevel ?? 1}&session=${encodeURIComponent(homework.sessionId)}`}
         pendingLabel="Returning..."
         className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent"
       >
@@ -118,9 +122,25 @@ export default async function HomeworkDetailPage({
 
       <PageHeader
         title={homework.title}
-        subtitle={`Module ${moduleNumber} · Session ${sessionNumber} · ${homework.sessionName} · ${formatHomeworkKind(homework.kind)}`}
+        subtitle={`Level ${homework.courseLevel ?? 1} · Module ${moduleNumber} · Session ${sessionNumber} · ${homework.sessionName} · ${formatHomeworkKind(homework.kind)}`}
         action={<StatusBadge status={homework.status} />}
       />
+
+      {readOnly ? (
+        <section className="rounded-xl border border-border bg-white/[0.025] p-5">
+          <div className="flex gap-3">
+            <CircleOff className="mt-0.5 h-5 w-5 shrink-0 text-text-muted" />
+            <div>
+              <h2 className="font-heading text-lg font-bold">
+                {homework.accessState === "not_enrolled" ? "Reference only · not enrolled" : homework.accessState === "skipped" ? "Reference only · skipped session" : "This task is not unlocked yet"}
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-text-secondary">
+                You can review the activity document, but it will not count as pending or completed and submission controls stay disabled.
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-4">
         <div className="premium-card rounded-xl p-5">
@@ -267,15 +287,27 @@ export default async function HomeworkDetailPage({
           </div>
         </section>
 
-      <HomeworkDocumentViewer
-        homeworkId={homework.id}
-        sessionId={homework.sessionId}
-        src={homework.contentUrl ? embedUrl : ""}
-        title={homework.title}
-        initialStartedAt={homework.startedAt}
-        initialTimeSpentSeconds={homework.timeSpentSeconds}
-        completed={isCompleted}
-      />
+      {readOnly ? (
+        homework.contentUrl ? (
+          <section className="premium-card overflow-hidden rounded-xl">
+            <iframe
+              src={embedUrl}
+              title={`${homework.title} document preview`}
+              className="h-[70vh] min-h-[560px] w-full border-0 bg-white"
+            />
+          </section>
+        ) : null
+      ) : (
+        <HomeworkDocumentViewer
+          homeworkId={homework.id}
+          sessionId={homework.sessionId}
+          src={homework.contentUrl ? embedUrl : ""}
+          title={homework.title}
+          initialStartedAt={homework.startedAt}
+          initialTimeSpentSeconds={homework.timeSpentSeconds}
+          completed={isCompleted}
+        />
+      )}
     </AnimatedPage>
   );
 }

@@ -693,7 +693,7 @@ export function JourneyExperience({
         <div className="premium-card min-w-0 rounded-xl p-6">
           <p className="font-mono text-xs uppercase text-accent">Flying posters</p>
           <h2 className="mt-2 font-heading text-2xl font-bold">{activeModule?.title}</h2>
-          <p className="mt-3 text-text-secondary">{activeVisual?.mood}</p>
+          <p className="mt-3 text-text-secondary">{activeModule?.description ?? activeVisual?.mood}</p>
 
           <div className="journey-poster-stage mt-6">
             <div className="journey-poster-track">
