@@ -22,6 +22,7 @@ function validateCatalog(catalog) {
 
   const activityIds = new Set();
   const documentUrls = new Set();
+  const documentIds = new Set();
   let sessionCount = 0;
   let activityCount = 0;
 
@@ -80,10 +81,24 @@ function validateCatalog(catalog) {
       );
 
       for (const [activityIndex, activity] of session.activities.entries()) {
+        const expectedSlots = [
+          { kind: "class_challenge", number: 1, sourcePrefix: "01_CA_", title: "Class Activity 1" },
+          { kind: "class_challenge", number: 2, sourcePrefix: "02_CA_", title: "Class Activity 2" },
+          { kind: "home_task", number: 1, sourcePrefix: "03_HT_", title: "Home Task 1" },
+          { kind: "home_task", number: 2, sourcePrefix: "04_HT_", title: "Home Task 2" },
+        ];
+        const expectedSlot = expectedSlots[activityIndex];
         const prefix = activity.kind === "class_challenge" ? "cc" : "ht";
         const expectedId = `l2-m${moduleNumber}-s${sessionNumber}-${prefix}${activity.number}`;
+        const documentIdMatch = activity.document_url.match(
+          /^https:\/\/docs\.google\.com\/document\/d\/([A-Za-z0-9_-]+)\/edit(?:\?.*)?$/,
+        );
 
         activityCount += 1;
+        assert(
+          activity.kind === expectedSlot.kind && activity.number === expectedSlot.number,
+          `${sessionLabel}, activity ${activityIndex + 1} must be ${expectedSlot.kind} ${expectedSlot.number}.`,
+        );
         assert(
           activity.order === activityIndex + 1,
           `${activity.id} has the wrong activity order.`,
@@ -95,8 +110,26 @@ function validateCatalog(catalog) {
           `${activity.id} has an invalid Google Docs URL.`,
         );
         assert(
+          documentIdMatch?.[1] === activity.document_id,
+          `${activity.id} document_id does not match its Google Docs URL.`,
+        );
+        assert(
           !documentUrls.has(activity.document_url),
           `Duplicate document URL: ${activity.document_url}.`,
+        );
+        assert(
+          !documentIds.has(activity.document_id),
+          `Duplicate document id: ${activity.document_id}.`,
+        );
+        assert(
+          activity.source_name.startsWith(expectedSlot.sourcePrefix),
+          `${activity.id} source_name must start with ${expectedSlot.sourcePrefix}.`,
+        );
+        assert(
+          activity.document_title.startsWith(
+            `Session ${sessionNumber} ${expectedSlot.title}`,
+          ),
+          `${activity.id} has a mismatched document title.`,
         );
         assert(
           Array.isArray(activity.instructions) && activity.instructions.length > 0,
@@ -105,6 +138,7 @@ function validateCatalog(catalog) {
 
         activityIds.add(activity.id);
         documentUrls.add(activity.document_url);
+        documentIds.add(activity.document_id);
       }
     }
   }
@@ -116,6 +150,7 @@ function validateCatalog(catalog) {
     documentUrls.size === 96,
     "Catalog must contain 96 unique document URLs.",
   );
+  assert(documentIds.size === 96, "Catalog must contain 96 unique document ids.");
 
   return { moduleCount: catalog.modules.length, sessionCount, activityCount };
 }

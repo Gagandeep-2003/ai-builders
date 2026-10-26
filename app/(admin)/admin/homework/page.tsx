@@ -1,4 +1,5 @@
 import { createHomeworkAction } from "@/app/actions/admin";
+import { AdminLevelTwoCatalog } from "@/components/admin/admin-level-two-catalog";
 import { AdminHomeworkTaskManager } from "@/components/admin/admin-homework-task-manager";
 import { AdminHomeworkWorkbook } from "@/components/admin/admin-homework-workbook";
 import { AnimatedPage } from "@/components/ui/animated";
@@ -21,6 +22,8 @@ export default async function AdminHomeworkPage({
         title="Homework Manager"
         subtitle="Review each student session by session, with class challenges, home tasks, status, and completion time."
       />
+
+      <AdminLevelTwoCatalog />
 
       <AdminHomeworkWorkbook
         students={data.students}

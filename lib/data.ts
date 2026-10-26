@@ -373,6 +373,30 @@ function mapSession(row: DbRow, globalNumber: number): CourseSession {
   };
 }
 
+const LEGACY_LEVEL_ONE_MODULE_COUNT = 3;
+
+function isLegacyLevelOneModuleOrder(orderIndex: number) {
+  return orderIndex >= 1 && orderIndex <= LEGACY_LEVEL_ONE_MODULE_COUNT;
+}
+
+function mapLegacyLevelOneModules(rows: DbRow[]) {
+  return rows
+    .map((row) => mapModule(row))
+    .filter((module) => isLegacyLevelOneModuleOrder(module.orderIndex));
+}
+
+function mapLegacyLevelOneSessions(rows: DbRow[]) {
+  return rows
+    .map((row) => ({
+      row,
+      moduleOrder: num(relation(row, "modules") ?? {}, "order_index", 99),
+      sessionNumber: num(row, "session_number", 99),
+    }))
+    .filter(({ moduleOrder }) => isLegacyLevelOneModuleOrder(moduleOrder))
+    .sort((a, b) => a.moduleOrder - b.moduleOrder || a.sessionNumber - b.sessionNumber)
+    .map(({ row }, index) => mapSession(row, index + 1));
+}
+
 function mapBatchClassSlot(row: DbRow, batchId: string): BatchClassSlot {
   return {
     id: text(row, "id"),
@@ -845,15 +869,8 @@ export async function getCurriculum(batch = demoBatch): Promise<{
 
   if (!moduleRows || !sessionRows) return { modules, sessions: curriculumWithStatus(batch) };
 
-  const mappedModules = moduleRows.map((row) => mapModule(row));
-  const sortedSessions = sessionRows
-    .map((row) => ({
-      row,
-      moduleOrder: num(relation(row, "modules") ?? {}, "order_index", 99),
-      sessionNumber: num(row, "session_number", 99),
-    }))
-    .sort((a, b) => a.moduleOrder - b.moduleOrder || a.sessionNumber - b.sessionNumber)
-    .map(({ row }, index) => mapSession(row, index + 1));
+  const mappedModules = mapLegacyLevelOneModules(moduleRows);
+  const sortedSessions = mapLegacyLevelOneSessions(sessionRows);
 
   return { modules: mappedModules, sessions: applySessionStatuses(sortedSessions, batch) };
 }
@@ -1235,22 +1252,24 @@ function withLevelOneHomeworkAccess(
 ) {
   const levelOne = context.curricula.find((curriculum) => curriculum.level === 1);
   const sessionMap = new Map(levelOne?.sessions.map((session) => [session.id, session]));
-  return homework.map((item) => {
-    const session = sessionMap.get(item.sessionId);
-    const accessState = session?.status === "not_enrolled"
-      ? "not_enrolled" as const
-      : session?.status === "skipped"
-        ? "skipped" as const
-        : session?.status === "locked"
-          ? "locked" as const
-          : "available" as const;
-    return {
-      ...item,
-      courseLevel: 1 as const,
-      moduleNumber: session?.moduleNumber ?? item.moduleNumber,
-      accessState,
-    };
-  });
+  return homework
+    .filter((item) => sessionMap.has(item.sessionId))
+    .map((item) => {
+      const session = sessionMap.get(item.sessionId);
+      const accessState = session?.status === "not_enrolled"
+        ? "not_enrolled" as const
+        : session?.status === "skipped"
+          ? "skipped" as const
+          : session?.status === "locked"
+            ? "locked" as const
+            : "available" as const;
+      return {
+        ...item,
+        courseLevel: 1 as const,
+        moduleNumber: session?.moduleNumber ?? item.moduleNumber,
+        accessState,
+      };
+    });
 }
 
 async function getLevelTwoHomeworkForContext(
@@ -1786,14 +1805,11 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
     loadAllLevelTwoAttendance(supabase),
   ]);
 
-  const mappedSessions = (sessionRows ?? [])
-    .map((row) => ({
-      row,
-      moduleOrder: num(relation(row, "modules") ?? {}, "order_index", 99),
-      sessionNumber: num(row, "session_number", 99),
-    }))
-    .sort((a, b) => a.moduleOrder - b.moduleOrder || a.sessionNumber - b.sessionNumber)
-    .map(({ row }, index) => mapSession(row, index + 1));
+  const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
+  const effectiveSessions = mappedSessions.length ? mappedSessions : sessions;
+  const legacySessionIds = mappedSessions.length
+    ? new Set(mappedSessions.map((session) => session.id))
+    : null;
 
   return {
     students: attachCourseEnrollmentState(
@@ -1804,16 +1820,18 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
       mapBatch(row, relationRows(row, "students").length),
       pauseRows,
     )) ?? [demoBatch],
-    sessions: mappedSessions.length ? mappedSessions : sessions,
-    homework: homeworkRows?.map((row) => {
-      const mapped = mapHomework(row);
-      return {
-        ...mapped,
-        status: relationRows(row, "submissions").some((submission) => text(submission, "status") === "submitted")
-          ? "submitted"
-          : mapped.status,
-      };
-    }) ?? demoHomework,
+    sessions: effectiveSessions,
+    homework: homeworkRows
+      ?.map((row) => {
+        const mapped = mapHomework(row);
+        return {
+          ...mapped,
+          status: relationRows(row, "submissions").some((submission) => text(submission, "status") === "submitted")
+            ? "submitted" as const
+            : mapped.status,
+        };
+      })
+      .filter((item) => !legacySessionIds || legacySessionIds.has(item.sessionId)) ?? demoHomework,
     attendance: [
       ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
       ...levelTwoAttendance,
@@ -1884,7 +1902,7 @@ async function getAdminStudentsDataImpl(): Promise<AdminStudentsData> {
       mapBatch(row, relationRows(row, "students").length),
       pauseRows,
     )) ?? [demoBatch],
-    modules: moduleRows?.map((row) => mapModule(row)) ?? modules,
+    modules: moduleRows ? mapLegacyLevelOneModules(moduleRows) : modules,
     coursePlacementAvailable: enrollmentResult.available,
   };
 }
@@ -2007,15 +2025,12 @@ async function getAdminDataImpl(): Promise<AdminData> {
     loadAllLevelTwoClassJoinEvents(supabase),
   ]);
 
-  const mappedModules = (moduleRows ?? []).map((row) => mapModule(row));
-  const mappedSessions = (sessionRows ?? [])
-    .map((row) => ({
-      row,
-      moduleOrder: num(relation(row, "modules") ?? {}, "order_index", 99),
-      sessionNumber: num(row, "session_number", 99),
-    }))
-    .sort((a, b) => a.moduleOrder - b.moduleOrder || a.sessionNumber - b.sessionNumber)
-    .map(({ row }, index) => mapSession(row, index + 1));
+  const mappedModules = mapLegacyLevelOneModules(moduleRows ?? []);
+  const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
+  const effectiveSessions = mappedSessions.length ? mappedSessions : sessions;
+  const legacySessionIds = mappedSessions.length
+    ? new Set(mappedSessions.map((session) => session.id))
+    : null;
 
   return {
     students: attachCourseEnrollmentState(
@@ -2028,7 +2043,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
         pauseRows,
       )) ?? [demoBatch],
     modules: mappedModules.length ? mappedModules : modules,
-    sessions: mappedSessions.length ? mappedSessions : sessions,
+    sessions: effectiveSessions,
     homework:
       homeworkRows?.map((row) => {
         const mapped = mapHomework(row);
@@ -2039,7 +2054,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
             ? "submitted"
             : mapped.status,
         };
-      }) ?? demoHomework,
+      }).filter((item) => !legacySessionIds || legacySessionIds.has(item.sessionId)) ?? demoHomework,
     resources: resourceRows?.map((row) => mapResource(row)) ?? demoResources,
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,
     attendance: [
