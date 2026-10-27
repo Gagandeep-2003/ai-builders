@@ -15,6 +15,8 @@ import type {
 } from "@/lib/course-data";
 import { getSessionDateTimes, getSessionScheduleDate } from "@/lib/time";
 
+const LEVEL_TWO_HOMEWORK_DUE_DATE = "2027-05-31";
+
 type CatalogActivity = {
   id: string;
   kind: HomeworkKind;
@@ -417,7 +419,7 @@ export function buildLevelTwoHomework({
         details,
         kind: activity.kind,
         contentUrl: activity.document_url,
-        dueDate: courseSession.date,
+        dueDate: LEVEL_TWO_HOMEWORK_DUE_DATE,
         createdAt: "",
         sessionName: session.title,
         moduleId: module.id,
