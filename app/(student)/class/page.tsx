@@ -70,10 +70,15 @@ export default async function ClassPage({
   const pendingRequest = data.rescheduleRequests.find((request) => request.status === "pending");
   const latestRejectedRequest = getActiveRejectedClassRequest(data.rescheduleRequests, classEvents, now);
   const originalClassOptions = data.sessions
-    .filter((session) => getSessionDateTimes(session, data.batch).endsAt.getTime() >= now.getTime())
+    .filter(
+      (session) =>
+        session.status !== "skipped" &&
+        session.status !== "not_enrolled" &&
+        getSessionDateTimes(session, data.batch).endsAt.getTime() >= now.getTime(),
+    )
     .map((session) => ({
       value: getSessionScheduleDate(session, data.batch),
-      label: `Session ${session.globalNumber}: ${session.title} · ${formatSessionTime(session, data.batch, data.student.timeZone)}`,
+      label: `Level ${session.courseLevel ?? 1} · Module ${session.moduleNumber ?? Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}: ${session.title} · ${formatSessionTime(session, data.batch, data.student.timeZone)}`,
     }));
   const upcomingClassEvents = classEvents
     .filter((event) => event.endsAt.getTime() >= now.getTime())
@@ -83,7 +88,7 @@ export default async function ClassPage({
     <AnimatedPage>
       <PageHeader
         title="My Class"
-        subtitle="Your batch schedule, live class link, and upcoming session timeline."
+        subtitle={`Level ${data.activeCourseLevel} · Your weekly schedule, live class link, and upcoming session timeline.`}
       />
       <BatchPauseNotice batch={data.batch} />
       {join === "attendance-error" ? (

@@ -8,13 +8,20 @@ import {
 } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { normalizeMeetLink } from "@/lib/meet-links";
-import { getAdminAvailabilityData, getAdminData, getMentorScheduleData } from "@/lib/data";
+import { getAdminAvailabilityData, getAdminData, getAdminStudentsData, getMentorScheduleData } from "@/lib/data";
 import { getStudentRescheduleOptions } from "@/lib/reschedule-options";
 import { getBookedSlots } from "@/lib/slot-availability";
+import {
+  isLevelTwoActivityId,
+  isLevelTwoSessionId,
+  levelSessionOrdinal,
+  levelTwoSessions,
+} from "@/lib/level-two";
 import {
   ADMIN_TIME_ZONE,
   dateKeyInTimeZone,
   getSessionScheduleDate,
+  getNextBatchClassOccurrence,
   isBatchPausedOnDate,
   zonedDateTimeToUtc,
 } from "@/lib/time";
@@ -106,6 +113,7 @@ function scheduleFields(formData: FormData) {
 }
 
 function revalidateStudentManagement() {
+  updateTag("student-context");
   revalidatePath("/admin");
   revalidatePath("/admin/students");
   revalidatePath("/admin/progress");
@@ -113,6 +121,10 @@ function revalidateStudentManagement() {
   revalidatePath("/dashboard");
   revalidatePath("/class");
   revalidatePath("/profile");
+}
+
+function isMissingLevelTwoSchema(error: { code?: string } | null) {
+  return Boolean(error && ["42P01", "42703", "PGRST204", "PGRST205"].includes(error.code ?? ""));
 }
 
 function revalidateBatchSchedule() {
@@ -320,6 +332,9 @@ export async function createStudentAction(
   const country = requiredValue(formData, "country");
   const timeZone = requiredValue(formData, "timeZone") || "Asia/Kolkata";
   const moduleId = requiredValue(formData, "moduleId");
+  const initialLevel = Number(formData.get("initialLevel") ?? 1) === 2 ? 2 : 1;
+  const levelTwoModule = Number(formData.get("levelTwoModule") ?? 1);
+  const levelTwoSession = Number(formData.get("levelTwoSession") ?? 1);
   const startDate = requiredValue(formData, "startDate");
   const batchName = requiredValue(formData, "batchName") || `${fullName} AI Course`;
   const schedule = scheduleFields(formData);
@@ -338,6 +353,28 @@ export async function createStudentAction(
       status: "error",
       message: "Complete the student, schedule, and required Meet link field(s).",
     };
+  }
+
+  if (
+    initialLevel === 2 &&
+    (!Number.isInteger(levelTwoModule) || levelTwoModule < 1 || levelTwoModule > 3 ||
+      !Number.isInteger(levelTwoSession) || levelTwoSession < 1 || levelTwoSession > 8)
+  ) {
+    return { status: "error", message: "Choose a valid Level 2 module and session." };
+  }
+
+  if (initialLevel === 2) {
+    const capability = await supabase
+      .from("student_course_enrollments")
+      .select("id", { count: "exact", head: true });
+    if (capability.error) {
+      return {
+        status: "error",
+        message: isMissingLevelTwoSchema(capability.error)
+          ? "Run supabase/level-two-course-migration.sql before adding a student directly to Level 2. No student was created."
+          : capability.error.message,
+      };
+    }
   }
 
   const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
@@ -410,17 +447,21 @@ export async function createStudentAction(
     role: "student",
   });
 
-  const { error: studentError } = await supabase.from("students").insert({
-    user_id: userId,
-    full_name: fullName,
-    parent_name: parentName,
-    parent_email: parentEmail,
-    country,
-    time_zone: timeZone,
-    batch_id: batch.id,
-  });
+  const { data: createdStudent, error: studentError } = await supabase
+    .from("students")
+    .insert({
+      user_id: userId,
+      full_name: fullName,
+      parent_name: parentName,
+      parent_email: parentEmail,
+      country,
+      time_zone: timeZone,
+      batch_id: batch.id,
+    })
+    .select("id")
+    .single();
 
-  if (slotError || profileError || studentError) {
+  if (slotError || profileError || studentError || !createdStudent) {
     await supabase.from("batches").delete().eq("id", batch.id);
     await serviceSupabase.auth.admin.deleteUser(userId);
     return {
@@ -433,10 +474,150 @@ export async function createStudentAction(
     };
   }
 
+
+  const scheduleBatch = {
+    id: batch.id,
+    name: batchName,
+    days: schedule.days,
+    timeSlot: schedule.timeSlot,
+    timeZone,
+    startDate,
+    startTime: schedule.firstStart,
+    endTime: schedule.firstEnd,
+    meetLink: schedule.firstMeetLink,
+    moduleId,
+    studentsCount: 1,
+    pauses: [],
+    classSlots: classSlots.map((slot, index) => ({
+      id: `${batch.id}-slot-${index + 1}`,
+      batchId: batch.id,
+      label: slot.label,
+      dayOfWeek: slot.day_of_week,
+      startTime: slot.start_time,
+      endTime: slot.end_time,
+      meetLink: slot.meet_link,
+      sortOrder: slot.sort_order,
+    })),
+  };
+  const localCourseStart = zonedDateTimeToUtc(startDate, "00:00", timeZone);
+  const firstOccurrence = getNextBatchClassOccurrence(
+    scheduleBatch,
+    localCourseStart.getTime() > Date.now()
+      ? new Date(localCourseStart.getTime() - 60_000)
+      : new Date(),
+  );
+
+  if (initialLevel === 2 && !firstOccurrence) {
+    await supabase.from("batches").delete().eq("id", batch.id);
+    await serviceSupabase.auth.admin.deleteUser(userId);
+    return { status: "error", message: "The first weekly class could not be calculated. No student was created." };
+  }
+
+  const enrollmentRows = initialLevel === 2
+    ? [
+        {
+          student_id: createdStudent.id,
+          course_level: 1,
+          status: "not_enrolled",
+          source: "direct",
+        },
+        {
+          student_id: createdStudent.id,
+          course_level: 2,
+          status: "enrolled",
+          starts_at: firstOccurrence!.startsAt.toISOString(),
+          start_module_number: levelTwoModule,
+          start_session_number: levelTwoSession,
+          source: "direct",
+        },
+      ]
+    : [{
+        student_id: createdStudent.id,
+        course_level: 1,
+        status: "enrolled",
+        starts_at: new Date(`${startDate}T00:00:00.000Z`).toISOString(),
+        start_module_number: 1,
+        start_session_number: 1,
+        source: "direct",
+      }];
+  const enrollmentInsert = await supabase.from("student_course_enrollments").insert(enrollmentRows);
+  if (enrollmentInsert.error && (initialLevel === 2 || !isMissingLevelTwoSchema(enrollmentInsert.error))) {
+    await supabase.from("batches").delete().eq("id", batch.id);
+    await serviceSupabase.auth.admin.deleteUser(userId);
+    return {
+      status: "error",
+      message: `The student was not created because course placement could not be saved: ${enrollmentInsert.error.message}`,
+    };
+  }
+
   revalidateStudentManagement();
   return {
     status: "success",
-    message: `${fullName} is ready with login, schedule, and Meet links.`,
+    message: initialLevel === 2
+      ? `${fullName} is ready in Level 2 · Module ${levelTwoModule} · Session ${levelTwoSession}. Level 1 is marked Not enrolled.`
+      : `${fullName} is ready with login, Level 1, schedule, and Meet links.`,
+  };
+}
+
+export async function promoteStudentToLevelTwoAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const supabase = await getAdminClient();
+  if (!supabase) return { status: "error", message: "Admin access could not be verified." };
+
+  const studentId = requiredValue(formData, "studentId");
+  const moduleNumber = Number(formData.get("levelTwoModule") ?? 1);
+  const sessionNumber = Number(formData.get("levelTwoSession") ?? 1);
+  if (
+    !studentId ||
+    !Number.isInteger(moduleNumber) || moduleNumber < 1 || moduleNumber > 3 ||
+    !Number.isInteger(sessionNumber) || sessionNumber < 1 || sessionNumber > 8
+  ) {
+    return { status: "error", message: "Choose a valid student, module, and session." };
+  }
+
+  const data = await getAdminStudentsData();
+  const student = data.students.find((item) => item.id === studentId);
+  const batch = data.batches.find((item) => item.id === student?.batchId);
+  if (!student || !batch) {
+    return { status: "error", message: "The student or their weekly schedule could not be found." };
+  }
+
+  const nextClass = getNextBatchClassOccurrence(batch);
+  if (!nextClass) {
+    return { status: "error", message: "The next weekly class could not be calculated for this schedule." };
+  }
+
+  const { error } = await supabase.rpc("promote_student_to_level_two", {
+    p_student_id: studentId,
+    p_start_module_number: moduleNumber,
+    p_start_session_number: sessionNumber,
+    p_starts_at: nextClass.startsAt.toISOString(),
+  });
+  if (error) {
+    return {
+      status: "error",
+      message: isMissingLevelTwoSchema(error)
+        ? "Run supabase/level-two-course-migration.sql first. The student and their existing schedule were not changed."
+        : error.message,
+    };
+  }
+
+  revalidateStudentManagement();
+  revalidatePath("/curriculum");
+  revalidatePath("/homework");
+  revalidatePath("/journey");
+  revalidatePath("/progress");
+  revalidatePath("/resources");
+  const formattedStart = new Intl.DateTimeFormat("en", {
+    timeZone: student.timeZone || batch.timeZone,
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(nextClass.startsAt);
+  return {
+    status: "success",
+    message: `${student.fullName} will begin Level 2 · Module ${moduleNumber} · Session ${sessionNumber} at their next class (${formattedStart}). Their timezone, weekly schedule, and Meet links are unchanged.`,
   };
 }
 
@@ -820,16 +1001,48 @@ export async function saveAttendanceAction(formData: FormData) {
 
   const sessionId = String(formData.get("sessionId") ?? "");
   const studentId = String(formData.get("studentId") ?? "");
+  const status = String(formData.get("status") ?? "present");
+  const date = String(formData.get("date") ?? new Date().toISOString().slice(0, 10));
+  if (!sessionId || !studentId || !["present", "absent", "rescheduled"].includes(status)) return;
 
-  await supabase.from("attendance").upsert(
-    {
-      session_id: sessionId,
-      student_id: studentId,
-      status: String(formData.get("status") ?? "present"),
-      date: String(formData.get("date") ?? new Date().toISOString().slice(0, 10)),
-    },
-    { onConflict: "session_id,student_id" },
-  );
+  if (isLevelTwoSessionId(sessionId)) {
+    const session = levelTwoSessions.find((item) => item.id === sessionId);
+    if (!session) return;
+    const { data: enrollment } = await supabase
+      .from("student_course_enrollments")
+      .select("status, start_module_number, start_session_number")
+      .eq("student_id", studentId)
+      .eq("course_level", 2)
+      .maybeSingle();
+    const eligible = enrollment?.status === "enrolled" &&
+      session.globalNumber >= levelSessionOrdinal(
+        enrollment.start_module_number ?? 1,
+        enrollment.start_session_number ?? 1,
+      );
+    if (!eligible) return;
+
+    await supabase.from("course_session_attendance").upsert(
+      {
+        session_id: session.id,
+        student_id: studentId,
+        module_number: session.moduleNumber ?? Math.ceil(session.globalNumber / 8),
+        session_number: session.sessionNumber,
+        status,
+        class_date: date,
+      },
+      { onConflict: "student_id,session_id" },
+    );
+  } else {
+    await supabase.from("attendance").upsert(
+      {
+        session_id: sessionId,
+        student_id: studentId,
+        status,
+        date,
+      },
+      { onConflict: "session_id,student_id" },
+    );
+  }
 
   revalidatePath("/admin/attendance");
   revalidatePath("/progress");
@@ -863,17 +1076,28 @@ export async function reviewHomeworkSubmissionAction(formData: FormData) {
   if (decision === "revision_requested" && !mentorFeedback) return;
 
   const { data: userData } = await supabase.auth.getUser();
-  await supabase
-    .from("submissions")
-    .update({
-      status: decision === "approved" ? "reviewed" : "revision_requested",
-      mentor_feedback: mentorFeedback || null,
-      reviewed_by: userData.user?.id ?? null,
-      reviewed_at: new Date().toISOString(),
-    })
-    .eq("homework_id", homeworkId)
-    .eq("student_id", studentId)
-    .in("status", ["submitted", "reviewed", "revision_requested"]);
+  const reviewFields = {
+    status: decision === "approved" ? "reviewed" : "revision_requested",
+    mentor_feedback: mentorFeedback || null,
+    reviewed_by: userData.user?.id ?? null,
+    reviewed_at: new Date().toISOString(),
+  };
+
+  if (isLevelTwoActivityId(homeworkId)) {
+    await supabase
+      .from("course_activity_submissions")
+      .update(reviewFields)
+      .eq("activity_id", homeworkId)
+      .eq("student_id", studentId)
+      .in("status", ["submitted", "reviewed", "revision_requested"]);
+  } else {
+    await supabase
+      .from("submissions")
+      .update(reviewFields)
+      .eq("homework_id", homeworkId)
+      .eq("student_id", studentId)
+      .in("status", ["submitted", "reviewed", "revision_requested"]);
+  }
 
   for (const path of ["/admin", "/admin/homework", "/admin/progress", "/dashboard", "/homework", `/homework/${homeworkId}`, "/progress", "/league"]) {
     revalidatePath(path);

@@ -1,4 +1,9 @@
-import type { Batch, BatchClassSlot, CourseSession } from "@/lib/course-data";
+import type {
+  Batch,
+  BatchClassSlot,
+  CourseSession,
+  CourseSessionStatus,
+} from "@/lib/course-data";
 import { normalizeMeetLink } from "@/lib/meet-links";
 
 export const ADMIN_TIME_ZONE = "Asia/Kolkata";
@@ -26,7 +31,7 @@ export const commonTimeZones = [
   "Australia/Sydney",
 ];
 
-export type SessionScheduleStatus = "completed" | "current" | "locked";
+export type SessionScheduleStatus = CourseSessionStatus;
 
 function parseDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -57,6 +62,38 @@ function sortedClassSlots(batch: Batch) {
   return [...(batch.classSlots ?? [])].sort(
     (a, b) => a.sortOrder - b.sortOrder || a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime),
   );
+}
+
+function getScheduledOccurrence(session: CourseSession, batch: Batch) {
+  const slots = sortedClassSlots(batch);
+  if (slots.length === 0 || !batch.startDate) return null;
+
+  const targetIndex = session.scheduleIndex ?? session.globalNumber;
+  if (!Number.isInteger(targetIndex) || targetIndex < 1) return null;
+
+  const timeZone = batch.timeZone || DEFAULT_TIME_ZONE;
+  const anchor = session.scheduleStartsAt ? new Date(session.scheduleStartsAt) : null;
+  const firstDate = anchor && !Number.isNaN(anchor.getTime())
+    ? dateKeyInTimeZone(anchor, timeZone)
+    : batch.startDate;
+  let matchedCount = 0;
+
+  for (let dayOffset = 0; dayOffset < 730; dayOffset += 1) {
+    const date = addDays(firstDate, dayOffset);
+    if (isBatchPausedOnDate(batch, date)) continue;
+    const dayOfWeek = dayOfWeekForDateKey(date);
+    const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeek);
+
+    for (const slot of daySlots) {
+      const startsAt = zonedDateTimeToUtc(date, slot.startTime, timeZone);
+      if (anchor && startsAt.getTime() + 60_000 < anchor.getTime()) continue;
+
+      matchedCount += 1;
+      if (matchedCount === targetIndex) return { date, slot, startsAt };
+    }
+  }
+
+  return null;
 }
 
 function getZonedParts(date: Date, timeZone: string) {
@@ -110,47 +147,11 @@ export function zonedDateTimeToUtc(date: string, time: string, timeZone: string)
 }
 
 export function getSessionClassSlot(session: CourseSession, batch: Batch): BatchClassSlot | null {
-  const slots = sortedClassSlots(batch);
-  if (slots.length === 0 || !batch.startDate) return null;
-
-  let matchedCount = 0;
-  for (let dayOffset = 0; dayOffset < 730; dayOffset += 1) {
-    const date = addDays(batch.startDate, dayOffset);
-    if (isBatchPausedOnDate(batch, date)) continue;
-    const dayOfWeek = dayOfWeekForDateKey(date);
-    const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeek);
-
-    for (const slot of daySlots) {
-      matchedCount += 1;
-      if (matchedCount === session.globalNumber) {
-        return slot;
-      }
-    }
-  }
-
-  return null;
+  return getScheduledOccurrence(session, batch)?.slot ?? null;
 }
 
 export function getSessionScheduleDate(session: CourseSession, batch: Batch) {
-  const slots = sortedClassSlots(batch);
-  if (slots.length === 0 || !batch.startDate) return session.date;
-
-  let matchedCount = 0;
-  for (let dayOffset = 0; dayOffset < 730; dayOffset += 1) {
-    const date = addDays(batch.startDate, dayOffset);
-    if (isBatchPausedOnDate(batch, date)) continue;
-    const dayOfWeek = dayOfWeekForDateKey(date);
-    const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeek);
-
-    for (let index = 0; index < daySlots.length; index += 1) {
-      matchedCount += 1;
-      if (matchedCount === session.globalNumber) {
-        return date;
-      }
-    }
-  }
-
-  return session.date;
+  return getScheduledOccurrence(session, batch)?.date ?? session.date;
 }
 
 export function isDateWithinBatchPauses(batch: Pick<Batch, "pauses">, dateKey: string) {
@@ -178,8 +179,9 @@ export function getBatchPauseState(batch: Batch, now = new Date()) {
 
 export function getSessionDateTimes(session: CourseSession, batch: Batch) {
   const timeZone = batch.timeZone || DEFAULT_TIME_ZONE;
-  const classSlot = getSessionClassSlot(session, batch);
-  const sessionDate = getSessionScheduleDate(session, batch);
+  const occurrence = getScheduledOccurrence(session, batch);
+  const classSlot = occurrence?.slot ?? null;
+  const sessionDate = occurrence?.date ?? session.date;
 
   return {
     startsAt: zonedDateTimeToUtc(sessionDate, classSlot?.startTime ?? batch.startTime, timeZone),
@@ -187,6 +189,36 @@ export function getSessionDateTimes(session: CourseSession, batch: Batch) {
     meetLink: normalizeMeetLink(classSlot?.meetLink || batch.meetLink),
     slot: classSlot,
   };
+}
+
+export function getNextBatchClassOccurrence(batch: Batch, now = new Date()) {
+  const slots = sortedClassSlots(batch);
+  if (slots.length === 0 || !batch.startDate) return null;
+
+  const timeZone = batch.timeZone || DEFAULT_TIME_ZONE;
+  const today = dateKeyInTimeZone(now, timeZone);
+  const firstDate = batch.startDate > today ? batch.startDate : today;
+
+  for (let dayOffset = 0; dayOffset < 730; dayOffset += 1) {
+    const date = addDays(firstDate, dayOffset);
+    if (isBatchPausedOnDate(batch, date)) continue;
+    const dayOfWeek = dayOfWeekForDateKey(date);
+    const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeek);
+
+    for (const slot of daySlots) {
+      const startsAt = zonedDateTimeToUtc(date, slot.startTime, timeZone);
+      if (startsAt.getTime() <= now.getTime()) continue;
+      return {
+        date,
+        slot,
+        startsAt,
+        endsAt: zonedDateTimeToUtc(date, slot.endTime, timeZone),
+        meetLink: normalizeMeetLink(slot.meetLink || batch.meetLink),
+      };
+    }
+  }
+
+  return null;
 }
 
 export function getSessionJoinWindow(session: CourseSession, batch: Batch) {
@@ -360,10 +392,13 @@ export function daysUntilSession(session: CourseSession, batch: Batch, now = new
 }
 
 export function getNextSession(sessions: Array<CourseSession & { status?: string }>) {
+  const eligibleSessions = sessions.filter(
+    (session) => session.status !== "skipped" && session.status !== "not_enrolled",
+  );
   return (
-    sessions.find((session) => session.status === "current") ??
-    sessions.find((session) => session.status !== "completed") ??
-    sessions.at(-1)
+    eligibleSessions.find((session) => session.status === "current") ??
+    eligibleSessions.find((session) => session.status !== "completed") ??
+    eligibleSessions.at(-1)
   );
 }
 
@@ -372,14 +407,17 @@ export function getActiveOrNextJoinSession(
   batch: Batch,
   now = new Date(),
 ) {
-  const activeSession = sessions.find((session) => {
+  const eligibleSessions = sessions.filter(
+    (session) => session.status !== "skipped" && session.status !== "not_enrolled",
+  );
+  const activeSession = eligibleSessions.find((session) => {
     return isSessionJoinWindowOpen(session, batch, now);
   });
-  const todaySession = sessions.find((session) => {
+  const todaySession = eligibleSessions.find((session) => {
     if (session.status === "completed") return false;
     const { startsAt } = getSessionDateTimes(session, batch);
     return isSameZonedDay(startsAt, now, batch.timeZone || DEFAULT_TIME_ZONE);
   });
 
-  return activeSession ?? todaySession ?? getNextSession(sessions);
+  return activeSession ?? todaySession ?? getNextSession(eligibleSessions);
 }

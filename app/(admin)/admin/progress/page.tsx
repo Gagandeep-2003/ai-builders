@@ -5,11 +5,17 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { filterUnlockedHomework, getSessionAccessBoundary } from "@/lib/content-access";
 import type { HomeworkItem, StudentProfile } from "@/lib/course-data";
-import { getAdminAchievementData, getAdminData } from "@/lib/data";
-import { applySessionStatuses, formatSessionTime, getNextSession } from "@/lib/time";
+import { getAdminAchievementData, getAdminHomeworkData } from "@/lib/data";
+import { getStudentScheduledSessions } from "@/lib/class-events";
+import { formatSessionTime, getNextSession } from "@/lib/time";
 import { StudentBadgeManager } from "@/components/admin/student-badge-manager";
 
 function isHomeworkAssignedToStudent(homework: HomeworkItem, student: StudentProfile) {
+  if ((homework.courseLevel ?? 1) === 2) {
+    return Boolean(student.courseEnrollments?.some(
+      (enrollment) => enrollment.courseLevel === 2 && enrollment.status === "enrolled",
+    ));
+  }
   return (
     homework.assignedStudentId === student.id ||
     (!homework.assignedStudentId && homework.batchId === student.batchId) ||
@@ -22,16 +28,28 @@ function getStudentSubmission(homework: HomeworkItem, studentId: string) {
 }
 
 export default async function AdminProgressPage() {
-  const [data, achievements] = await Promise.all([getAdminData(), getAdminAchievementData()]);
+  const [data, achievements] = await Promise.all([getAdminHomeworkData(), getAdminAchievementData()]);
+  const levelOneSessions = data.sessions.filter((session) => (session.courseLevel ?? 1) === 1);
   const summaries = data.students
     .map((student) => {
       const batch = data.batches.find((item) => item.id === student.batchId);
-      const sessions = batch ? applySessionStatuses(data.sessions, batch) : [];
+      const courseLevel = student.activeCourseLevel ?? 1;
+      const sessions = batch
+        ? getStudentScheduledSessions({
+            student,
+            batch,
+            levelOneSessions,
+          }).filter((session) => (session.courseLevel ?? 1) === courseLevel)
+        : [];
       const access = getSessionAccessBoundary(sessions);
       const currentSession = access.currentSession;
       const unlockedSessions = sessions.filter((session) => session.globalNumber <= access.maxUnlockedGlobalNumber);
       const assignedHomework = filterUnlockedHomework(
-        data.homework.filter((item) => isHomeworkAssignedToStudent(item, student)),
+        data.homework.filter(
+          (item) =>
+            (item.courseLevel ?? 1) === courseLevel &&
+            isHomeworkAssignedToStudent(item, student),
+        ),
         sessions,
         access,
       );
@@ -41,7 +59,10 @@ export default async function AdminProgressPage() {
       }).length;
       const reviewed = assignedHomework.filter((item) => getStudentSubmission(item, student.id)?.status === "reviewed").length;
       const pending = Math.max(assignedHomework.length - submitted, 0);
-      const attendance = data.attendance.filter((item) => item.studentId === student.id);
+      const sessionIds = new Set(sessions.map((session) => session.id));
+      const attendance = data.attendance.filter(
+        (item) => item.studentId === student.id && sessionIds.has(item.sessionId),
+      );
       const present = attendance.filter((item) => item.status === "present").length;
       const absent = attendance.filter((item) => item.status === "absent").length;
       const rescheduled = attendance.filter((item) => item.status === "rescheduled").length;
@@ -54,6 +75,7 @@ export default async function AdminProgressPage() {
       return {
         student,
         batch,
+        courseLevel,
         currentSession,
         nextSession,
         completedSessions,
@@ -97,7 +119,9 @@ export default async function AdminProgressPage() {
 
       <section className="grid gap-4">
         {summaries.map((summary) => {
-          const moduleNumber = summary.currentSession ? Math.ceil(summary.currentSession.globalNumber / 8) : 1;
+          const moduleNumber = summary.currentSession
+            ? summary.currentSession.moduleNumber ?? Math.ceil(summary.currentSession.globalNumber / 8)
+            : 1;
           return (
             <article key={summary.student.id} className="premium-card rounded-xl p-5">
               <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
@@ -125,7 +149,7 @@ export default async function AdminProgressPage() {
                     <p className="font-mono text-xs uppercase text-accent">Current learning point</p>
                     <h3 className="mt-2 font-heading text-lg font-bold">
                       {summary.currentSession
-                        ? `Module ${moduleNumber} · Session ${summary.currentSession.sessionNumber}`
+                        ? `Level ${summary.courseLevel} · Module ${moduleNumber} · Session ${summary.currentSession.sessionNumber}`
                         : "No session schedule"}
                     </h3>
                     <p className="mt-2 text-sm leading-6 text-text-secondary">

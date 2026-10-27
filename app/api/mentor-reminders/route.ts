@@ -3,6 +3,7 @@ import type {
   Batch,
   ClassRescheduleRequest,
   CourseSession,
+  StudentCourseEnrollment,
   StudentProfile,
 } from "@/lib/course-data";
 import { normalizeMeetLink } from "@/lib/meet-links";
@@ -87,6 +88,20 @@ type RequestRow = {
   reviewed_at: string | null;
 };
 
+type EnrollmentRow = {
+  id: string;
+  student_id: string;
+  course_level: number;
+  status: "enrolled" | "not_enrolled";
+  starts_at: string | null;
+  ends_at: string | null;
+  start_module_number: number | null;
+  start_session_number: number | null;
+  source: "legacy" | "promotion" | "direct";
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 function authorized(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
@@ -168,6 +183,22 @@ function mapRequest(row: RequestRow): ClassRescheduleRequest {
     meetLink: normalizeMeetLink(row.meet_link),
     requestedAt: row.requested_at,
     reviewedAt: row.reviewed_at ?? "",
+  };
+}
+
+function mapEnrollment(row: EnrollmentRow): StudentCourseEnrollment {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    courseLevel: row.course_level === 2 ? 2 : 1,
+    status: row.status,
+    startsAt: row.starts_at ?? undefined,
+    endsAt: row.ends_at ?? undefined,
+    startModuleNumber: row.start_module_number ?? undefined,
+    startSessionNumber: row.start_session_number ?? undefined,
+    source: row.source,
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -286,6 +317,7 @@ async function runMentorReminders(request: Request) {
     sessionResult,
     requestResult,
     pauseResult,
+    enrollmentResult,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -303,6 +335,9 @@ async function runMentorReminders(request: Request) {
     supabase
       .from("batch_pauses")
       .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
+    supabase
+      .from("student_course_enrollments")
+      .select("id, student_id, course_level, status, starts_at, ends_at, start_module_number, start_session_number, source, created_at, updated_at"),
   ]);
 
   let studentData: unknown = studentResult.data;
@@ -376,7 +411,23 @@ async function runMentorReminders(request: Request) {
     warnings.push(`Achievement refresh skipped: ${badgeRefresh.error.message}`);
   }
 
-  const students = (studentData as unknown as StudentRow[]).map(mapStudent);
+  const enrollmentRows = enrollmentResult.error
+    ? []
+    : (enrollmentResult.data as unknown as EnrollmentRow[]).map(mapEnrollment);
+  if (enrollmentResult.error && !["42P01", "PGRST204", "PGRST205"].includes(enrollmentResult.error.code ?? "")) {
+    warnings.push(`Level 2 placements were unavailable to reminders: ${enrollmentResult.error.message}`);
+  }
+  const enrollmentsByStudent = new Map<string, StudentCourseEnrollment[]>();
+  for (const enrollment of enrollmentRows) {
+    const studentEnrollments = enrollmentsByStudent.get(enrollment.studentId) ?? [];
+    studentEnrollments.push(enrollment);
+    enrollmentsByStudent.set(enrollment.studentId, studentEnrollments);
+  }
+  const students = (studentData as unknown as StudentRow[]).map((row) => {
+    const student = mapStudent(row);
+    const courseEnrollments = enrollmentsByStudent.get(student.id);
+    return courseEnrollments?.length ? { ...student, courseEnrollments } : student;
+  });
   const pauseData = pauseResult.error ? [] : (pauseResult.data as unknown as PauseRow[]);
   if (pauseResult.error) {
     warnings.push("Batch pauses are unavailable until the pause migration is installed.");
@@ -443,7 +494,7 @@ async function runMentorReminders(request: Request) {
         student_name: event.student?.fullName ?? "Student",
         class_time_ist: istClassTime(event.startsAt, event.endsAt),
         module_number: event.session
-          ? String(Math.ceil(event.session.globalNumber / 8))
+          ? String(event.session.moduleNumber ?? Math.ceil(event.session.globalNumber / 8))
           : event.kind === "rescheduled" ? "Rescheduled" : "Make-up",
         session_number: event.session ? String(event.session.sessionNumber) : "One-off",
         session_name: event.session?.title ?? (event.kind === "rescheduled" ? "Rescheduled class" : "Make-up class"),
@@ -451,7 +502,7 @@ async function runMentorReminders(request: Request) {
           ? "Make-up class"
           : event.kind === "rescheduled"
             ? "Rescheduled class"
-            : "Regular class",
+            : `Level ${event.session?.courseLevel ?? 1} regular class`,
         meet_link: event.meetLink,
       });
       sent.push(eventKey);

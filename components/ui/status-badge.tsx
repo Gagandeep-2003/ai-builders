@@ -11,6 +11,8 @@ const styles: Record<string, string> = {
   completed: "border-success/35 bg-success/10 text-[color:var(--success)]",
   current: "border-accent/40 bg-accent/10 text-accent shadow-[0_0_18px_rgba(110,231,183,0.14)]",
   locked: "border-border bg-white/[0.03] text-text-muted",
+  skipped: "border-border bg-white/[0.03] text-text-muted",
+  not_enrolled: "border-border bg-white/[0.03] text-text-muted",
   overdue: "border-danger/35 bg-danger/10 text-[color:var(--danger)]",
   soon: "border-accent-warm/35 bg-accent-warm/10 text-[color:var(--accent-warm)]",
   approved: "border-success/35 bg-success/10 text-[color:var(--success)]",

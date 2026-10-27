@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:supabase": "node scripts/check-supabase.mjs",
+    "check:level-two": "node scripts/check-level-two-catalog.mjs",
     "preview:import-schedules": "node scripts/preview-import-schedules.mjs"
   },
   "dependencies": {

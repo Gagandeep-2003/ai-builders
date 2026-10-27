@@ -45,6 +45,8 @@ export function AdminHomeworkTaskManager({
   homework: HomeworkItem[];
 }) {
   const moduleNumbers = [1, 2, 3];
+  const editableSessions = sessions.filter((session) => (session.courseLevel ?? 1) === 1);
+  const editableHomework = homework.filter((item) => !item.catalogManaged && (item.courseLevel ?? 1) === 1);
 
   return (
     <section className="premium-card rounded-xl p-6">
@@ -54,18 +56,24 @@ export function AdminHomeworkTaskManager({
         </span>
         <div>
           <p className="font-mono text-xs uppercase text-accent">Task library</p>
-          <h2 className="mt-2 font-heading text-2xl font-bold">Edit existing class challenges and home tasks</h2>
+          <h2 className="mt-2 font-heading text-2xl font-bold">Edit Level 1 class challenges and home tasks</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">
-            Use this to change titles, Google Doc links, due dates, task type, or the target batch/student for work that already exists.
+            Use this to change titles, Google Doc links, due dates, task type, or the target batch/student for Level 1 work that already exists.
           </p>
         </div>
       </div>
 
+      <div className="mt-5 rounded-xl border border-info/25 bg-info/5 p-4 text-sm leading-6 text-text-secondary">
+        Level 2 activities come from the validated course catalog and are read-only here. You can review student work in the workbook above without risking changes to the shared curriculum.
+      </div>
+
       <div className="mt-6 space-y-4">
         {moduleNumbers.map((moduleNumber) => {
-          const moduleSessions = sessions.filter((session) => Math.ceil(session.globalNumber / 8) === moduleNumber);
+          const moduleSessions = editableSessions.filter(
+            (session) => (session.moduleNumber ?? Math.ceil(session.globalNumber / 8)) === moduleNumber,
+          );
           const moduleHomeworkCount = moduleSessions.reduce(
-            (count, session) => count + homework.filter((item) => item.sessionId === session.id).length,
+            (count, session) => count + editableHomework.filter((item) => item.sessionId === session.id).length,
             0,
           );
 
@@ -81,7 +89,7 @@ export function AdminHomeworkTaskManager({
 
               <div className="space-y-3 border-t border-border/60 p-4">
                 {moduleSessions.map((session) => {
-                  const sessionHomework = homework.filter((item) => item.sessionId === session.id);
+                  const sessionHomework = editableHomework.filter((item) => item.sessionId === session.id);
 
                   return (
                     <details key={session.id} className="rounded-xl border border-border/70 bg-bg-card">
@@ -143,12 +151,14 @@ export function AdminHomeworkTaskManager({
                                       className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm text-text-primary"
                                     >
                                       {moduleNumbers.map((number) => (
-                                        <optgroup key={number} label={`Module ${number}`}>
-                                          {sessions
-                                            .filter((sessionOption) => Math.ceil(sessionOption.globalNumber / 8) === number)
+                                        <optgroup key={number} label={`Level 1 · Module ${number}`}>
+                                          {editableSessions
+                                            .filter((sessionOption) =>
+                                              (sessionOption.moduleNumber ?? Math.ceil(sessionOption.globalNumber / 8)) === number
+                                            )
                                             .map((sessionOption) => (
                                               <option key={sessionOption.id} value={sessionOption.id}>
-                                                Module {number} · Session {sessionOption.sessionNumber}: {sessionOption.title}
+                                                Level 1 · Module {number} · Session {sessionOption.sessionNumber}: {sessionOption.title}
                                               </option>
                                             ))}
                                         </optgroup>

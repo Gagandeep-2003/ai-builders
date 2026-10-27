@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { CalendarRange, ChevronDown, PauseCircle, PencilLine, PlayCircle, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { CalendarRange, ChevronDown, Layers3, PauseCircle, PencilLine, PlayCircle, Plus, Search, Trash2, UserRound } from "lucide-react";
 import {
   createBatchPauseAction,
   endBatchPauseAction,
   createStudentAction,
+  promoteStudentToLevelTwoAction,
   removeStudentAction,
   updateStudentAction,
   type AdminActionState,
@@ -48,7 +49,8 @@ function ActionNotice({
           ? "border-success/30 bg-success/10 text-[color:var(--success)]"
           : "border-danger/30 bg-danger/10 text-[color:var(--danger)]",
       )}
-      role="status"
+      role={state.status === "error" ? "alert" : "status"}
+      aria-live={state.status === "success" ? "polite" : undefined}
     >
       {state.message}
     </div>
@@ -174,12 +176,17 @@ function StudentFields({
   student,
   batch,
   includePassword = true,
+  allowInitialLevel = false,
+  allowLevelTwoDirect = true,
 }: {
   modules: CourseModule[];
   student?: StudentProfile;
   batch?: Batch;
   includePassword?: boolean;
+  allowInitialLevel?: boolean;
+  allowLevelTwoDirect?: boolean;
 }) {
+  const [initialLevel, setInitialLevel] = useState<1 | 2>(1);
   return (
     <>
       <Field label="Student name">
@@ -249,13 +256,62 @@ function StudentFields({
           ))}
         </select>
       </Field>
-      <Field label="Starting module">
-        <select name="moduleId" defaultValue={batch?.moduleId ?? modules[0]?.id} className={inputClass}>
-          {modules.map((module) => (
-            <option key={module.id} value={module.id}>{module.title}</option>
-          ))}
-        </select>
-      </Field>
+      {allowInitialLevel ? (
+        <fieldset className="rounded-xl border border-border/70 bg-white/[0.02] p-4 md:col-span-2">
+          <legend className="px-1 font-mono text-[11px] uppercase tracking-[0.12em] text-text-secondary">
+            Initial course level
+          </legend>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            {([1, 2] as const).map((level) => (
+              <label
+                key={level}
+                className={cn(
+                  "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border p-3 transition",
+                  initialLevel === level ? "border-accent/45 bg-accent/10" : "border-border bg-bg-card",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="initialLevel"
+                  value={level}
+                  checked={initialLevel === level}
+                  onChange={() => setInitialLevel(level)}
+                  disabled={level === 2 && !allowLevelTwoDirect}
+                  className="accent-[color:var(--accent)]"
+                />
+                <span>
+                  <span className="block font-heading text-sm font-bold">Level {level}</span>
+                  <span className="mt-0.5 block text-xs text-text-secondary">
+                    {level === 1
+                      ? "Begin with the existing foundation course."
+                      : allowLevelTwoDirect
+                        ? "Begin directly in the agentic AI course."
+                        : "Apply the Level 2 database migration first."}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {initialLevel === 2 ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Field label="Level 2 starting module">
+                <select name="levelTwoModule" defaultValue="1" className={inputClass}>
+                  {[1, 2, 3].map((value) => <option key={value} value={value}>Module {value}</option>)}
+                </select>
+              </Field>
+              <Field label="Level 2 starting session">
+                <select name="levelTwoSession" defaultValue="1" className={inputClass}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <option key={value} value={value}>Session {value}</option>)}
+                </select>
+              </Field>
+              <p className="rounded-lg border border-info/20 bg-info/5 px-3 py-2 text-xs leading-5 text-text-secondary sm:col-span-2">
+                Level 1 stays visible as <strong className="text-text-primary">Not enrolled</strong>. Earlier Level 2 sessions are skipped, never marked completed.
+              </p>
+            </div>
+          ) : null}
+        </fieldset>
+      ) : null}
+      <input type="hidden" name="moduleId" value={batch?.moduleId ?? modules[0]?.id ?? ""} />
       <Field label="Course start date">
         <input
           name="startDate"
@@ -278,6 +334,87 @@ function StudentFields({
   );
 }
 
+function CoursePlacementPanel({
+  student,
+  batch,
+}: {
+  student: StudentProfile;
+  batch?: Batch;
+}) {
+  const [state, action] = useActionState(promoteStudentToLevelTwoAction, initialAdminActionState);
+  const levelTwo = student.courseEnrollments?.find((enrollment) => enrollment.courseLevel === 2);
+  const activeLevel = student.activeCourseLevel ?? 1;
+  const startLabel = levelTwo?.startsAt
+    ? new Intl.DateTimeFormat("en", {
+        timeZone: student.timeZone || batch?.timeZone,
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(levelTwo.startsAt))
+    : "Not scheduled";
+
+  return (
+    <section className="border-t border-border/70 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-info/25 bg-info/10 text-[color:var(--info)]">
+          <Layers3 className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-heading font-bold">Course placement</h3>
+            <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 font-mono text-[10px] uppercase text-accent">
+              Level {activeLevel} · {levelTwo && activeLevel === 1 ? "Level 2 scheduled" : "Current"}
+            </span>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-text-secondary">
+            Level changes are separate from profile and schedule editing. Weekly times, timezone, pauses, and Meet links remain unchanged.
+          </p>
+        </div>
+      </div>
+
+      {levelTwo ? (
+        <div className="mt-4 rounded-xl border border-success/25 bg-success/5 p-4">
+          <p className="font-mono text-xs uppercase text-[color:var(--success)]">
+            {activeLevel === 2 ? "Level 2 current" : "Level 2 scheduled"}
+          </p>
+          <p className="mt-2 font-heading font-bold">
+            Module {levelTwo.startModuleNumber ?? 1} · Session {levelTwo.startSessionNumber ?? 1}
+          </p>
+          <p className="mt-1 text-sm text-text-secondary">Starts {startLabel}. This placement can only be made once.</p>
+        </div>
+      ) : student.coursePlacementAvailable === false ? (
+        <div className="mt-4 rounded-xl border border-accent-warm/30 bg-accent-warm/10 p-4 text-sm leading-6 text-text-secondary">
+          Level 2 controls are safely disabled until <code className="text-text-primary">supabase/level-two-course-migration.sql</code> is applied. Existing student data remains available.
+        </div>
+      ) : (
+        <form action={action} className="mt-4 grid gap-3 md:grid-cols-2">
+          <input type="hidden" name="studentId" value={student.id} />
+          <Field label="Level 2 starting module">
+            <select name="levelTwoModule" defaultValue="1" className={inputClass}>
+              {[1, 2, 3].map((value) => <option key={value} value={value}>Module {value}</option>)}
+            </select>
+          </Field>
+          <Field label="Level 2 starting session">
+            <select name="levelTwoSession" defaultValue="1" className={inputClass}>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <option key={value} value={value}>Session {value}</option>)}
+            </select>
+          </Field>
+          <div className="rounded-lg border border-info/20 bg-info/5 px-3 py-2 text-xs leading-5 text-text-secondary md:col-span-2">
+            The selected session begins at this student&apos;s next unpaused weekly class. Earlier Level 2 sessions become <strong className="text-text-primary">Skipped</strong>, not completed. Level 1 remains visible.
+          </div>
+          <div className="md:col-span-2"><ActionNotice state={state} /></div>
+          <SubmitButton
+            pendingLabel="Scheduling Level 2..."
+            className="rounded-lg border border-info/30 bg-info/10 px-4 py-2.5 text-sm font-bold text-[color:var(--info)] md:col-span-2"
+          >
+            <Layers3 className="h-4 w-4" />
+            Schedule Level 2 for the next class
+          </SubmitButton>
+        </form>
+      )}
+    </section>
+  );
+}
+
 function StudentEditor({
   student,
   batch,
@@ -296,7 +433,13 @@ function StudentEditor({
           <UserRound className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-heading font-bold">{student.fullName}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-heading font-bold">{student.fullName}</span>
+            <span className="rounded-full border border-border bg-white/[0.03] px-2 py-0.5 font-mono text-[9px] uppercase text-text-secondary">
+              Level {student.activeCourseLevel ?? 1}
+              {student.courseEnrollments?.some((item) => item.courseLevel === 2) && student.activeCourseLevel !== 2 ? " · L2 scheduled" : ""}
+            </span>
+          </span>
           <span className="mt-1 block truncate text-xs text-text-secondary">
             {student.email} · {batch?.days ?? "No schedule"} · {student.timeZone}
           </span>
@@ -319,6 +462,7 @@ function StudentEditor({
           Save all student changes
         </SubmitButton>
       </form>
+      <CoursePlacementPanel student={student} batch={batch} />
       {batch ? <BatchPauseManager batch={batch} /> : null}
       <form action={removeStudentAction} className="border-t border-border/70 p-4">
         <input type="hidden" name="studentId" value={student.id} />
@@ -434,10 +578,12 @@ export function StudentManager({
   students,
   batches,
   modules,
+  coursePlacementAvailable,
 }: {
   students: StudentProfile[];
   batches: Batch[];
   modules: CourseModule[];
+  coursePlacementAvailable: boolean;
 }) {
   const [createState, createAction] = useActionState(
     createStudentAction,
@@ -446,19 +592,21 @@ export function StudentManager({
   const [showCreate, setShowCreate] = useState(students.length === 0);
   const [query, setQuery] = useState("");
   const [batchId, setBatchId] = useState("all");
+  const [courseLevel, setCourseLevel] = useState("all");
   const filteredStudents = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return students.filter((student) => {
       const matchesBatch = batchId === "all" || student.batchId === batchId;
+      const matchesLevel = courseLevel === "all" || String(student.activeCourseLevel ?? 1) === courseLevel;
       const matchesQuery = !normalized || [
         student.fullName,
         student.email,
         student.country,
         student.timeZone,
       ].some((value) => value.toLowerCase().includes(normalized));
-      return matchesBatch && matchesQuery;
+      return matchesBatch && matchesLevel && matchesQuery;
     });
-  }, [batchId, query, students]);
+  }, [batchId, courseLevel, query, students]);
 
   return (
     <div className="space-y-6">
@@ -482,7 +630,16 @@ export function StudentManager({
 
         {showCreate ? (
           <form action={createAction} className="mt-5 grid gap-4 border-t border-border/70 pt-5 md:grid-cols-2">
-            <StudentFields modules={modules} />
+            <StudentFields
+              modules={modules}
+              allowInitialLevel
+              allowLevelTwoDirect={coursePlacementAvailable}
+            />
+            {!coursePlacementAvailable ? (
+              <p className="rounded-lg border border-accent-warm/30 bg-accent-warm/10 px-3 py-2 text-xs leading-5 text-text-secondary md:col-span-2">
+                Direct Level 2 enrollment is disabled until the additive Level 2 migration is applied. Level 1 student creation remains safe and available.
+              </p>
+            ) : null}
             <div className="md:col-span-2">
               <ActionNotice state={createState} />
             </div>
@@ -503,7 +660,7 @@ export function StudentManager({
           <p className="mt-2 text-sm text-text-secondary">
             Open a student to change profile details, timezone, module, weekly classes, Meet links, or password.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_16rem_auto] md:items-center">
+          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_14rem_12rem_auto] lg:items-center">
             <label className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
               <span className="sr-only">Search students</span>
@@ -527,17 +684,29 @@ export function StudentManager({
                 ))}
               </select>
             </label>
-            <p className="font-mono text-xs uppercase text-text-muted md:text-right">
+            <label>
+              <span className="sr-only">Filter by course level</span>
+              <select
+                value={courseLevel}
+                onChange={(event) => setCourseLevel(event.target.value)}
+                className={inputClass}
+              >
+                <option value="all">All course levels</option>
+                <option value="1">Level 1 current</option>
+                <option value="2">Level 2 current</option>
+              </select>
+            </label>
+            <p className="font-mono text-xs uppercase text-text-muted lg:text-right">
               {filteredStudents.length} of {students.length}
             </p>
           </div>
         </div>
-        <div className="scrollbar-soft mt-5 max-h-[65vh] overflow-y-auto overscroll-contain pr-2">
+        <div className="scrollbar-soft mt-5 pr-2 lg:max-h-[65vh] lg:overflow-y-auto lg:overscroll-contain">
           <div className="grid gap-3">
             {filteredStudents.map((student) => (
               <StudentEditor
                 key={student.id}
-                student={student}
+                student={{ ...student, coursePlacementAvailable }}
                 batch={batches.find((batch) => batch.id === student.batchId)}
                 modules={modules}
               />

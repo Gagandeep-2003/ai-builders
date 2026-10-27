@@ -9,13 +9,53 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { HomeworkReviewForm } from "@/components/admin/homework-review-form";
 import type { Batch, CourseSession, HomeworkItem, StudentProfile } from "@/lib/course-data";
 import { formatDuration, formatHomeworkKind } from "@/lib/homework-utils";
+import { getSessionDateTimes } from "@/lib/time";
 import { cn, formatDate } from "@/lib/utils";
 
 function getStudentSubmission(homework: HomeworkItem, studentId: string) {
   return homework.submissions?.find((submission) => submission.studentId === studentId);
 }
 
-function isHomeworkAssignedToStudent(homework: HomeworkItem, student: StudentProfile) {
+function courseModuleKey(courseLevel: 1 | 2, moduleNumber: number) {
+  return `${courseLevel}-${moduleNumber}`;
+}
+
+function initialModuleKey(student: StudentProfile | undefined) {
+  const courseLevel = student?.activeCourseLevel ?? 1;
+  const enrollment = student?.courseEnrollments?.find((item) => item.courseLevel === courseLevel);
+  return courseModuleKey(courseLevel, enrollment?.startModuleNumber ?? 1);
+}
+
+function isHomeworkAssignedToStudent(
+  homework: HomeworkItem,
+  student: StudentProfile,
+  sessions: CourseSession[],
+  batches: Batch[],
+) {
+  const courseLevel = homework.courseLevel ?? 1;
+  const enrollment = student.courseEnrollments?.find((item) => item.courseLevel === courseLevel);
+
+  if (courseLevel === 2) {
+    if (!enrollment || enrollment.status !== "enrolled") return false;
+    const sessionMatch = homework.sessionId.match(/^l2-m(\d+)-s(\d+)$/);
+    if (!sessionMatch) return false;
+    const itemOrdinal = (Number(sessionMatch[1]) - 1) * 8 + Number(sessionMatch[2]);
+    const startOrdinal = ((enrollment.startModuleNumber ?? 1) - 1) * 8 + (enrollment.startSessionNumber ?? 1);
+    return itemOrdinal >= startOrdinal;
+  }
+
+  if (enrollment?.status === "not_enrolled") return false;
+  if (enrollment?.endsAt) {
+    const session = sessions.find((item) => item.id === homework.sessionId);
+    const batch = batches.find((item) => item.id === student.batchId);
+    if (
+      session &&
+      batch &&
+      getSessionDateTimes(session, batch).startsAt.getTime() >= new Date(enrollment.endsAt).getTime()
+    ) {
+      return false;
+    }
+  }
   return (!homework.batchId && !homework.assignedStudentId) || homework.batchId === student.batchId || homework.assignedStudentId === student.id;
 }
 
@@ -52,7 +92,9 @@ export function AdminHomeworkWorkbook({
       ? initialStudentId
       : students[0]?.id ?? "",
   );
-  const [openModuleNumber, setOpenModuleNumber] = useState<number | null>(1);
+  const [openModuleKey, setOpenModuleKey] = useState<string | null>(() => initialModuleKey(
+    students.find((student) => student.id === initialStudentId) ?? students[0],
+  ));
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const selectedStudent = students.find((student) => student.id === selectedStudentId) ?? students[0];
   const selectedBatch = batches.find((batch) => batch.id === selectedStudent?.batchId);
@@ -60,7 +102,9 @@ export function AdminHomeworkWorkbook({
   const studentRows = useMemo(
     () =>
       students.map((student) => {
-        const assigned = homework.filter((item) => isHomeworkAssignedToStudent(item, student));
+        const assigned = homework.filter((item) =>
+          isHomeworkAssignedToStudent(item, student, sessions, batches)
+        );
         const completed = assigned.filter((item) => {
           const submission = getStudentSubmission(item, student.id);
           return submission?.status === "submitted" || submission?.status === "reviewed";
@@ -72,14 +116,17 @@ export function AdminHomeworkWorkbook({
           completed,
         };
       }),
-    [homework, students],
+    [batches, homework, sessions, students],
   );
 
   const groupedSessions = useMemo(
     () =>
       sessions.map((session) => {
         const items = homework.filter(
-          (item) => selectedStudent && isHomeworkAssignedToStudent(item, selectedStudent) && item.sessionId === session.id,
+          (item) =>
+            selectedStudent &&
+            isHomeworkAssignedToStudent(item, selectedStudent, sessions, batches) &&
+            item.sessionId === session.id,
         );
         const completed = items.filter((item) => {
           const submission = selectedStudent ? getStudentSubmission(item, selectedStudent.id) : null;
@@ -93,14 +140,23 @@ export function AdminHomeworkWorkbook({
           total: items.length,
         };
       }),
-    [homework, selectedStudent, sessions],
+    [batches, homework, selectedStudent, sessions],
   );
   const moduleGroups = useMemo(
     () =>
-      [1, 2, 3].map((moduleNumber) => ({
-        moduleNumber,
-        sessions: groupedSessions.filter((item) => Math.ceil(item.session.globalNumber / 8) === moduleNumber),
-      })),
+      ([1, 2] as const)
+        .flatMap((courseLevel) =>
+          [1, 2, 3].map((moduleNumber) => ({
+            key: courseModuleKey(courseLevel, moduleNumber),
+            courseLevel,
+            moduleNumber,
+            sessions: groupedSessions.filter((item) =>
+              (item.session.courseLevel ?? 1) === courseLevel
+              && (item.session.moduleNumber ?? Math.ceil(item.session.globalNumber / 8)) === moduleNumber
+            ),
+          })),
+        )
+        .filter((module) => module.sessions.some((session) => session.total > 0)),
     [groupedSessions],
   );
 
@@ -135,7 +191,7 @@ export function AdminHomeworkWorkbook({
                 key={student.id}
                 onClick={() => {
                   setSelectedStudentId(student.id);
-                  setOpenModuleNumber(1);
+                  setOpenModuleKey(initialModuleKey(student));
                   setOpenSessionId(null);
                 }}
                 className={cn(
@@ -154,6 +210,9 @@ export function AdminHomeworkWorkbook({
                     {completed}/{assigned}
                   </span>
                 </div>
+                <p className="mt-2 font-mono text-[10px] uppercase text-text-muted">
+                  Active level {student.activeCourseLevel ?? 1}
+                </p>
                 <ProgressBar className="mt-4" value={completed} max={Math.max(assigned, 1)} label="Completion" />
               </button>
             );
@@ -178,19 +237,21 @@ export function AdminHomeworkWorkbook({
         </div>
 
         {moduleGroups.map((module) => {
-          const moduleOpen = openModuleNumber === module.moduleNumber;
+          const moduleOpen = openModuleKey === module.key;
           return (
-          <section key={module.moduleNumber} className="premium-card rounded-xl p-0">
+          <section key={module.key} className="premium-card rounded-xl p-0">
             <button
               type="button"
               onClick={() => {
-                setOpenModuleNumber(moduleOpen ? null : module.moduleNumber);
+                setOpenModuleKey(moduleOpen ? null : module.key);
                 setOpenSessionId(null);
               }}
               className="flex w-full items-center justify-between gap-4 p-5 text-left"
               aria-expanded={moduleOpen}
             >
-              <p className="font-mono text-xs uppercase text-accent">Module {module.moduleNumber}</p>
+              <p className="font-mono text-xs uppercase text-accent">
+                Level {module.courseLevel} · Module {module.moduleNumber}
+              </p>
               <ChevronDown className={cn("h-4 w-4 text-text-muted transition", moduleOpen && "rotate-180")} />
             </button>
             {moduleOpen ? (
@@ -233,7 +294,7 @@ export function AdminHomeworkWorkbook({
                                   <h4 className="mt-2 font-heading font-bold">{item.title}</h4>
                                   <p className="mt-2 text-sm leading-6 text-text-secondary">{item.description}</p>
                                   <div className="mt-3 flex flex-wrap gap-3 font-mono text-xs text-text-muted">
-                                    <span>Due {formatDate(item.dueDate)}</span>
+                                    <span>{item.catalogManaged ? "Due on the student's course schedule" : `Due ${formatDate(item.dueDate)}`}</span>
                                     <span>Started {submission?.startedAt ? formatDate(submission.startedAt) : "not started"}</span>
                                     <span>Completed {submission?.submittedAt ? formatDate(submission.submittedAt) : "not yet"}</span>
                                     <span>Time {formatDuration(submission?.timeSpentSeconds)}</span>

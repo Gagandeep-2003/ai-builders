@@ -10,8 +10,13 @@ import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { formatRescheduleRequestTime, getRescheduleRequestKind } from "@/lib/class-events";
+import {
+  formatRescheduleRequestTime,
+  getRescheduleRequestKind,
+  getStudentScheduledSessions,
+} from "@/lib/class-events";
 import { getAdminData } from "@/lib/data";
+import { levelTwoSessions } from "@/lib/level-two";
 import { ADMIN_TIME_ZONE, formatSessionTime, getSessionScheduleDate } from "@/lib/time";
 
 function SchedulerField({
@@ -42,8 +47,14 @@ export default async function AdminAttendancePage({
 }) {
   const data = await getAdminData();
   const params = await searchParams;
+  const hasLevelTwoStudents = data.students.some((student) =>
+    student.courseEnrollments?.some((enrollment) => enrollment.courseLevel === 2),
+  );
+  const availableSessions = hasLevelTwoStudents
+    ? [...data.sessions, ...levelTwoSessions]
+    : data.sessions;
   const selectedSession =
-    data.sessions.find((session) => session.id === params?.sessionId) ?? data.sessions[0];
+    availableSessions.find((session) => session.id === params?.sessionId) ?? availableSessions[0];
   const pendingReschedules = data.rescheduleRequests.filter((request) => request.status === "pending");
   const approvedReschedules = data.rescheduleRequests.filter((request) => request.status === "approved");
   const rejectedReschedules = data.rescheduleRequests.filter((request) => request.status === "rejected").slice(0, 4);
@@ -73,6 +84,16 @@ export default async function AdminAttendancePage({
           ? "Enter a valid Google Meet link before saving."
           : "";
   const rescheduleNoticeIsError = ["create-error", "invalid-link"].includes(params?.reschedule ?? "");
+  const studentSessionRows = data.students.flatMap((student) => {
+    const batch = data.batches.find((item) => item.id === student.batchId);
+    if (!batch || !selectedSession) return [];
+    const scheduledSession = getStudentScheduledSessions({
+      student,
+      batch,
+      levelOneSessions: data.sessions,
+    }).find((session) => session.id === selectedSession.id);
+    return scheduledSession ? [{ student, batch, session: scheduledSession }] : [];
+  });
 
   return (
     <AnimatedPage>
@@ -349,9 +370,9 @@ export default async function AdminAttendancePage({
             defaultValue={selectedSession.id}
             className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
           >
-            {data.sessions.map((session) => (
+            {availableSessions.map((session) => (
               <option key={session.id} value={session.id}>
-                Session {session.globalNumber}: {session.title}
+                Level {session.courseLevel ?? 1} · Module {session.moduleNumber ?? Math.ceil(session.globalNumber / 8)} · Session {session.sessionNumber}: {session.title}
               </option>
             ))}
           </select>
@@ -360,19 +381,16 @@ export default async function AdminAttendancePage({
           </button>
         </form>
         <p className="mt-3 text-sm text-text-muted">
-          Attendance dates are calculated per student batch and timezone.
+          Attendance dates are calculated per student batch and timezone. Only students enrolled for the selected level and session appear below.
         </p>
       </section>
 
       <section className="space-y-3">
-        {data.students.map((student) => {
-          const batch = data.batches.find((item) => item.id === student.batchId);
+        {studentSessionRows.map(({ student, batch, session }) => {
           const current = data.attendance.find(
-            (item) => item.studentId === student.id && item.sessionId === selectedSession.id,
-          )?.status ?? "present";
-          const attendanceDate = batch
-            ? getSessionScheduleDate(selectedSession, batch)
-            : selectedSession.date;
+            (item) => item.studentId === student.id && item.sessionId === session.id,
+          )?.status ?? "pending";
+          const attendanceDate = getSessionScheduleDate(session, batch);
 
           return (
             <article key={student.id} className="premium-card rounded-xl p-5">
@@ -380,21 +398,19 @@ export default async function AdminAttendancePage({
                 <div>
                   <h3 className="font-heading text-lg font-bold">{student.fullName}</h3>
                   <p className="mt-1 text-sm text-text-secondary">
-                    {selectedSession.title}
-                    {batch ? ` · ${formatSessionTime(selectedSession, batch, student.timeZone)}` : ""}
+                    Level {session.courseLevel ?? 1} · Module {session.moduleNumber ?? Math.ceil(session.globalNumber / 8)} · Session {session.sessionNumber}
+                    {` · ${formatSessionTime(session, batch, student.timeZone)}`}
                   </p>
-                  {batch ? (
-                    <p className="mt-1 font-mono text-xs text-text-muted">
-                      Admin time: {formatSessionTime(selectedSession, batch, ADMIN_TIME_ZONE)}
-                    </p>
-                  ) : null}
+                  <p className="mt-1 font-mono text-xs text-text-muted">
+                    {session.title} · Admin time: {formatSessionTime(session, batch, ADMIN_TIME_ZONE)}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={current} />
                   {["present", "absent", "rescheduled"].map((status) => (
                     <AttendanceStatusForm
                       key={status}
-                      sessionId={selectedSession.id}
+                      sessionId={session.id}
                       studentId={student.id}
                       status={status}
                       date={attendanceDate}
@@ -405,6 +421,11 @@ export default async function AdminAttendancePage({
             </article>
           );
         })}
+        {studentSessionRows.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
+            No student is enrolled for this session in their current course placement.
+          </div>
+        ) : null}
       </section>
     </AnimatedPage>
   );

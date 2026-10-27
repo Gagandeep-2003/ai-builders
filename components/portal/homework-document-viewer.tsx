@@ -2,11 +2,12 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, CheckCircle2, CircleHelp, FileText, MonitorUp, Paperclip, Play, ShieldCheck, Timer, X } from "lucide-react";
+import { Camera, CheckCircle2, CircleHelp, FileText, MonitorUp, Paperclip, ShieldCheck, Timer, X } from "lucide-react";
 import { markHomeworkStarted, markHomeworkSubmittedWithEvidence, resetHomeworkProgress } from "@/app/actions/homework";
+import FlyingButton from "@/components/FlyingButton";
 import { formatDuration, isTrustedTaskDuration } from "@/lib/homework-utils";
 
 type CelebrationState = "started" | "completed" | null;
@@ -219,6 +220,7 @@ export function HomeworkDocumentViewer({
   const [captureError, setCaptureError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const launchRequestedRef = useRef(false);
   const [isPending, startTransition] = useTransition();
   const hasStarted = Boolean(startedAt) && !needsRestart;
   const elapsedSeconds = useMemo(() => {
@@ -252,6 +254,23 @@ export function HomeworkDocumentViewer({
       await markHomeworkStarted(homeworkId);
       router.prefetch(`/homework?session=${encodeURIComponent(sessionId)}`);
     });
+  }
+
+  function launchTask() {
+    if (launchRequestedRef.current || isPending) return;
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      startTask();
+      return;
+    }
+
+    launchRequestedRef.current = true;
+  }
+
+  function finishLaunch() {
+    if (!launchRequestedRef.current) return;
+    launchRequestedRef.current = false;
+    startTask();
   }
 
   function requestCompletion() {
@@ -371,14 +390,31 @@ export function HomeworkDocumentViewer({
               ? "This task had old demo progress attached to it. Start again to reset the stale timer and track this attempt cleanly."
               : "Press Start Task when you are ready. The task workspace will open inside the portal and your timer will begin."}
           </p>
-          <button
-            onClick={startTask}
-            disabled={isPending}
-            className="button-motion mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 font-bold text-bg-base disabled:opacity-60"
-          >
-            <Play className="h-4 w-4" />
-            Start Task
-          </button>
+          <div className="relative mx-auto mt-6 h-[420px] w-full max-w-[851px] overflow-hidden rounded-2xl border border-[#383846] bg-[#100d16] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_24px_70px_rgba(29,30,166,0.18)] sm:h-[470px]">
+            <FlyingButton
+              theme="dark"
+              size="extra-large"
+              radius={22}
+              altitude={260}
+              hoverTime={2.4}
+              jets={4}
+              thrusters
+              trigger="click"
+              carryCursor
+              smoke={2}
+              turbulence={2}
+              wobble={2.4}
+              ramp={false}
+              thrustColor="#ec04e8"
+              smokeColor="#1d1ea6"
+              buttonColor="#27272a"
+              textColor="#f5f5f5"
+              onClick={launchTask}
+              onFlightComplete={finishLaunch}
+            >
+              Start Task
+            </FlyingButton>
+          </div>
         </section>
       </>
     );

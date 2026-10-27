@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getAdminAvailabilityData, getMentorScheduleData, getStudentDashboardData } from "@/lib/data";
+import {
+  getAdminAvailabilityData,
+  getMentorScheduleData,
+  getStudentClassData,
+  getStudentDashboardData,
+} from "@/lib/data";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { normalizeMeetLink } from "@/lib/meet-links";
@@ -26,7 +31,7 @@ export async function joinClassAction(formData: FormData) {
 
   if (!user) redirect("/login");
 
-  const data = await getStudentDashboardData();
+  const data = await getStudentClassData();
   const session = data.sessions.find((item) => item.id === sessionId);
   if (!session) redirect("/class");
   const classDate = getSessionScheduleDate(session, data.batch);
@@ -41,31 +46,45 @@ export async function joinClassAction(formData: FormData) {
   const { meetLink: rawMeetLink } = getSessionDateTimes(session, data.batch);
   const meetLink = normalizeMeetLink(rawMeetLink);
   if (!meetLink) redirect("/class?join=missing-link");
-  const { error: attendanceError } = await supabase.from("attendance").upsert(
-    {
+  if (session.courseLevel === 2) {
+    const { error } = await supabase.rpc("record_level_two_class_join", {
+      p_session_id: session.id,
+      p_module_number: session.moduleNumber ?? Math.ceil(session.globalNumber / 8),
+      p_session_number: session.sessionNumber,
+      p_class_date: classDate,
+      p_meet_link: meetLink,
+    });
+    if (error) {
+      console.error("Unable to mark Level 2 class attendance", error);
+      redirect("/class?join=attendance-error");
+    }
+  } else {
+    const { error: attendanceError } = await supabase.from("attendance").upsert(
+      {
+        session_id: session.id,
+        student_id: data.student.id,
+        status: "present",
+        date: classDate,
+      },
+      { onConflict: "session_id,student_id" },
+    );
+
+    if (attendanceError) {
+      console.error("Unable to mark class attendance", attendanceError);
+      redirect("/class?join=attendance-error");
+    }
+
+    const { error: joinEventError } = await supabase.from("class_join_events").insert({
       session_id: session.id,
       student_id: data.student.id,
-      status: "present",
-      date: classDate,
-    },
-    { onConflict: "session_id,student_id" },
-  );
+      batch_id: data.batch.id,
+      class_date: classDate,
+      meet_link: meetLink,
+    });
 
-  if (attendanceError) {
-    console.error("Unable to mark class attendance", attendanceError);
-    redirect("/class?join=attendance-error");
-  }
-
-  const { error: joinEventError } = await supabase.from("class_join_events").insert({
-    session_id: session.id,
-    student_id: data.student.id,
-    batch_id: data.batch.id,
-    class_date: classDate,
-    meet_link: meetLink,
-  });
-
-  if (joinEventError) {
-    console.error("Unable to record class join event", joinEventError);
+    if (joinEventError) {
+      console.error("Unable to record class join event", joinEventError);
+    }
   }
 
   revalidatePath("/dashboard");

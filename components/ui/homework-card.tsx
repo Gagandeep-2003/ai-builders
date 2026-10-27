@@ -14,9 +14,14 @@ export function HomeworkCard({
   homework: HomeworkItem;
   toolsUnlocked?: boolean;
 }) {
+  const unavailable = homework.accessState === "skipped" || homework.accessState === "not_enrolled";
   const tone = getDueTone(homework.dueDate, homework.status);
   const progressLabel =
-    homework.status === "revision_requested"
+    homework.accessState === "not_enrolled"
+      ? "Not enrolled in this level"
+      : homework.accessState === "skipped"
+        ? "Skipped before your Level 2 starting point"
+      : homework.status === "revision_requested"
       ? "Mentor changes requested"
       : homework.status !== "pending"
       ? "Complete"
@@ -25,14 +30,17 @@ export function HomeworkCard({
         : "Not started";
 
   return (
-    <article className="premium-card premium-card-hover rounded-xl p-5">
+    <article className={cn("premium-card rounded-xl p-5", !unavailable && "premium-card-hover")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-xs uppercase text-text-muted">{homework.sessionName}</p>
           <h3 className="mt-2 font-heading text-lg font-bold">{homework.title}</h3>
           <p className="mt-2 font-mono text-xs uppercase text-accent">{formatHomeworkKind(homework.kind)}</p>
         </div>
-        <StatusBadge status={homework.status} />
+        <StatusBadge
+          status={unavailable ? homework.accessState! : homework.status}
+          label={homework.accessState === "not_enrolled" ? "Not enrolled" : homework.accessState === "skipped" ? "Skipped" : undefined}
+        />
       </div>
       <p className="mt-4 text-sm leading-6 text-text-secondary">{homework.description}</p>
       {homework.details ? (
@@ -65,16 +73,16 @@ export function HomeworkCard({
           )}
         >
           <CalendarDays className="h-4 w-4" />
-          Due {formatDate(homework.dueDate)}
+          {unavailable || !homework.dueDate ? "No due date" : `Due ${formatDate(homework.dueDate)}`}
         </span>
         <div>
           <PendingLink
-            href={`/homework/${homework.id}?fromSession=${encodeURIComponent(homework.sessionId)}`}
+            href={`/homework/${homework.id}?fromSession=${encodeURIComponent(homework.sessionId)}&level=${homework.courseLevel ?? 1}`}
             pendingLabel="Opening task..."
             className="button-motion inline-flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2 text-sm font-bold text-accent"
           >
             <ExternalLink className="h-4 w-4" />
-            {homework.startedAt ? "Continue Task" : "Start Task"}
+            {unavailable ? "View reference" : homework.startedAt ? "Continue Task" : "Start Task"}
           </PendingLink>
         </div>
       </div>

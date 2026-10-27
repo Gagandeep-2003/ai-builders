@@ -1,4 +1,9 @@
-import type { CourseSession, HomeworkItem, ResourceItem } from "@/lib/course-data";
+import type {
+  CourseSession,
+  CourseSessionStatus,
+  HomeworkItem,
+  ResourceItem,
+} from "@/lib/course-data";
 
 export type SessionAccessBoundary = {
   maxUnlockedGlobalNumber: number;
@@ -7,7 +12,7 @@ export type SessionAccessBoundary = {
 };
 
 type StatusSession = CourseSession & {
-  status?: "completed" | "current" | "locked";
+  status?: CourseSessionStatus;
 };
 
 export function getSessionAccessBoundary(sessions: StatusSession[]): SessionAccessBoundary {
@@ -41,7 +46,12 @@ export function getUnlockedSessions(
 ) {
   return [...sessions]
     .sort((a, b) => a.globalNumber - b.globalNumber)
-    .filter((session) => isSessionUnlocked(session, boundary));
+    .filter(
+      (session) =>
+        session.status !== "skipped" &&
+        session.status !== "not_enrolled" &&
+        isSessionUnlocked(session, boundary),
+    );
 }
 
 export function filterUnlockedHomework(

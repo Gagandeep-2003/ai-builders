@@ -20,6 +20,8 @@ import {
   type ChatMessage,
   type ChatThreadSummary,
   type CourseModule,
+  type CourseLevel,
+  type CourseSessionStatus,
   type CourseSession,
   type FeedbackItem,
   type HomeworkItem,
@@ -34,6 +36,7 @@ import {
   type ResourceType,
   type SubmissionStatus,
   type StudentProfile,
+  type StudentCourseEnrollment,
   type BadgeDefinition,
   type StudentBadge,
 } from "@/lib/course-data";
@@ -52,6 +55,15 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { applySessionStatuses } from "@/lib/time";
 import {
+  activeCourseLevel,
+  buildAdminLevelTwoHomework,
+  buildCourseCurricula,
+  buildLevelTwoHomework,
+  levelTwoSessions,
+  type CourseLevelCurriculum,
+  type LevelTwoSubmissionRow,
+} from "@/lib/level-two";
+import {
   availabilityBucket,
   buildAvailabilityBucket,
   type AvailabilityDay,
@@ -59,7 +71,7 @@ import {
 } from "@/lib/slot-availability";
 
 export type CurriculumSession = CourseSession & {
-  status: "completed" | "current" | "locked";
+  status: CourseSessionStatus;
 };
 
 export type DashboardData = {
@@ -74,6 +86,9 @@ export type DashboardData = {
   feedback: FeedbackItem[];
   rescheduleRequests: ClassRescheduleRequest[];
   passwordRequests: PasswordChangeRequest[];
+  curricula: CourseLevelCurriculum[];
+  activeCourseLevel: CourseLevel;
+  coursePlacementAvailable: boolean;
 };
 
 export type AdminData = {
@@ -93,7 +108,13 @@ export type AdminData = {
 
 export type StudentContextData = Pick<
   DashboardData,
-  "student" | "batch" | "modules" | "sessions"
+  | "student"
+  | "batch"
+  | "modules"
+  | "sessions"
+  | "curricula"
+  | "activeCourseLevel"
+  | "coursePlacementAvailable"
 >;
 
 export type StudentShellData = StudentContextData & Pick<
@@ -128,7 +149,9 @@ export type AdminChatData = {
 };
 
 export type MentorScheduleData = Pick<AdminData, "students" | "batches" | "rescheduleRequests">;
-export type AdminStudentsData = Pick<AdminData, "students" | "batches" | "modules">;
+export type AdminStudentsData = Pick<AdminData, "students" | "batches" | "modules"> & {
+  coursePlacementAvailable: boolean;
+};
 export type AdminAvailabilityData = {
   bucket: AvailabilityDay[];
   managedSlots: ManagedAvailabilitySlot[];
@@ -143,15 +166,50 @@ function curriculumWithStatus(batch = demoBatch): CurriculumSession[] {
   return applySessionStatuses(sessions, batch);
 }
 
-function fallbackDashboardData(): DashboardData {
-  const fallbackSessions = curriculumWithStatus();
+function legacyLevelOneEnrollment(student: StudentProfile): StudentCourseEnrollment {
   return {
-    student: demoStudent,
-    batch: demoBatch,
+    studentId: student.id,
+    courseLevel: 1,
+    status: "enrolled",
+    startsAt: student.enrolledAt,
+    startModuleNumber: 1,
+    startSessionNumber: 1,
+    source: "legacy",
+  };
+}
+
+function fallbackStudentContext(): StudentContextData {
+  const enrollment = legacyLevelOneEnrollment(demoStudent);
+  const curricula = buildCourseCurricula({
     modules,
-    sessions: fallbackSessions,
+    sessions,
+    batch: demoBatch,
+    enrollments: [enrollment],
+    includeLevelTwo: false,
+  });
+  const active = curricula[0];
+  return {
+    student: {
+      ...demoStudent,
+      courseEnrollments: [enrollment],
+      activeCourseLevel: 1,
+      coursePlacementAvailable: false,
+    },
+    batch: demoBatch,
+    modules: active.modules,
+    sessions: active.sessions,
+    curricula,
+    activeCourseLevel: 1,
+    coursePlacementAvailable: false,
+  };
+}
+
+function fallbackDashboardData(): DashboardData {
+  const context = fallbackStudentContext();
+  return {
+    ...context,
     homework: demoHomework,
-    resources: filterUnlockedResources(demoResources, fallbackSessions),
+    resources: filterUnlockedResources(demoResources, context.sessions),
     announcements: demoAnnouncements,
     attendance: demoAttendance,
     feedback: demoFeedback,
@@ -192,6 +250,60 @@ function text(row: DbRow, key: string, fallback = "") {
 function num(row: DbRow, key: string, fallback = 0) {
   const value = row[key];
   return typeof value === "number" ? value : fallback;
+}
+
+function optionalNum(row: DbRow, key: string) {
+  const value = row[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+function mapCourseEnrollment(row: DbRow): StudentCourseEnrollment {
+  return {
+    id: text(row, "id") || undefined,
+    studentId: text(row, "student_id"),
+    courseLevel: num(row, "course_level", 1) === 2 ? 2 : 1,
+    status: text(row, "status", "enrolled") === "not_enrolled" ? "not_enrolled" : "enrolled",
+    startsAt: text(row, "starts_at") || undefined,
+    endsAt: text(row, "ends_at") || undefined,
+    startModuleNumber: optionalNum(row, "start_module_number"),
+    startSessionNumber: optionalNum(row, "start_session_number"),
+    source: ["promotion", "direct"].includes(text(row, "source"))
+      ? text(row, "source") as "promotion" | "direct"
+      : "legacy",
+    createdAt: text(row, "created_at") || undefined,
+    updatedAt: text(row, "updated_at") || undefined,
+  };
+}
+
+function mapLevelTwoSubmission(row: DbRow): LevelTwoSubmissionRow {
+  return {
+    activityId: text(row, "activity_id"),
+    studentId: text(row, "student_id"),
+    status: text(row, "status", "pending") as SubmissionStatus,
+    notes: text(row, "notes") || undefined,
+    startedAt: text(row, "started_at") || undefined,
+    submittedAt: text(row, "submitted_at") || undefined,
+    reviewedAt: text(row, "reviewed_at") || undefined,
+    reviewedBy: text(row, "reviewed_by") || undefined,
+    mentorFeedback: text(row, "mentor_feedback") || undefined,
+    timeSpentSeconds: optionalNum(row, "time_spent_seconds"),
+    screenImage: text(row, "screen_image") || undefined,
+    cameraImage: text(row, "camera_image") || undefined,
+    proofText: text(row, "proof_text") || undefined,
+    attachmentName: text(row, "attachment_name") || undefined,
+    attachmentMime: text(row, "attachment_mime") || undefined,
+    attachmentData: text(row, "attachment_data") || undefined,
+    proofCapturedAt: text(row, "captured_at") || undefined,
+    proofExpiresAt: text(row, "expires_at") || undefined,
+    browserName: text(row, "browser_name") || undefined,
+    browserVersion: text(row, "browser_version") || undefined,
+    osName: text(row, "os_name") || undefined,
+    deviceType: text(row, "device_type") || undefined,
+    userAgent: text(row, "user_agent") || undefined,
+    viewportWidth: optionalNum(row, "viewport_width"),
+    viewportHeight: optionalNum(row, "viewport_height"),
+    language: text(row, "language") || undefined,
+  };
 }
 
 function parseSubmissionClientInfo(notes?: string) {
@@ -239,6 +351,8 @@ function mapModule(row: DbRow): CourseModule {
     description: text(row, "description"),
     orderIndex: num(row, "order_index"),
     sessionCount: num(row, "session_count", 8),
+    courseLevel: 1,
+    levelOrderIndex: num(row, "order_index"),
   };
 }
 
@@ -254,7 +368,33 @@ function mapSession(row: DbRow, globalNumber: number): CourseSession {
     studentOutput: text(row, "student_output"),
     description: text(row, "description"),
     date: text(row, "session_date"),
+    courseLevel: 1,
+    moduleNumber: Math.ceil(globalNumber / 8),
   };
+}
+
+const LEGACY_LEVEL_ONE_MODULE_COUNT = 3;
+
+function isLegacyLevelOneModuleOrder(orderIndex: number) {
+  return orderIndex >= 1 && orderIndex <= LEGACY_LEVEL_ONE_MODULE_COUNT;
+}
+
+function mapLegacyLevelOneModules(rows: DbRow[]) {
+  return rows
+    .map((row) => mapModule(row))
+    .filter((module) => isLegacyLevelOneModuleOrder(module.orderIndex));
+}
+
+function mapLegacyLevelOneSessions(rows: DbRow[]) {
+  return rows
+    .map((row) => ({
+      row,
+      moduleOrder: num(relation(row, "modules") ?? {}, "order_index", 99),
+      sessionNumber: num(row, "session_number", 99),
+    }))
+    .filter(({ moduleOrder }) => isLegacyLevelOneModuleOrder(moduleOrder))
+    .sort((a, b) => a.moduleOrder - b.moduleOrder || a.sessionNumber - b.sessionNumber)
+    .map(({ row }, index) => mapSession(row, index + 1));
 }
 
 function mapBatchClassSlot(row: DbRow, batchId: string): BatchClassSlot {
@@ -510,6 +650,8 @@ function mapHomework(row: DbRow, currentStudentId?: string): HomeworkItem {
         ? Math.round(completedSubmissionTimes.reduce((sum, value) => sum + value, 0) / completedSubmissionTimes.length)
         : undefined,
     submissions: submissionSummaries,
+    courseLevel: 1,
+    catalogManaged: false,
   };
 }
 
@@ -727,15 +869,8 @@ export async function getCurriculum(batch = demoBatch): Promise<{
 
   if (!moduleRows || !sessionRows) return { modules, sessions: curriculumWithStatus(batch) };
 
-  const mappedModules = moduleRows.map((row) => mapModule(row));
-  const sortedSessions = sessionRows
-    .map((row) => ({
-      row,
-      moduleOrder: num(relation(row, "modules") ?? {}, "order_index", 99),
-      sessionNumber: num(row, "session_number", 99),
-    }))
-    .sort((a, b) => a.moduleOrder - b.moduleOrder || a.sessionNumber - b.sessionNumber)
-    .map(({ row }, index) => mapSession(row, index + 1));
+  const mappedModules = mapLegacyLevelOneModules(moduleRows);
+  const sortedSessions = mapLegacyLevelOneSessions(sessionRows);
 
   return { modules: mappedModules, sessions: applySessionStatuses(sortedSessions, batch) };
 }
@@ -754,6 +889,171 @@ const studentRescheduleSelect =
 type ServerSupabaseClient = NonNullable<
   Awaited<ReturnType<typeof createServerSupabaseClient>>
 >;
+
+const optionalCourseSchemaCodes = new Set(["42P01", "42703", "PGRST204", "PGRST205"]);
+
+function logOptionalCourseError(scope: string, error: { code?: string; message?: string } | null) {
+  if (!error || optionalCourseSchemaCodes.has(error.code ?? "")) return;
+  console.error(`[${scope}] Optional Level 2 data could not be loaded.`, {
+    code: error.code,
+    message: error.message,
+  });
+}
+
+async function loadStudentCourseEnrollments(
+  supabase: ServerSupabaseClient,
+  studentId: string,
+): Promise<{ available: boolean; rows: StudentCourseEnrollment[] }> {
+  const result = await supabase
+    .from("student_course_enrollments")
+    .select("*")
+    .eq("student_id", studentId)
+    .order("course_level", { ascending: true });
+  if (result.error) {
+    logOptionalCourseError("student-course-enrollments", result.error);
+    return { available: false, rows: [] };
+  }
+  return { available: true, rows: (result.data ?? []).map((row) => mapCourseEnrollment(row)) };
+}
+
+async function loadAllCourseEnrollments(
+  supabase: ServerSupabaseClient,
+): Promise<{ available: boolean; rows: StudentCourseEnrollment[] }> {
+  const result = await supabase
+    .from("student_course_enrollments")
+    .select("*")
+    .order("course_level", { ascending: true });
+  if (result.error) {
+    logOptionalCourseError("admin-course-enrollments", result.error);
+    return { available: false, rows: [] };
+  }
+  return { available: true, rows: (result.data ?? []).map((row) => mapCourseEnrollment(row)) };
+}
+
+async function loadLevelTwoSubmissions(
+  supabase: ServerSupabaseClient,
+  studentId: string,
+): Promise<LevelTwoSubmissionRow[]> {
+  const result = await supabase
+    .from("course_activity_submissions")
+    .select("*")
+    .eq("student_id", studentId);
+  if (result.error) {
+    logOptionalCourseError("level-two-submissions", result.error);
+    return [];
+  }
+  return (result.data ?? []).map((row) => mapLevelTwoSubmission(row));
+}
+
+async function loadAllLevelTwoSubmissions(
+  supabase: ServerSupabaseClient,
+): Promise<{ available: boolean; rows: LevelTwoSubmissionRow[] }> {
+  const result = await supabase
+    .from("course_activity_submissions")
+    .select("*")
+    .order("submitted_at", { ascending: false });
+  if (result.error) {
+    logOptionalCourseError("admin-level-two-submissions", result.error);
+    return { available: false, rows: [] };
+  }
+  return {
+    available: true,
+    rows: (result.data ?? []).map((row) => mapLevelTwoSubmission(row)),
+  };
+}
+
+async function loadLevelTwoAttendance(
+  supabase: ServerSupabaseClient,
+  studentId: string,
+): Promise<AttendanceItem[]> {
+  const result = await supabase
+    .from("course_session_attendance")
+    .select("*")
+    .eq("student_id", studentId);
+  if (result.error) {
+    logOptionalCourseError("level-two-attendance", result.error);
+    return [];
+  }
+  return (result.data ?? []).map((row) => ({
+    id: text(row, "id"),
+    sessionId: text(row, "session_id"),
+    studentId: text(row, "student_id"),
+    status: text(row, "status", "present") as AttendanceStatus,
+    date: text(row, "class_date") || text(row, "date"),
+  }));
+}
+
+async function loadAllLevelTwoAttendance(
+  supabase: ServerSupabaseClient,
+): Promise<AttendanceItem[]> {
+  const result = await supabase
+    .from("course_session_attendance")
+    .select("*");
+  if (result.error) {
+    logOptionalCourseError("admin-level-two-attendance", result.error);
+    return [];
+  }
+  return (result.data ?? []).map((row) => ({
+    id: text(row, "id"),
+    sessionId: text(row, "session_id"),
+    studentId: text(row, "student_id"),
+    status: text(row, "status", "present") as AttendanceStatus,
+    date: text(row, "class_date") || text(row, "date"),
+  }));
+}
+
+async function loadAllLevelTwoClassJoinEvents(
+  supabase: ServerSupabaseClient,
+): Promise<ClassJoinEvent[]> {
+  const result = await supabase
+    .from("course_class_join_events")
+    .select("id, session_id, student_id, batch_id, joined_at, class_date, meet_link, students(full_name)")
+    .order("joined_at", { ascending: false })
+    .limit(20);
+  if (result.error) {
+    logOptionalCourseError("admin-level-two-class-joins", result.error);
+    return [];
+  }
+  return (result.data ?? []).map((row) => {
+    const student = relation(row, "students");
+    const sessionId = text(row, "session_id");
+    return {
+      id: text(row, "id"),
+      sessionId,
+      studentId: text(row, "student_id"),
+      batchId: text(row, "batch_id"),
+      joinedAt: text(row, "joined_at"),
+      classDate: text(row, "class_date"),
+      meetLink: normalizeMeetLink(text(row, "meet_link")),
+      studentName: student ? text(student, "full_name", "Student") : "Student",
+      sessionName: levelTwoSessions.find((session) => session.id === sessionId)?.title ?? "Level 2 session",
+    };
+  });
+}
+
+function attachCourseEnrollmentState(
+  studentsToAttach: StudentProfile[],
+  result: { available: boolean; rows: StudentCourseEnrollment[] },
+  now = new Date(),
+) {
+  const enrollmentsByStudent = new Map<string, StudentCourseEnrollment[]>();
+  for (const enrollment of result.rows) {
+    const stored = enrollmentsByStudent.get(enrollment.studentId) ?? [];
+    stored.push(enrollment);
+    enrollmentsByStudent.set(enrollment.studentId, stored);
+  }
+
+  return studentsToAttach.map((student) => {
+    const stored = enrollmentsByStudent.get(student.id) ?? [];
+    const courseEnrollments = stored.length ? stored : [legacyLevelOneEnrollment(student)];
+    return {
+      ...student,
+      courseEnrollments,
+      activeCourseLevel: activeCourseLevel(courseEnrollments, now),
+      coursePlacementAvailable: result.available,
+    };
+  });
+}
 
 async function loadStudentRescheduleRequests(
   studentId: string,
@@ -829,14 +1129,9 @@ const getCachedBatchPauseRows = unstable_cache(
 );
 
 async function getStudentContextImpl(): Promise<StudentContextData> {
-  const fallback = fallbackDashboardData();
+  const fallback = fallbackStudentContext();
   if (!isSupabaseConfigured()) {
-    return {
-      student: fallback.student,
-      batch: fallback.batch,
-      modules: fallback.modules,
-      sessions: fallback.sessions,
-    };
+    return fallback;
   }
 
   const identity = await getAuthIdentity();
@@ -844,12 +1139,7 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
   const userMetadata = identity?.userMetadata;
 
   if (!userId) {
-    return {
-      student: fallback.student,
-      batch: fallback.batch,
-      modules: fallback.modules,
-      sessions: fallback.sessions,
-    };
+    return fallback;
   }
 
   let studentRow = await getCachedStudentRow(userId);
@@ -857,12 +1147,7 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
   if (!studentRow) {
     const supabase = await createServerSupabaseClient();
     if (!supabase) {
-      return {
-        student: fallback.student,
-        batch: fallback.batch,
-        modules: fallback.modules,
-        sessions: fallback.sessions,
-      };
+      return fallback;
     }
     const { data: ownedStudentRow } = await supabase
       .from("students")
@@ -875,12 +1160,7 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
   if (!studentRow) {
     const supabase = await createServerSupabaseClient();
     if (!supabase) {
-      return {
-        student: fallback.student,
-        batch: fallback.batch,
-        modules: fallback.modules,
-        sessions: fallback.sessions,
-      };
+      return fallback;
     }
     const { data: firstStudentRow } = await supabase
       .from("students")
@@ -892,12 +1172,7 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
   }
 
   if (!studentRow) {
-    return {
-      student: fallback.student,
-      batch: fallback.batch,
-      modules: fallback.modules,
-      sessions: fallback.sessions,
-    };
+    return fallback;
   }
 
   const effectiveStudent = applyStudentContactOverride(mapStudent(studentRow), userMetadata);
@@ -908,11 +1183,51 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
   effectiveBatch = attachBatchPauses(effectiveBatch, pauseRows);
   const curriculum = await getCurriculum(effectiveBatch);
 
-  return {
-    student: effectiveStudent,
-    batch: effectiveBatch,
+  const courseClient = await createServerSupabaseClient();
+  const enrollmentResult = courseClient
+    ? await loadStudentCourseEnrollments(courseClient, effectiveStudent.id)
+    : { available: false, rows: [] as StudentCourseEnrollment[] };
+  const levelTwoEnrollment = enrollmentResult.rows.find((item) => item.courseLevel === 2);
+  const levelOneEnrollment = enrollmentResult.rows.find((item) => item.courseLevel === 1)
+    ?? (levelTwoEnrollment?.source === "direct"
+      ? {
+          studentId: effectiveStudent.id,
+          courseLevel: 1 as const,
+          status: "not_enrolled" as const,
+          source: "direct" as const,
+        }
+      : {
+          ...legacyLevelOneEnrollment(effectiveStudent),
+          endsAt: levelTwoEnrollment?.startsAt,
+        });
+  const enrollments = [
+    levelOneEnrollment,
+    ...enrollmentResult.rows.filter((item) => item.courseLevel === 2),
+  ];
+  const curricula = buildCourseCurricula({
     modules: curriculum.modules,
     sessions: curriculum.sessions,
+    batch: effectiveBatch,
+    enrollments,
+    includeLevelTwo: enrollmentResult.available,
+  });
+  const activeLevel = activeCourseLevel(enrollments);
+  const activeCurriculum = curricula.find((item) => item.level === activeLevel) ?? curricula[0];
+  const studentWithPlacement: StudentProfile = {
+    ...effectiveStudent,
+    courseEnrollments: enrollments,
+    activeCourseLevel: activeLevel,
+    coursePlacementAvailable: enrollmentResult.available,
+  };
+
+  return {
+    student: studentWithPlacement,
+    batch: effectiveBatch,
+    modules: activeCurriculum.modules,
+    sessions: activeCurriculum.sessions,
+    curricula,
+    activeCourseLevel: activeLevel,
+    coursePlacementAvailable: enrollmentResult.available,
   };
 }
 
@@ -929,6 +1244,47 @@ function emptyStudentData(context: StudentContextData): DashboardData {
     rescheduleRequests: [],
     passwordRequests: [],
   };
+}
+
+function withLevelOneHomeworkAccess(
+  context: StudentContextData,
+  homework: HomeworkItem[],
+) {
+  const levelOne = context.curricula.find((curriculum) => curriculum.level === 1);
+  const sessionMap = new Map(levelOne?.sessions.map((session) => [session.id, session]));
+  return homework
+    .filter((item) => sessionMap.has(item.sessionId))
+    .map((item) => {
+      const session = sessionMap.get(item.sessionId);
+      const accessState = session?.status === "not_enrolled"
+        ? "not_enrolled" as const
+        : session?.status === "skipped"
+          ? "skipped" as const
+          : session?.status === "locked"
+            ? "locked" as const
+            : "available" as const;
+      return {
+        ...item,
+        courseLevel: 1 as const,
+        moduleNumber: session?.moduleNumber ?? item.moduleNumber,
+        accessState,
+      };
+    });
+}
+
+async function getLevelTwoHomeworkForContext(
+  context: StudentContextData,
+  supabase: ServerSupabaseClient,
+) {
+  const levelTwo = context.curricula.find((curriculum) => curriculum.level === 2);
+  if (!levelTwo) return [];
+  const submissions = await loadLevelTwoSubmissions(supabase, context.student.id);
+  return buildLevelTwoHomework({
+    batch: context.batch,
+    sessions: levelTwo.sessions,
+    submissions,
+    studentId: context.student.id,
+  });
 }
 
 async function getStudentDashboardDataImpl(): Promise<DashboardData> {
@@ -982,16 +1338,21 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
         .limit(5),
     ]);
 
-  const homework = homeworkRows?.map((row) => mapHomework(row, effectiveStudent.id)) ?? demoHomework;
+  const levelOneHomework = withLevelOneHomeworkAccess(
+    context,
+    homeworkRows?.map((row) => mapHomework(row, effectiveStudent.id)) ?? demoHomework,
+  );
+  const levelTwoHomework = await getLevelTwoHomeworkForContext(context, supabase);
+  const homework = [...levelOneHomework, ...levelTwoHomework];
   const resources = filterUnlockedResources(resourceRows?.map((row) => mapResource(row)) ?? demoResources, curriculumSessions);
   const feedback = feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback;
-  const attendance = attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance;
+  const attendance = [
+    ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
+    ...(await loadLevelTwoAttendance(supabase, effectiveStudent.id)),
+  ];
 
   return {
-    student: effectiveStudent,
-    batch: effectiveBatch,
-    modules: context.modules,
-    sessions: curriculumSessions,
+    ...context,
     homework,
     resources,
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,
@@ -1014,16 +1375,25 @@ async function getStudentHomeworkDataImpl() {
     .select(homeworkSelect)
     .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
     .order("due_date", { ascending: true });
-  return {
-    ...data,
-    homework: rows?.map((row) => mapHomework(row, context.student.id)) ?? demoHomework,
-  };
+  const levelOneHomework = withLevelOneHomeworkAccess(
+    context,
+    rows?.map((row) => mapHomework(row, context.student.id)) ?? demoHomework,
+  );
+  const levelTwoHomework = await getLevelTwoHomeworkForContext(context, supabase);
+  return { ...data, homework: [...levelOneHomework, ...levelTwoHomework] };
 }
 
 export const getStudentHomeworkData = cache(() => measureServer("student.homework", getStudentHomeworkDataImpl));
 
 async function getStudentHomeworkDetailDataImpl(homeworkId: string): Promise<StudentHomeworkDetailData> {
   const context = await getStudentContextData();
+  if (homeworkId.startsWith("l2-")) {
+    const supabase = await createServerSupabaseClient();
+    if (!supabase) return { ...context };
+    const homework = (await getLevelTwoHomeworkForContext(context, supabase))
+      .find((item) => item.id === homeworkId);
+    return homework ? { ...context, homework } : { ...context };
+  }
   const fallbackHomework = demoHomework.find((item) => item.id === homeworkId);
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { ...context, homework: fallbackHomework };
@@ -1036,7 +1406,7 @@ async function getStudentHomeworkDetailDataImpl(homeworkId: string): Promise<Stu
     .maybeSingle();
 
   if (!row) return { ...context };
-  const homework = mapHomework(row, context.student.id);
+  const homework = withLevelOneHomeworkAccess(context, [mapHomework(row, context.student.id)])[0];
   return { ...context, homework };
 }
 
@@ -1047,15 +1417,25 @@ export const getStudentHomeworkDetailData = cache((homeworkId: string) =>
 async function getStudentResourcesDataImpl() {
   const context = await getStudentContextData();
   const data = emptyStudentData(context);
+  const levelOneSessions = context.curricula.find((curriculum) => curriculum.level === 1)?.sessions
+    ?? context.sessions;
   const supabase = await createServerSupabaseClient();
-  if (!supabase) return { ...data, resources: filterUnlockedResources(demoResources, context.sessions) };
+  if (!supabase) {
+    return {
+      ...data,
+      resources: filterUnlockedResources(demoResources, levelOneSessions),
+    };
+  }
   const { data: rows } = await supabase
     .from("resources")
     .select("id, module_id, session_id, title, type, url, created_at, sessions(title)")
     .order("created_at", { ascending: false });
   return {
     ...data,
-    resources: filterUnlockedResources(rows?.map((row) => mapResource(row)) ?? demoResources, context.sessions),
+    resources: filterUnlockedResources(
+      rows?.map((row) => mapResource(row)) ?? demoResources,
+      levelOneSessions,
+    ),
   };
 }
 
@@ -1063,7 +1443,15 @@ export const getStudentResourcesData = cache(() => measureServer("student.resour
 
 async function getStudentClassDataImpl() {
   const context = await getStudentContextData();
-  const data = emptyStudentData(context);
+  const enrolledTimeline = context.curricula.flatMap((curriculum) =>
+    curriculum.sessions.filter(
+      (session) => session.status !== "skipped" && session.status !== "not_enrolled",
+    ),
+  );
+  const data = {
+    ...emptyStudentData(context),
+    sessions: enrolledTimeline,
+  };
   const supabase = await createServerSupabaseClient();
   if (!supabase) return data;
   const rescheduleRequests = await loadStudentRescheduleRequests(context.student.id, supabase);
@@ -1091,7 +1479,10 @@ async function getStudentProgressDataImpl() {
   ]);
   return {
     ...data,
-    attendance: attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance,
+    attendance: [
+      ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
+      ...(await loadLevelTwoAttendance(supabase, context.student.id)),
+    ],
     feedback: feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback,
   };
 }
@@ -1307,12 +1698,25 @@ async function getStudentShellDataImpl(): Promise<StudentShellData> {
       .eq("sender_role", "admin")
       .is("read_by_student_at", null),
   ]);
-  const pendingHomeworkCount = (homeworkRows ?? []).filter((row) => {
+  const actionableSessionIds = new Set(
+    context.sessions
+      .filter((session) => session.status === "completed" || session.status === "current")
+      .map((session) => session.id),
+  );
+  const pendingLevelOneCount = context.activeCourseLevel === 1 ? (homeworkRows ?? []).filter((row) => {
+    if (!actionableSessionIds.has(text(row, "session_id"))) return false;
     const submission = relationRows(row, "submissions")
       .find((item) => text(item, "student_id") === context.student.id);
     const status = submission ? text(submission, "status", "pending") : "pending";
     return status === "pending" || status === "revision_requested";
-  }).length;
+  }).length : 0;
+  const levelTwoHomework = context.activeCourseLevel === 2
+    ? await getLevelTwoHomeworkForContext(context, supabase)
+    : [];
+  const pendingHomeworkCount = pendingLevelOneCount + levelTwoHomework.filter(
+    (item) => item.accessState === "available" &&
+      (item.status === "pending" || item.status === "revision_requested"),
+  ).length;
   const unseenBadge = unseenRows?.[0] ? mapStudentBadge(unseenRows[0]) ?? undefined : undefined;
   return {
     ...context,
@@ -1365,6 +1769,8 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
     { data: passwordRequestRows },
     { data: pauseRows },
     chatUnread,
+    enrollmentResult,
+    levelTwoAttendance,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -1403,34 +1809,41 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
       .select("id", { count: "exact", head: true })
       .eq("sender_role", "student")
       .is("read_by_admin_at", null),
+    loadAllCourseEnrollments(supabase),
+    loadAllLevelTwoAttendance(supabase),
   ]);
 
-  const mappedSessions = (sessionRows ?? [])
-    .map((row) => ({
-      row,
-      moduleOrder: num(relation(row, "modules") ?? {}, "order_index", 99),
-      sessionNumber: num(row, "session_number", 99),
-    }))
-    .sort((a, b) => a.moduleOrder - b.moduleOrder || a.sessionNumber - b.sessionNumber)
-    .map(({ row }, index) => mapSession(row, index + 1));
+  const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
+  const effectiveSessions = mappedSessions.length ? mappedSessions : sessions;
+  const legacySessionIds = mappedSessions.length
+    ? new Set(mappedSessions.map((session) => session.id))
+    : null;
 
   return {
-    students: studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
+    students: attachCourseEnrollmentState(
+      studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
+      enrollmentResult,
+    ),
     batches: batchRows?.map((row) => attachBatchPauses(
       mapBatch(row, relationRows(row, "students").length),
       pauseRows,
     )) ?? [demoBatch],
-    sessions: mappedSessions.length ? mappedSessions : sessions,
-    homework: homeworkRows?.map((row) => {
-      const mapped = mapHomework(row);
-      return {
-        ...mapped,
-        status: relationRows(row, "submissions").some((submission) => text(submission, "status") === "submitted")
-          ? "submitted"
-          : mapped.status,
-      };
-    }) ?? demoHomework,
-    attendance: attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance,
+    sessions: effectiveSessions,
+    homework: homeworkRows
+      ?.map((row) => {
+        const mapped = mapHomework(row);
+        return {
+          ...mapped,
+          status: relationRows(row, "submissions").some((submission) => text(submission, "status") === "submitted")
+            ? "submitted" as const
+            : mapped.status,
+        };
+      })
+      .filter((item) => !legacySessionIds || legacySessionIds.has(item.sessionId)) ?? demoHomework,
+    attendance: [
+      ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
+      ...levelTwoAttendance,
+    ],
     rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
     unreadChatCount: chatUnread.count ?? 0,
@@ -1442,14 +1855,20 @@ export const getAdminShellData = cache(() => measureServer("admin.shell", getAdm
 async function getAdminStudentsDataImpl(): Promise<AdminStudentsData> {
   if (!isSupabaseConfigured()) {
     const fallback = fallbackAdminData();
-    return { students: fallback.students, batches: fallback.batches, modules: fallback.modules };
+    return { students: fallback.students, batches: fallback.batches, modules: fallback.modules, coursePlacementAvailable: false };
   }
   const supabase = await createServerSupabaseClient();
   if (!supabase) {
     const fallback = fallbackAdminData();
-    return { students: fallback.students, batches: fallback.batches, modules: fallback.modules };
+    return { students: fallback.students, batches: fallback.batches, modules: fallback.modules, coursePlacementAvailable: false };
   }
-  const [{ data: studentRows }, { data: batchRows }, { data: moduleRows }, { data: pauseRows }] = await Promise.all([
+  const [
+    { data: studentRows },
+    { data: batchRows },
+    { data: moduleRows },
+    { data: pauseRows },
+    enrollmentResult,
+  ] = await Promise.all([
     supabase
       .from("students")
       .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
@@ -1465,14 +1884,34 @@ async function getAdminStudentsDataImpl(): Promise<AdminStudentsData> {
     supabase
       .from("batch_pauses")
       .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
+    loadAllCourseEnrollments(supabase),
   ]);
+  const enrollmentsByStudent = new Map<string, StudentCourseEnrollment[]>();
+  for (const enrollment of enrollmentResult.rows) {
+    const studentEnrollments = enrollmentsByStudent.get(enrollment.studentId) ?? [];
+    studentEnrollments.push(enrollment);
+    enrollmentsByStudent.set(enrollment.studentId, studentEnrollments);
+  }
   return {
-    students: studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
+    students: studentRows?.map((row) => {
+      const student = mapStudent(row);
+      const stored = enrollmentsByStudent.get(student.id) ?? [];
+      const enrollments = stored.length
+        ? stored
+        : [legacyLevelOneEnrollment(student)];
+      return {
+        ...student,
+        courseEnrollments: enrollments,
+        activeCourseLevel: activeCourseLevel(enrollments),
+        coursePlacementAvailable: enrollmentResult.available,
+      };
+    }) ?? [{ ...demoStudent, coursePlacementAvailable: false }],
     batches: batchRows?.map((row) => attachBatchPauses(
       mapBatch(row, relationRows(row, "students").length),
       pauseRows,
     )) ?? [demoBatch],
-    modules: moduleRows?.map((row) => mapModule(row)) ?? modules,
+    modules: moduleRows ? mapLegacyLevelOneModules(moduleRows) : modules,
+    coursePlacementAvailable: enrollmentResult.available,
   };
 }
 
@@ -1532,6 +1971,9 @@ async function getAdminDataImpl(): Promise<AdminData> {
     { data: rescheduleRequestRows },
     { data: passwordRequestRows },
     { data: pauseRows },
+    enrollmentResult,
+    levelTwoAttendance,
+    levelTwoClassJoinEvents,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -1586,28 +2028,30 @@ async function getAdminDataImpl(): Promise<AdminData> {
     supabase
       .from("batch_pauses")
       .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
+    loadAllCourseEnrollments(supabase),
+    loadAllLevelTwoAttendance(supabase),
+    loadAllLevelTwoClassJoinEvents(supabase),
   ]);
 
-  if (!moduleRows || !sessionRows) return fallbackAdminData();
-  const mappedModules = moduleRows.map((row) => mapModule(row));
-  const mappedSessions = sessionRows
-    .map((row) => ({
-      row,
-      moduleOrder: num(relation(row, "modules") ?? {}, "order_index", 99),
-      sessionNumber: num(row, "session_number", 99),
-    }))
-    .sort((a, b) => a.moduleOrder - b.moduleOrder || a.sessionNumber - b.sessionNumber)
-    .map(({ row }, index) => mapSession(row, index + 1));
+  const mappedModules = mapLegacyLevelOneModules(moduleRows ?? []);
+  const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
+  const effectiveSessions = mappedSessions.length ? mappedSessions : sessions;
+  const legacySessionIds = mappedSessions.length
+    ? new Set(mappedSessions.map((session) => session.id))
+    : null;
 
   return {
-    students: studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
+    students: attachCourseEnrollmentState(
+      studentRows?.map((row) => mapStudent(row)) ?? [demoStudent],
+      enrollmentResult,
+    ),
     batches:
       batchRows?.map((row) => attachBatchPauses(
         mapBatch(row, relationRows(row, "students").length),
         pauseRows,
       )) ?? [demoBatch],
-    modules: mappedModules,
-    sessions: mappedSessions,
+    modules: mappedModules.length ? mappedModules : modules,
+    sessions: effectiveSessions,
     homework:
       homeworkRows?.map((row) => {
         const mapped = mapHomework(row);
@@ -1618,12 +2062,18 @@ async function getAdminDataImpl(): Promise<AdminData> {
             ? "submitted"
             : mapped.status,
         };
-      }) ?? demoHomework,
+      }).filter((item) => !legacySessionIds || legacySessionIds.has(item.sessionId)) ?? demoHomework,
     resources: resourceRows?.map((row) => mapResource(row)) ?? demoResources,
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,
-    attendance: attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance,
+    attendance: [
+      ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
+      ...levelTwoAttendance,
+    ],
     feedback: feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback,
-    classJoinEvents: classJoinEventRows?.map((row) => mapClassJoinEvent(row)) ?? demoClassJoinEvents,
+    classJoinEvents: [
+      ...(classJoinEventRows?.map((row) => mapClassJoinEvent(row)) ?? demoClassJoinEvents),
+      ...levelTwoClassJoinEvents,
+    ].sort((a, b) => b.joinedAt.localeCompare(a.joinedAt)).slice(0, 20),
     rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
   };
@@ -1636,39 +2086,67 @@ async function getAdminHomeworkDataImpl(): Promise<AdminData> {
   const supabase = await createServerSupabaseClient();
   if (!supabase) return data;
 
-  const evidenceRows = await getSubmissionEvidenceRows(supabase);
+  const [evidenceRows, enrollmentResult, levelTwoSubmissionResult] = await Promise.all([
+    getSubmissionEvidenceRows(supabase),
+    loadAllCourseEnrollments(supabase),
+    loadAllLevelTwoSubmissions(supabase),
+  ]);
   const evidenceBySubmission = new Map(
     (evidenceRows ?? []).map((row) => [`${text(row, "homework_id")}:${text(row, "student_id")}`, row]),
   );
+  const enrollmentsByStudent = new Map<string, StudentCourseEnrollment[]>();
+  for (const enrollment of enrollmentResult.rows) {
+    const studentEnrollments = enrollmentsByStudent.get(enrollment.studentId) ?? [];
+    studentEnrollments.push(enrollment);
+    enrollmentsByStudent.set(enrollment.studentId, studentEnrollments);
+  }
+
+  const levelOneHomework = data.homework.map((homework) => ({
+    ...homework,
+    submissions: homework.submissions?.map((submission) => {
+      const evidence = evidenceBySubmission.get(`${homework.id}:${submission.studentId}`);
+      if (!evidence) return submission;
+      return {
+        ...submission,
+        screenImage: text(evidence, "screen_image") || undefined,
+        cameraImage: text(evidence, "camera_image") || undefined,
+        proofText: text(evidence, "proof_text") || undefined,
+        attachmentName: text(evidence, "attachment_name") || undefined,
+        attachmentMime: text(evidence, "attachment_mime") || undefined,
+        attachmentData: text(evidence, "attachment_data") || undefined,
+        proofCapturedAt: text(evidence, "captured_at") || undefined,
+        proofExpiresAt: text(evidence, "expires_at") || undefined,
+        userAgent: text(evidence, "user_agent") || undefined,
+        browserName: text(evidence, "browser_name") || undefined,
+        browserVersion: text(evidence, "browser_version") || undefined,
+        osName: text(evidence, "os_name") || undefined,
+        deviceType: text(evidence, "device_type") || undefined,
+        viewportWidth: num(evidence, "viewport_width") || undefined,
+        viewportHeight: num(evidence, "viewport_height") || undefined,
+        language: text(evidence, "language") || undefined,
+      };
+    }),
+  }));
+  const levelTwoAvailable = enrollmentResult.available && levelTwoSubmissionResult.available;
+  const levelTwoHomework = levelTwoAvailable
+    ? buildAdminLevelTwoHomework(data.batches[0] ?? demoBatch, levelTwoSubmissionResult.rows)
+    : [];
 
   return {
     ...data,
-    homework: data.homework.map((homework) => ({
-      ...homework,
-      submissions: homework.submissions?.map((submission) => {
-        const evidence = evidenceBySubmission.get(`${homework.id}:${submission.studentId}`);
-        if (!evidence) return submission;
-        return {
-          ...submission,
-          screenImage: text(evidence, "screen_image") || undefined,
-          cameraImage: text(evidence, "camera_image") || undefined,
-          proofText: text(evidence, "proof_text") || undefined,
-          attachmentName: text(evidence, "attachment_name") || undefined,
-          attachmentMime: text(evidence, "attachment_mime") || undefined,
-          attachmentData: text(evidence, "attachment_data") || undefined,
-          proofCapturedAt: text(evidence, "captured_at") || undefined,
-          proofExpiresAt: text(evidence, "expires_at") || undefined,
-          userAgent: text(evidence, "user_agent") || undefined,
-          browserName: text(evidence, "browser_name") || undefined,
-          browserVersion: text(evidence, "browser_version") || undefined,
-          osName: text(evidence, "os_name") || undefined,
-          deviceType: text(evidence, "device_type") || undefined,
-          viewportWidth: num(evidence, "viewport_width") || undefined,
-          viewportHeight: num(evidence, "viewport_height") || undefined,
-          language: text(evidence, "language") || undefined,
-        };
-      }),
-    })),
+    students: data.students.map((student) => {
+      if (!enrollmentResult.available) return student;
+      const stored = enrollmentsByStudent.get(student.id) ?? [];
+      const courseEnrollments = stored.length ? stored : [legacyLevelOneEnrollment(student)];
+      return {
+        ...student,
+        courseEnrollments,
+        activeCourseLevel: activeCourseLevel(courseEnrollments),
+        coursePlacementAvailable: true,
+      };
+    }),
+    sessions: levelTwoAvailable ? [...data.sessions, ...levelTwoSessions] : data.sessions,
+    homework: [...levelOneHomework, ...levelTwoHomework],
   };
 }
 
@@ -1685,7 +2163,13 @@ async function getMentorScheduleDataImpl(): Promise<MentorScheduleData> {
     };
   }
 
-  const [{ data: studentRows }, { data: batchRows }, { data: requestRows }, { data: pauseRows }] = await Promise.all([
+  const [
+    { data: studentRows },
+    { data: batchRows },
+    { data: requestRows },
+    { data: pauseRows },
+    enrollmentResult,
+  ] = await Promise.all([
     supabase
       .from("students")
       .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)"),
@@ -1699,10 +2183,14 @@ async function getMentorScheduleDataImpl(): Promise<MentorScheduleData> {
     supabase
       .from("batch_pauses")
       .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
+    loadAllCourseEnrollments(supabase),
   ]);
 
   return {
-    students: studentRows?.map((row) => mapStudent(row)) ?? [],
+    students: attachCourseEnrollmentState(
+      studentRows?.map((row) => mapStudent(row)) ?? [],
+      enrollmentResult,
+    ),
     batches: batchRows?.map((row) => attachBatchPauses(
       mapBatch(row, relationRows(row, "students").length),
       pauseRows,

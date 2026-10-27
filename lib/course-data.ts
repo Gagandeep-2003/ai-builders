@@ -10,6 +10,30 @@ export type BadgeCategory = "curriculum" | "homework" | "attendance" | "streak" 
 export type BadgeRarity = "common" | "rare" | "epic" | "legendary";
 export type ChatSenderRole = "student" | "admin";
 export type ChatMessageKind = "text" | "voice";
+export type CourseLevel = 1 | 2;
+export type CourseEnrollmentStatus = "enrolled" | "not_enrolled";
+export type CourseEnrollmentSource = "legacy" | "promotion" | "direct";
+export type CourseSessionStatus =
+  | "completed"
+  | "current"
+  | "locked"
+  | "skipped"
+  | "not_enrolled";
+export type CourseLevelState = "current" | "scheduled" | "completed" | "not_enrolled";
+
+export type StudentCourseEnrollment = {
+  id?: string;
+  studentId: string;
+  courseLevel: CourseLevel;
+  status: CourseEnrollmentStatus;
+  startsAt?: string;
+  endsAt?: string;
+  startModuleNumber?: number;
+  startSessionNumber?: number;
+  source: CourseEnrollmentSource;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
 export type HomeworkDetails = {
   moduleNumber: number;
@@ -25,6 +49,11 @@ export type HomeworkDetails = {
   prompt?: string;
   deliverables?: string[];
   checklist?: string[];
+  estimatedTime?: string;
+  difficulty?: string;
+  primaryOutput?: string;
+  sourceName?: string;
+  folderUrl?: string;
 };
 
 export type CourseModule = {
@@ -33,6 +62,8 @@ export type CourseModule = {
   description: string;
   orderIndex: number;
   sessionCount: number;
+  courseLevel?: CourseLevel;
+  levelOrderIndex?: number;
 };
 
 export type CourseSession = {
@@ -46,6 +77,12 @@ export type CourseSession = {
   studentOutput: string;
   description: string;
   date: string;
+  courseLevel?: CourseLevel;
+  moduleNumber?: number;
+  /** Position within this student's active schedule. Unlike globalNumber, this can reset to 1. */
+  scheduleIndex?: number;
+  /** Exact first class occurrence for a level transition, including same-day multi-slot batches. */
+  scheduleStartsAt?: string;
 };
 
 export type StudentProfile = {
@@ -60,6 +97,9 @@ export type StudentProfile = {
   timeZone: string;
   batchId: string;
   enrolledAt: string;
+  courseEnrollments?: StudentCourseEnrollment[];
+  activeCourseLevel?: CourseLevel;
+  coursePlacementAvailable?: boolean;
 };
 
 export type Batch = {
@@ -122,6 +162,10 @@ export type HomeworkItem = {
   submittedCount?: number;
   averageTimeSpentSeconds?: number;
   submissions?: HomeworkSubmissionSummary[];
+  courseLevel?: CourseLevel;
+  moduleNumber?: number;
+  accessState?: "available" | "locked" | "skipped" | "not_enrolled";
+  catalogManaged?: boolean;
 };
 
 export type HomeworkSubmissionSummary = {

@@ -279,7 +279,10 @@ export default async function AdminDashboardPage() {
         </div>
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
           {todayClasses.length > 0 ? todayClasses.map((event) => {
-            const moduleNumber = event.session ? Math.ceil(event.session.globalNumber / 8) : undefined;
+            const moduleNumber = event.session
+              ? event.session.moduleNumber ?? Math.ceil(event.session.globalNumber / 8)
+              : undefined;
+            const courseLevel = event.session?.courseLevel ?? 1;
             return (
             <article key={`today-${event.id}`} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -291,7 +294,7 @@ export default async function AdminDashboardPage() {
                   <p className="mt-2 text-sm text-text-secondary">
                     {event.kind !== "regular"
                       ? event.detail
-                      : `Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
+                      : `Level ${courseLevel} · Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
                   </p>
                   <p className="mt-1 text-xs text-text-muted">{event.batch.name}</p>
                   <p className="mt-3 font-mono text-xs text-accent">
@@ -304,7 +307,7 @@ export default async function AdminDashboardPage() {
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <StatusBadge
                     status={event.kind !== "regular" ? "rescheduled" : event.status}
-                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
+                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `L${courseLevel} M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
                   />
                   <a
                     href={event.meetLink}
@@ -335,7 +338,10 @@ export default async function AdminDashboardPage() {
         </div>
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
           {upcomingClasses.map((event) => {
-            const moduleNumber = event.session ? Math.ceil(event.session.globalNumber / 8) : undefined;
+            const moduleNumber = event.session
+              ? event.session.moduleNumber ?? Math.ceil(event.session.globalNumber / 8)
+              : undefined;
+            const courseLevel = event.session?.courseLevel ?? 1;
             return (
             <article
               key={event.id}
@@ -350,14 +356,14 @@ export default async function AdminDashboardPage() {
                   <p className="mt-2 text-sm text-text-secondary">
                     {event.kind !== "regular"
                       ? event.detail
-                      : `Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
+                      : `Level ${courseLevel} · Module ${moduleNumber} · Session ${event.session?.sessionNumber} · ${event.title}`}
                   </p>
                   <p className="mt-1 text-xs text-text-muted">{event.batch.name}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <StatusBadge
                     status={event.kind !== "regular" ? "rescheduled" : event.status}
-                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
+                    label={event.kind !== "regular" ? event.tag : event.status === "current" ? `L${courseLevel} M${moduleNumber} S${event.session?.sessionNumber}` : event.status}
                   />
                   <a
                     href={event.meetLink}

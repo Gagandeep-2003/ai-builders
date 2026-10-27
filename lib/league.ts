@@ -1,5 +1,6 @@
 import type {
   AttendanceItem,
+  CourseSessionStatus,
   CourseSession,
   HomeworkItem,
   StudentProfile,
@@ -69,7 +70,7 @@ export function calculateLeagueScore({
 }: {
   homework: HomeworkItem[];
   attendance: AttendanceItem[];
-  sessions: Array<CourseSession & { status?: "completed" | "current" | "locked" }>;
+  sessions: Array<CourseSession & { status?: CourseSessionStatus }>;
 }): LeagueScore {
   const submittedTasks = homework.filter((item) => item.status === "submitted" || item.status === "reviewed").length;
   const reviewedTasks = homework.filter((item) => item.status === "reviewed").length;

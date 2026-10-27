@@ -53,12 +53,19 @@ export default async function DashboardPage() {
   const now = new Date();
   const completed = data.sessions.filter((session) => session.status === "completed").length;
   const pendingHomework = data.homework.filter(
-    (item) => item.status === "pending" || item.status === "revision_requested",
+    (item) =>
+      (item.courseLevel ?? 1) === data.activeCourseLevel &&
+      item.accessState === "available" &&
+      (item.status === "pending" || item.status === "revision_requested"),
   );
+  const activeHomework = data.homework.filter(
+    (item) => (item.courseLevel ?? 1) === data.activeCourseLevel && item.accessState === "available",
+  );
+  const cumulativeSessions = data.curricula.flatMap((curriculum) => curriculum.sessions);
   const classEvents = getStudentClassEvents({
     student: data.student,
     batch: data.batch,
-    sessions: data.sessions,
+    sessions: cumulativeSessions,
     requests: data.rescheduleRequests,
     now,
   });
@@ -71,14 +78,14 @@ export default async function DashboardPage() {
   const leagueScore = calculateLeagueScore({
     homework: data.homework,
     attendance: data.attendance,
-    sessions: data.sessions,
+    sessions: cumulativeSessions,
   });
   const badgeProgress = calculateBadgeProgress({
     definitions: achievements.definitions,
     awards: achievements.awards,
     homework: data.homework,
     attendance: data.attendance,
-    sessions: data.sessions,
+    sessions: cumulativeSessions,
   });
   const pendingClassRequest = data.rescheduleRequests.find((request) => request.status === "pending");
   const latestRejectedClassRequest = getActiveRejectedClassRequest(data.rescheduleRequests, classEvents, now);
@@ -139,7 +146,7 @@ export default async function DashboardPage() {
 
       <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <FadeIn>
-          <StatCard icon="book" label="Sessions Completed" value={completed} />
+          <StatCard icon="book" label={`Level ${data.activeCourseLevel} Sessions Completed`} value={completed} />
         </FadeIn>
         <FadeIn>
           <StatCard icon="clipboard" label="Homework Pending" value={pendingHomework.length} />
@@ -203,7 +210,7 @@ export default async function DashboardPage() {
         <section className="premium-card rounded-xl p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="font-mono text-xs uppercase text-accent">Current Module</p>
+              <p className="font-mono text-xs uppercase text-accent">Level {data.activeCourseLevel} · Current Module</p>
               <h2 className="mt-3 font-heading text-2xl font-bold">{currentModule.title}</h2>
               <p className="mt-3 max-w-2xl text-text-secondary">{currentModule.description}</p>
             </div>
@@ -243,8 +250,8 @@ export default async function DashboardPage() {
         <section className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
           {[
             ["Join Class", "/class", Video],
-            ["View Curriculum", "/curriculum", BookOpenCheck],
-            ["My Resources", "/resources", FolderOpen],
+            ["View Curriculum", `/curriculum?level=${data.activeCourseLevel}`, BookOpenCheck],
+            ["My Resources", `/resources?level=${data.activeCourseLevel}`, FolderOpen],
           ].map(([label, href, Icon]) => (
             <Link
               key={String(label)}
@@ -266,12 +273,12 @@ export default async function DashboardPage() {
             <p className="font-mono text-xs uppercase text-accent">Homework</p>
             <h2 className="mt-2 font-heading text-2xl font-bold">Upcoming work</h2>
           </div>
-          <Link href="/homework" className="text-sm text-accent">
+          <Link href={`/homework?level=${data.activeCourseLevel}`} className="text-sm text-accent">
             View all
           </Link>
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
-          {data.homework.slice(0, 3).map((homework) => (
+          {activeHomework.slice(0, 3).map((homework) => (
             <HomeworkCard key={homework.id} homework={homework} />
           ))}
         </div>

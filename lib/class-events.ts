@@ -3,9 +3,12 @@ import type {
   Batch,
   ClassRescheduleRequest,
   CourseSession,
+  StudentCourseEnrollment,
   StudentProfile,
 } from "@/lib/course-data";
+import { buildCourseCurricula } from "@/lib/level-two";
 import {
+  applySessionStatuses,
   formatInTimeZone,
   getSessionDateTimes,
   getSessionScheduleDate,
@@ -144,6 +147,7 @@ export function getStudentClassEvents({
       .filter((date): date is string => Boolean(date)),
   );
   const regularEvents: ClassEvent[] = sessions.flatMap((session) => {
+    if (session.status === "skipped" || session.status === "not_enrolled") return [];
     if (replacedDates.has(getSessionScheduleDate(session, batch))) return [];
     const schedule = getSessionDateTimes(session, batch);
     return [{
@@ -156,7 +160,7 @@ export function getStudentClassEvents({
       student,
       session,
       title: session.title,
-      detail: `Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
+      detail: `Level ${session.courseLevel ?? 1} · Module ${session.moduleNumber ?? Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
       status: session.status ?? "current",
       tag: "Regular",
     }];
@@ -200,6 +204,66 @@ export function getNextClassEvent(events: ClassEvent[], now = new Date()) {
   return events.find((event) => event.endsAt.getTime() >= now.getTime()) ?? events.at(-1);
 }
 
+function inferredLevelOneEnrollment(
+  student: StudentProfile,
+  levelTwo: StudentCourseEnrollment | undefined,
+): StudentCourseEnrollment {
+  return {
+    studentId: student.id,
+    courseLevel: 1,
+    status: levelTwo?.source === "direct" ? "not_enrolled" : "enrolled",
+    startsAt: student.enrolledAt || levelTwo?.startsAt,
+    endsAt: levelTwo?.source === "promotion" ? levelTwo.startsAt : undefined,
+    startModuleNumber: 1,
+    startSessionNumber: 1,
+    source: "legacy",
+  };
+}
+
+/**
+ * Returns only the regular sessions that belong to this student's own course
+ * timeline. Level 2 is never added globally: it appears only when the student
+ * has a stored Level 2 enrollment. Level 1 history is retained up to a
+ * promotion boundary, while direct Level 2 students do not receive Level 1.
+ */
+export function getStudentScheduledSessions({
+  student,
+  batch,
+  levelOneSessions,
+  now = new Date(),
+}: {
+  student: StudentProfile;
+  batch: Batch;
+  levelOneSessions: CourseSession[];
+  now?: Date;
+}) {
+  const legacySessions = levelOneSessions.filter((session) => (session.courseLevel ?? 1) === 1);
+  const storedEnrollments = student.courseEnrollments;
+  if (!storedEnrollments?.length) {
+    return applySessionStatuses(legacySessions, batch, now);
+  }
+
+  const levelTwo = storedEnrollments.find((enrollment) => enrollment.courseLevel === 2);
+  const levelOne = storedEnrollments.find((enrollment) => enrollment.courseLevel === 1)
+    ?? inferredLevelOneEnrollment(student, levelTwo);
+  const enrollments = [
+    levelOne,
+    ...storedEnrollments.filter((enrollment) => enrollment.courseLevel !== 1),
+  ];
+  const curricula = buildCourseCurricula({
+    modules: [],
+    sessions: legacySessions,
+    batch,
+    enrollments,
+    includeLevelTwo: Boolean(levelTwo),
+    now,
+  });
+
+  return curricula.flatMap((curriculum) => curriculum.sessions).filter(
+    (session) => session.status !== "skipped" && session.status !== "not_enrolled",
+  );
+}
+
 export function getAdminClassEvents({
   students,
   batches,
@@ -218,6 +282,12 @@ export function getAdminClassEvents({
   const regularEvents: ClassEvent[] = students.flatMap((student) => {
     const batch = batches.find((item) => item.id === student.batchId);
     if (!batch) return [];
+    const studentSessions = getStudentScheduledSessions({
+      student,
+      batch,
+      levelOneSessions: sessions,
+      now,
+    });
     const replacedDates = new Set(
       requests
         .filter(
@@ -229,7 +299,7 @@ export function getAdminClassEvents({
         .map((request) => request.originalDate as string),
     );
 
-    return sessions.flatMap((session) => {
+    return studentSessions.flatMap((session) => {
       if (replacedDates.has(getSessionScheduleDate(session, batch))) return [];
       const schedule = getSessionDateTimes(session, batch);
       const attendanceStatus = attendance.find(
@@ -246,7 +316,7 @@ export function getAdminClassEvents({
         student,
         session,
         title: session.title,
-        detail: `Module ${Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
+        detail: `Level ${session.courseLevel ?? 1} · Module ${session.moduleNumber ?? Math.ceil(session.globalNumber / 8)} · Session ${session.sessionNumber}`,
         status: attendanceStatus ?? "current",
         tag: "Regular",
       }];
@@ -262,8 +332,14 @@ export function getAdminClassEvents({
 
       const schedule = getRescheduleRequestDateTimes(request);
       const kind = getRescheduleRequestKind(request);
+      const studentSessions = getStudentScheduledSessions({
+        student,
+        batch,
+        levelOneSessions: sessions,
+        now,
+      });
       const originalSession = request.originalDate
-        ? sessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)
+        ? studentSessions.find((session) => getSessionScheduleDate(session, batch) === request.originalDate)
         : undefined;
       return [{
         id: `${kind}-${request.id}`,
