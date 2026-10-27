@@ -608,6 +608,7 @@ export async function promoteStudentToLevelTwoAction(
   revalidatePath("/curriculum");
   revalidatePath("/homework");
   revalidatePath("/journey");
+  revalidatePath("/progress");
   revalidatePath("/resources");
   const formattedStart = new Intl.DateTimeFormat("en", {
     timeZone: student.timeZone || batch.timeZone,

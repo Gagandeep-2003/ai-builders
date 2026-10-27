@@ -486,7 +486,9 @@ begin
   from public.batches as batch
   join public.batch_class_slots as slot on slot.batch_id = batch.id
   where batch.id = current_batch_id
-    and p_class_date = (joined_at at time zone batch.time_zone)::date
+    -- p_class_date is the scheduled slot date. Its 15-minute opening or an
+    -- overnight end may fall on the adjacent local date, so the verified UTC
+    -- window below is the authoritative current-time check.
     and slot.day_of_week = extract(dow from p_class_date)::integer
     and nullif(trim(slot.meet_link), '') is not null
     and joined_at >= (
@@ -523,8 +525,14 @@ begin
   where candidate.student_id = current_student_id
     and candidate.course_level = 2
     and candidate.status = 'enrolled'
-    and candidate.starts_at <= joined_at
-    and (candidate.ends_at is null or joined_at < candidate.ends_at)
+    -- The verified class window opens 15 minutes before the scheduled start.
+    -- Check placement against that stored class occurrence so the first Level 2
+    -- class can be joined during the same early window as every other class.
+    and candidate.starts_at <= matched_class_starts_at
+    and (
+      candidate.ends_at is null
+      or matched_class_starts_at < candidate.ends_at
+    )
   for share;
 
   if not found then

@@ -101,6 +101,8 @@ export function HomeworkTracker({
                   return (
                     <button
                       key={session.id}
+                      type="button"
+                      aria-pressed={isActive}
                       onClick={() => {
                         setActiveSessionId(session.id);
                         const params = new URLSearchParams(searchParams.toString());
@@ -112,7 +114,7 @@ export function HomeworkTracker({
                         );
                       }}
                       className={cn(
-                        "w-full rounded-xl border p-4 text-left transition",
+                        "homework-session-button w-full rounded-xl border p-4 text-left transition",
                         isActive
                           ? "border-accent/50 bg-accent/10 shadow-[0_0_24px_rgba(110,231,183,0.12)]"
                           : "border-border bg-bg-card hover:border-accent/25 hover:bg-white/[0.035]",

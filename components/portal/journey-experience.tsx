@@ -188,11 +188,13 @@ function getModuleSessions(sessions: CurriculumSession[], moduleId: string) {
 }
 
 function getModuleProgress(sessions: CurriculumSession[], moduleId: string) {
-  const moduleSessions = getModuleSessions(sessions, moduleId);
+  const moduleSessions = getModuleSessions(sessions, moduleId).filter(
+    (session) => session.status !== "skipped" && session.status !== "not_enrolled",
+  );
   const completed = moduleSessions.filter((session) => session.status === "completed").length;
   return {
     completed,
-    total: moduleSessions.length || 8,
+    total: moduleSessions.length,
   };
 }
 
@@ -577,7 +579,9 @@ export function JourneyExperience({
   completedCount,
   nextSession,
 }: JourneyExperienceProps) {
-  const [activeModuleId, setActiveModuleId] = useState(modules[0]?.id ?? "");
+  const [activeModuleId, setActiveModuleId] = useState(
+    nextSession?.moduleId ?? modules[0]?.id ?? "",
+  );
   const activeIndex = Math.max(0, modules.findIndex((module) => module.id === activeModuleId));
   const activeModule = modules[activeIndex] ?? modules[0];
   const activeVisual = moduleVisuals[activeIndex % moduleVisuals.length];
@@ -585,8 +589,12 @@ export function JourneyExperience({
     () => getModuleSessions(sessions, activeModule?.id ?? ""),
     [activeModule?.id, sessions],
   );
-  const totalSessions = sessions.length || 24;
-  const journeyPercent = Math.round((completedCount / totalSessions) * 100);
+  const totalSessions = sessions.filter(
+    (session) => session.status !== "skipped" && session.status !== "not_enrolled",
+  ).length;
+  const journeyPercent = totalSessions > 0
+    ? Math.round((completedCount / totalSessions) * 100)
+    : 0;
 
   return (
     <div className="journey-experience-shell">
@@ -746,7 +754,7 @@ export function JourneyExperience({
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: `${Math.round((progress.completed / progress.total) * 100)}%`,
+                      width: `${progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0}%`,
                       background: visual.accent,
                     }}
                   />

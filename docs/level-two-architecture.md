@@ -74,7 +74,7 @@ select public.record_level_two_class_join(
 );
 ```
 
-The RPC resolves the student from `auth.uid()`; callers cannot provide another student's ID. It validates the stable session ID, active enrollment window, and selected starting position. It then upserts `present` attendance and appends a join event atomically. It returns JSON containing `attendance_id`, `join_event_id`, and `joined_at`.
+The RPC resolves the student from `auth.uid()`; callers cannot provide another student's ID. It validates the stable session ID, the enrollment window against the verified stored class occurrence, and the selected starting position. Comparing the enrollment boundary with the class start (rather than the click time) preserves the normal 15-minute early join window for the first Level 2 class. It then upserts `present` attendance and appends a join event atomically. It returns JSON containing `attendance_id`, `join_event_id`, and `joined_at`.
 
 ## Options considered
 
@@ -147,7 +147,8 @@ Run with separate authenticated admin, student A, student B, and anonymous clien
 
 ### Class join
 
-- As the enrolled student, call `record_level_two_class_join` for the selected starting session. Confirm one `present` attendance row and one join event are committed and the returned IDs match them.
+- As the enrolled student, call `record_level_two_class_join` for the selected starting session during its normal 15-minute early join window. Confirm one `present` attendance row and one join event are committed and the returned IDs match them, even though `joined_at` precedes the enrollment boundary at the class start.
+- Repeat that check for a class shortly after midnight whose early window begins on the previous local date, and for an overnight class whose end is on the following local date.
 - Call it again. Confirm attendance is updated rather than duplicated and a second audit event is appended.
-- Try a stable-looking session before the selected start, a mismatched session ID/number pair, a future enrollment, and an ended enrollment; each fails with neither attendance nor event committed.
+- Try a stable-looking session before the selected start, a mismatched session ID/number pair, an enrollment that starts after the matched class occurrence, an ended enrollment, and a class date outside every currently open stored slot; each fails with neither attendance nor event committed.
 - Call as another student and confirm the function can only write rows for the student resolved from that caller's `auth.uid()`.

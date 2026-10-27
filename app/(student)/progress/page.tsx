@@ -18,7 +18,11 @@ export default async function ProgressPage({
 }) {
   const { level } = await searchParams;
   const [data, achievements] = await Promise.all([getStudentProgressData(), getStudentAchievementData()]);
-  const curriculum = selectCourseCurriculum(data.curricula, level, data.activeCourseLevel);
+  const hasLevelTwoEnrollment = data.curricula.some(
+    (item) => item.level === 2 && item.enrollment?.status === "enrolled",
+  );
+  const defaultLevel = hasLevelTwoEnrollment ? 2 : data.activeCourseLevel;
+  const curriculum = selectCourseCurriculum(data.curricula, level, defaultLevel);
   const selectedSessionIds = new Set(curriculum.sessions.map((session) => session.id));
   const eligibleSessions = curriculum.sessions.filter(
     (session) => session.status !== "skipped" && session.status !== "not_enrolled",

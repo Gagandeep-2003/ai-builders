@@ -183,6 +183,10 @@ export function buildLevelTwoCurriculum(
     enrollment?.startModuleNumber ?? 1,
     enrollment?.startSessionNumber ?? 1,
   );
+  const enrollmentStartsAt = enrollment?.startsAt
+    ? new Date(enrollment.startsAt).getTime()
+    : Number.NaN;
+  const startsInFuture = Number.isFinite(enrollmentStartsAt) && enrollmentStartsAt > now.getTime();
   let currentAssigned = false;
 
   const sessions = levelTwoSessions.map((baseSession) => {
@@ -200,12 +204,14 @@ export function buildLevelTwoCurriculum(
       scheduleStartsAt: enrollment.startsAt,
     };
     const { endsAt } = getSessionDateTimes(scheduled, batch);
-    const completed = endsAt.getTime() <= now.getTime();
-    const status: CourseSessionStatus = completed
-      ? "completed"
-      : currentAssigned
-        ? "locked"
-        : "current";
+    const completed = !startsInFuture && endsAt.getTime() <= now.getTime();
+    const status: CourseSessionStatus = startsInFuture
+      ? "locked"
+      : completed
+        ? "completed"
+        : currentAssigned
+          ? "locked"
+          : "current";
     if (!completed && !currentAssigned) currentAssigned = true;
 
     return {

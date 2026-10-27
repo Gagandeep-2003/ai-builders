@@ -392,10 +392,13 @@ export function daysUntilSession(session: CourseSession, batch: Batch, now = new
 }
 
 export function getNextSession(sessions: Array<CourseSession & { status?: string }>) {
+  const eligibleSessions = sessions.filter(
+    (session) => session.status !== "skipped" && session.status !== "not_enrolled",
+  );
   return (
-    sessions.find((session) => session.status === "current") ??
-    sessions.find((session) => session.status !== "completed") ??
-    sessions.at(-1)
+    eligibleSessions.find((session) => session.status === "current") ??
+    eligibleSessions.find((session) => session.status !== "completed") ??
+    eligibleSessions.at(-1)
   );
 }
 

@@ -89,6 +89,7 @@ export default async function HomeworkDetailPage({
     getSessionAccessBoundary(curriculumSessions),
   );
   const readOnly = homework.accessState === "skipped" || homework.accessState === "not_enrolled" || homework.accessState === "locked";
+  const isLevelTwo = (homework.courseLevel ?? 1) === 2;
   const isCompleted = homework.status === "submitted" || homework.status === "reviewed";
   const hasStaleTiming =
     isCompleted && typeof homework.timeSpentSeconds === "number" && !isTrustedTaskDuration(homework.timeSpentSeconds);
@@ -110,7 +111,7 @@ export default async function HomeworkDetailPage({
   };
 
   return (
-    <AnimatedPage>
+    <AnimatedPage className={isLevelTwo ? "level-two-homework-theme" : undefined}>
       <PendingLink
         href={`/homework?level=${homework.courseLevel ?? 1}&session=${encodeURIComponent(homework.sessionId)}`}
         pendingLabel="Returning..."
@@ -210,7 +211,7 @@ export default async function HomeworkDetailPage({
 
       <section className="premium-card overflow-hidden rounded-xl p-0">
         <div className="relative overflow-hidden border-b border-border/70 p-6">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(110,231,183,0.13),transparent_32%),radial-gradient(circle_at_88%_8%,rgba(96,165,250,0.10),transparent_26%)]" />
+            <div className="homework-task-studio-backdrop absolute inset-0" />
             <div className="relative flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">Task Studio</p>

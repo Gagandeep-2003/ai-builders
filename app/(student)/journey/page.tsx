@@ -14,7 +14,11 @@ export default async function JourneyPage({
 }) {
   const { level } = await searchParams;
   const [data, achievements] = await Promise.all([getStudentProgressData(), getStudentAchievementData()]);
-  const curriculum = selectCourseCurriculum(data.curricula, level, data.activeCourseLevel);
+  const hasLevelTwoEnrollment = data.curricula.some(
+    (item) => item.level === 2 && item.enrollment?.status === "enrolled",
+  );
+  const defaultLevel = hasLevelTwoEnrollment ? 2 : data.activeCourseLevel;
+  const curriculum = selectCourseCurriculum(data.curricula, level, defaultLevel);
   const completedCount = curriculum.sessions.filter((session) => session.status === "completed").length;
   const nextSession = getNextSession(curriculum.sessions);
   const cumulativeSessions = data.curricula.flatMap((item) => item.sessions);

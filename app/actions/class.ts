@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getAdminAvailabilityData, getMentorScheduleData, getStudentDashboardData } from "@/lib/data";
+import {
+  getAdminAvailabilityData,
+  getMentorScheduleData,
+  getStudentClassData,
+  getStudentDashboardData,
+} from "@/lib/data";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { normalizeMeetLink } from "@/lib/meet-links";
@@ -26,7 +31,7 @@ export async function joinClassAction(formData: FormData) {
 
   if (!user) redirect("/login");
 
-  const data = await getStudentDashboardData();
+  const data = await getStudentClassData();
   const session = data.sessions.find((item) => item.id === sessionId);
   if (!session) redirect("/class");
   const classDate = getSessionScheduleDate(session, data.batch);

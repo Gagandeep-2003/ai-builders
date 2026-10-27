@@ -748,6 +748,229 @@ textarea:focus-visible {
   scrollbar-width: thin;
 }
 
+/* Level 2's advanced visual language is deliberately scoped to student homework. */
+.level-two-homework-theme {
+  --accent: #a78bfa;
+  --level-two-secondary: #38bdf8;
+  --level-two-highlight: #f472b6;
+}
+
+[data-theme="light"] .level-two-homework-theme {
+  --accent: #6d28d9;
+  --level-two-secondary: #0369a1;
+  --level-two-highlight: #be185d;
+}
+
+.level-two-homework-theme .premium-card {
+  --glow-color: rgb(196 181 253 / 92%);
+  --glow-color-60: rgb(196 181 253 / 55%);
+  --glow-color-50: rgb(196 181 253 / 42%);
+  --glow-color-40: rgb(196 181 253 / 32%);
+  --glow-color-30: rgb(196 181 253 / 22%);
+  --glow-color-20: rgb(196 181 253 / 15%);
+  --glow-color-10: rgb(196 181 253 / 8%);
+  --gradient-one: radial-gradient(at 80% 55%, var(--accent) 0px, transparent 50%);
+  --gradient-two: radial-gradient(at 69% 34%, var(--level-two-secondary) 0px, transparent 50%);
+  --gradient-three: radial-gradient(at 8% 6%, var(--level-two-highlight) 0px, transparent 50%);
+  --gradient-four: radial-gradient(at 41% 38%, #22d3ee 0px, transparent 50%);
+  --gradient-five: radial-gradient(at 86% 85%, #8b5cf6 0px, transparent 50%);
+  --gradient-six: radial-gradient(at 82% 18%, #c084fc 0px, transparent 50%);
+  --gradient-seven: radial-gradient(at 51% 4%, #67e8f9 0px, transparent 50%);
+  --gradient-base: linear-gradient(var(--accent) 0 100%);
+}
+
+.level-two-homework-theme .premium-card-hover:hover {
+  border-color: rgb(167 139 250 / 36%);
+  box-shadow:
+    0 20px 54px rgb(0 0 0 / 24%),
+    0 0 30px rgb(167 139 250 / 8%);
+}
+
+.level-two-homework-theme .progress-shine {
+  background: linear-gradient(90deg, var(--accent), var(--level-two-secondary));
+}
+
+.level-two-homework-theme .scrollbar-soft {
+  scrollbar-color: rgb(167 139 250 / 58%) rgb(255 255 255 / 3%);
+}
+
+.level-two-homework-theme :is(a, button, input, select, textarea):focus-visible {
+  outline-color: rgb(167 139 250 / 85%);
+}
+
+.level-two-homework-theme nav[aria-label="Course level"] a[aria-current="page"] {
+  box-shadow: 0 0 30px rgb(167 139 250 / 16%);
+}
+
+.level-two-homework-theme .homework-session-button[aria-pressed="true"] {
+  box-shadow: 0 0 26px rgb(167 139 250 / 18%);
+  animation: level-two-session-select 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.level-two-homework-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(167 139 250 / 32%);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 9% 18%, rgb(167 139 250 / 18%), transparent 30%),
+    radial-gradient(circle at 88% 18%, rgb(56 189 248 / 13%), transparent 28%),
+    linear-gradient(135deg, rgb(21 18 38 / 94%), rgb(12 17 31 / 96%));
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 6%),
+    0 18px 52px rgb(15 10 38 / 24%),
+    0 0 34px rgb(139 92 246 / 8%);
+}
+
+.level-two-homework-hero::before,
+.level-two-homework-hero::after {
+  position: absolute;
+  pointer-events: none;
+  content: "";
+}
+
+.level-two-homework-hero::before {
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(167 139 250 / 6%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(56 189 248 / 5%) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(110deg, black, transparent 78%);
+  opacity: 0.72;
+}
+
+.level-two-homework-hero::after {
+  top: -35%;
+  bottom: -35%;
+  left: -50%;
+  width: 35%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 9%), transparent);
+  transform: skewX(-18deg);
+  animation: level-two-signal-sweep 7.2s ease-in-out infinite;
+}
+
+.level-two-homework-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.level-two-homework-orbit {
+  position: relative;
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 3rem;
+  place-items: center;
+  border: 1px solid rgb(167 139 250 / 38%);
+  border-radius: 1rem;
+  color: var(--accent);
+  background: rgb(167 139 250 / 11%);
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 6%),
+    0 0 24px rgb(167 139 250 / 12%);
+}
+
+.level-two-homework-orbit::before {
+  position: absolute;
+  inset: -4px;
+  border: 1px dashed rgb(56 189 248 / 42%);
+  border-radius: 1.2rem;
+  content: "";
+  animation: level-two-orbit-spin 10s linear infinite;
+}
+
+.level-two-homework-badge {
+  display: inline-flex;
+  width: fit-content;
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgb(56 189 248 / 30%);
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+  color: var(--level-two-secondary);
+  background: rgb(56 189 248 / 9%);
+  box-shadow: inset 0 1px rgb(255 255 255 / 5%);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+[data-theme="light"] .level-two-homework-hero {
+  border-color: rgb(109 40 217 / 24%);
+  background:
+    radial-gradient(circle at 9% 18%, rgb(109 40 217 / 12%), transparent 30%),
+    radial-gradient(circle at 88% 18%, rgb(3 105 161 / 10%), transparent 28%),
+    linear-gradient(135deg, rgb(250 247 255 / 98%), rgb(242 250 255 / 98%));
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 82%),
+    0 18px 46px rgb(76 29 149 / 9%),
+    0 0 28px rgb(109 40 217 / 5%);
+}
+
+[data-theme="light"] .level-two-homework-orbit {
+  border-color: rgb(109 40 217 / 28%);
+  background: rgb(109 40 217 / 8%);
+}
+
+[data-theme="light"] .level-two-homework-badge {
+  border-color: rgb(3 105 161 / 24%);
+  background: rgb(3 105 161 / 7%);
+}
+
+.homework-task-studio-backdrop {
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(110, 231, 183, 0.13), transparent 32%),
+    radial-gradient(circle at 88% 8%, rgba(96, 165, 250, 0.1), transparent 26%);
+}
+
+.level-two-homework-theme .homework-task-studio-backdrop {
+  background:
+    radial-gradient(circle at 20% 20%, rgb(167 139 250 / 18%), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgb(56 189 248 / 14%), transparent 28%),
+    linear-gradient(120deg, color-mix(in srgb, var(--level-two-highlight) 4%, transparent), transparent 48%);
+}
+
+@keyframes level-two-signal-sweep {
+  0%,
+  48% {
+    opacity: 0;
+    transform: translateX(0) skewX(-18deg);
+  }
+
+  58% {
+    opacity: 0.8;
+  }
+
+  76%,
+  100% {
+    opacity: 0;
+    transform: translateX(440%) skewX(-18deg);
+  }
+}
+
+@keyframes level-two-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes level-two-session-select {
+  from {
+    transform: translateY(1px) scale(0.992);
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
 .electric-border {
   --electric-color: #7df9ff;
   --electric-radius: 24px;

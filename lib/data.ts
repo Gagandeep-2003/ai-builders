@@ -1443,7 +1443,15 @@ export const getStudentResourcesData = cache(() => measureServer("student.resour
 
 async function getStudentClassDataImpl() {
   const context = await getStudentContextData();
-  const data = emptyStudentData(context);
+  const enrolledTimeline = context.curricula.flatMap((curriculum) =>
+    curriculum.sessions.filter(
+      (session) => session.status !== "skipped" && session.status !== "not_enrolled",
+    ),
+  );
+  const data = {
+    ...emptyStudentData(context),
+    sessions: enrolledTimeline,
+  };
   const supabase = await createServerSupabaseClient();
   if (!supabase) return data;
   const rescheduleRequests = await loadStudentRescheduleRequests(context.student.id, supabase);
