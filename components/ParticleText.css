@@ -15,6 +15,27 @@
   display: block;
   width: 100%;
   height: 100%;
+  z-index: 1;
+}
+
+.particle-text__fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  font-family: var(--particle-text-font-family, inherit);
+  font-size: var(--particle-text-font-size, inherit);
+  font-weight: var(--particle-text-font-weight, inherit);
+  line-height: 1.25;
+  text-align: center;
+  white-space: pre-line;
+  transition: opacity 120ms ease;
+}
+
+.particle-text[data-ready='true'] .particle-text__fallback {
+  opacity: 0;
 }
 
 .particle-text__sr {

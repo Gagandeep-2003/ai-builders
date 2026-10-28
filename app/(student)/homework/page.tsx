@@ -26,7 +26,7 @@ export default async function HomeworkPage({
       {curriculum.level === 2 ? (
         <section className="level-two-homework-hero" aria-labelledby="level-two-homework-title">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
+            <div className="flex min-w-0 flex-1 items-start gap-4">
               <span className="level-two-homework-orbit" aria-hidden="true">
                 <Orbit className="h-6 w-6" />
               </span>

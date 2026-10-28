@@ -533,6 +533,7 @@ const ParticleText = ({
     const sampleText = async () => {
       const s = settingsRef.current;
       if (!s) return;
+      delete container.dataset.ready;
       const currentBuild = ++buildId;
       const rect = container.getBoundingClientRect();
       const nextWidth = Math.floor(rect.width);
@@ -676,6 +677,7 @@ const ParticleText = ({
       }
 
       step(performance.now());
+      container.dataset.ready = 'true';
       wake();
     };
 
@@ -785,11 +787,22 @@ const ParticleText = ({
       canvas.removeEventListener('click', handleClick);
       if (raf) cancelAnimationFrame(raf);
       if (sampleFrame) cancelAnimationFrame(sampleFrame);
+      delete container.dataset.ready;
     };
   }, []);
 
   return (
-    <span ref={containerRef} className={`particle-text ${className}`.trim()} style={style}>
+    <span
+      ref={containerRef}
+      className={`particle-text ${className}`.trim()}
+      style={{
+        '--particle-text-font-size': typeof fontSize === 'number' ? `${fontSize}px` : fontSize,
+        '--particle-text-font-weight': fontWeight,
+        '--particle-text-font-family': fontFamily,
+        ...style
+      }}
+    >
+      <span className="particle-text__fallback" aria-hidden="true">{text}</span>
       <canvas ref={canvasRef} className="particle-text__canvas" aria-hidden="true" />
       <span className="particle-text__sr">{text}</span>
     </span>
