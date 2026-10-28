@@ -197,6 +197,7 @@ const ParticleText = ({
     const startIntro = initial => {
       const s = settingsRef.current;
       if (!particles.length || !s) return;
+      delete container.dataset.formed;
       introMode = s.intro;
       const spread = reducedMotion ? 0 : s.scatter;
       const tall = Math.max(1, bounds.bottom - bounds.top);
@@ -448,7 +449,10 @@ const ParticleText = ({
         buckets[fade * TONES + tone].push(particle);
       }
 
-      if (gathering && complete) gathering = false;
+      if (gathering && complete) {
+        gathering = false;
+        container.dataset.formed = 'true';
+      }
       if (bursting && !settling) bursting = false;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -674,6 +678,7 @@ const ParticleText = ({
         startIntro(true);
       } else {
         gathering = false;
+        container.dataset.formed = 'true';
       }
 
       step(performance.now());
@@ -732,6 +737,7 @@ const ParticleText = ({
       if (reducedMotion) {
         gathering = false;
         bursting = false;
+        container.dataset.formed = 'true';
         particles.forEach(particle => {
           particle.x = particle.targetX;
           particle.y = particle.targetY;
@@ -788,6 +794,7 @@ const ParticleText = ({
       if (raf) cancelAnimationFrame(raf);
       if (sampleFrame) cancelAnimationFrame(sampleFrame);
       delete container.dataset.ready;
+      delete container.dataset.formed;
     };
   }, []);
 

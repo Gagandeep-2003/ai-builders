@@ -35,7 +35,11 @@
 }
 
 .particle-text[data-ready='true'] .particle-text__fallback {
-  opacity: 0;
+  opacity: 0.45;
+}
+
+.particle-text[data-formed='true'] .particle-text__fallback {
+  opacity: 0.22;
 }
 
 .particle-text__sr {
