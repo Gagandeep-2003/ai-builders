@@ -4,19 +4,18 @@
 -- the exact profile email below. It does not change curriculum, attendance,
 -- course progress, batch timing, or any other student.
 --
--- The dates continue Sagan's existing Thu/Fri batch cadence, beginning with
--- Friday, October 30, 2026. Times, timezone, and Meet links are read from his
--- current batch class slots so the added classes stay aligned with his regular
--- schedule.
+-- The first class is Friday, October 30, 2026. The following six dates, all
+-- times, the timezone, and Meet links are derived from Sagan's current batch
+-- class slots. This deliberately avoids assuming which weekdays he attends.
 
 begin;
 
 do $$
 declare
   matching_students integer;
-  target_student_id uuid;
   target_batch_id uuid;
-  missing_slot_dates text;
+  available_occurrences integer;
+  today_has_class boolean;
 begin
   select count(*)
   into matching_students
@@ -30,8 +29,8 @@ begin
       matching_students;
   end if;
 
-  select students.id, students.batch_id
-  into target_student_id, target_batch_id
+  select students.batch_id
+  into target_batch_id
   from public.students
   join public.profiles on profiles.id = students.user_id
   where lower(profiles.email) = 'sagan.pandey@student.com';
@@ -40,31 +39,52 @@ begin
     raise exception 'Sagan Pandey does not have a batch assigned';
   end if;
 
-  select string_agg(schedule.class_date::text, ', ' order by schedule.class_date)
-  into missing_slot_dates
-  from (
-    values
-      (date '2026-10-30'),
-      (date '2026-11-05'),
-      (date '2026-11-06'),
-      (date '2026-11-12'),
-      (date '2026-11-13'),
-      (date '2026-11-19'),
-      (date '2026-11-20')
-  ) as schedule(class_date)
-  where not exists (
+  select exists (
     select 1
     from public.batch_class_slots as slot
+    join public.batches as batch on batch.id = slot.batch_id
     where slot.batch_id = target_batch_id
-      and slot.day_of_week = extract(dow from schedule.class_date)::integer
+      and slot.day_of_week = extract(dow from date '2026-10-30')::integer
       and slot.end_time > slot.start_time
-      and nullif(trim(slot.meet_link), '') is not null
-  );
+      and coalesce(
+        nullif(trim(slot.meet_link), ''),
+        nullif(trim(batch.meet_link), '')
+      ) is not null
+  ) into today_has_class;
 
-  if missing_slot_dates is not null then
+  if not today_has_class then
     raise exception
-      'Sagan is missing a usable regular class slot for: %',
-      missing_slot_dates;
+      'Sagan does not have a usable regular class slot on 2026-10-30';
+  end if;
+
+  select count(*)
+  into available_occurrences
+  from generate_series(
+    date '2026-10-30',
+    date '2027-01-31',
+    interval '1 day'
+  ) as occurrence(class_date)
+  join public.batch_class_slots as slot
+    on slot.batch_id = target_batch_id
+    and slot.day_of_week = extract(dow from occurrence.class_date)::integer
+  join public.batches as batch on batch.id = target_batch_id
+  where slot.end_time > slot.start_time
+    and coalesce(
+      nullif(trim(slot.meet_link), ''),
+      nullif(trim(batch.meet_link), '')
+    ) is not null
+    and not exists (
+      select 1
+      from public.batch_pauses as pause
+      where pause.batch_id = target_batch_id
+        and occurrence.class_date::date >= pause.starts_on
+        and occurrence.class_date::date < pause.resumes_on
+    );
+
+  if available_occurrences < 7 then
+    raise exception
+      'Sagan has only % usable regular class occurrences after 2026-10-30',
+      available_occurrences;
   end if;
 end;
 $$;
@@ -73,21 +93,69 @@ with sagan as (
   select
     students.id as student_id,
     students.batch_id,
-    batches.time_zone
+    batches.time_zone,
+    batches.meet_link as batch_meet_link
   from public.students
   join public.profiles on profiles.id = students.user_id
   join public.batches on batches.id = students.batch_id
   where lower(profiles.email) = 'sagan.pandey@student.com'
 ),
-extra_sessions(id, session_number, class_date) as (
+extra_session_ids(session_number, id) as (
   values
-    ('26000000-0000-4000-8000-000000000001'::uuid, 1, date '2026-10-30'),
-    ('26000000-0000-4000-8000-000000000002'::uuid, 2, date '2026-11-05'),
-    ('26000000-0000-4000-8000-000000000003'::uuid, 3, date '2026-11-06'),
-    ('26000000-0000-4000-8000-000000000004'::uuid, 4, date '2026-11-12'),
-    ('26000000-0000-4000-8000-000000000005'::uuid, 5, date '2026-11-13'),
-    ('26000000-0000-4000-8000-000000000006'::uuid, 6, date '2026-11-19'),
-    ('26000000-0000-4000-8000-000000000007'::uuid, 7, date '2026-11-20')
+    (1, '26000000-0000-4000-8000-000000000001'::uuid),
+    (2, '26000000-0000-4000-8000-000000000002'::uuid),
+    (3, '26000000-0000-4000-8000-000000000003'::uuid),
+    (4, '26000000-0000-4000-8000-000000000004'::uuid),
+    (5, '26000000-0000-4000-8000-000000000005'::uuid),
+    (6, '26000000-0000-4000-8000-000000000006'::uuid),
+    (7, '26000000-0000-4000-8000-000000000007'::uuid)
+),
+scheduled_occurrences as (
+  select
+    occurrence.class_date::date as class_date,
+    slot.start_time,
+    slot.end_time,
+    coalesce(
+      nullif(trim(slot.meet_link), ''),
+      nullif(trim(sagan.batch_meet_link), '')
+    ) as meet_link,
+    row_number() over (
+      order by occurrence.class_date, slot.start_time, slot.sort_order
+    )::integer as session_number
+  from sagan
+  cross join generate_series(
+    date '2026-10-30',
+    date '2027-01-31',
+    interval '1 day'
+  ) as occurrence(class_date)
+  join public.batch_class_slots as slot
+    on slot.batch_id = sagan.batch_id
+    and slot.day_of_week = extract(dow from occurrence.class_date)::integer
+  where slot.end_time > slot.start_time
+    and coalesce(
+      nullif(trim(slot.meet_link), ''),
+      nullif(trim(sagan.batch_meet_link), '')
+    ) is not null
+    and not exists (
+      select 1
+      from public.batch_pauses as pause
+      where pause.batch_id = sagan.batch_id
+        and occurrence.class_date::date >= pause.starts_on
+        and occurrence.class_date::date < pause.resumes_on
+    )
+  order by occurrence.class_date, slot.start_time, slot.sort_order
+  limit 7
+),
+extra_sessions as (
+  select
+    extra_session_ids.id,
+    scheduled_occurrences.session_number,
+    scheduled_occurrences.class_date,
+    scheduled_occurrences.start_time,
+    scheduled_occurrences.end_time,
+    scheduled_occurrences.meet_link
+  from scheduled_occurrences
+  join extra_session_ids using (session_number)
 )
 insert into public.class_reschedule_requests (
   id,
@@ -110,29 +178,16 @@ select
   sagan.batch_id,
   null,
   extra_sessions.class_date,
-  class_slot.start_time,
-  class_slot.end_time,
+  extra_sessions.start_time,
+  extra_sessions.end_time,
   sagan.time_zone,
   'Seven-session course extension after completion of the original 24 sessions.',
   'approved'::public.reschedule_request_status,
-  'Extra session ' || extra_sessions.session_number::text || ' of 7 · Regular Thu/Fri schedule.',
-  class_slot.meet_link,
+  'Extra session ' || extra_sessions.session_number::text || ' of 7 · Regular weekly schedule.',
+  extra_sessions.meet_link,
   now()
 from sagan
 cross join extra_sessions
-join lateral (
-  select
-    slot.start_time,
-    slot.end_time,
-    trim(slot.meet_link) as meet_link
-  from public.batch_class_slots as slot
-  where slot.batch_id = sagan.batch_id
-    and slot.day_of_week = extract(dow from extra_sessions.class_date)::integer
-    and slot.end_time > slot.start_time
-    and nullif(trim(slot.meet_link), '') is not null
-  order by slot.sort_order, slot.start_time
-  limit 1
-) as class_slot on true
 on conflict (id) do update set
   student_id = excluded.student_id,
   batch_id = excluded.batch_id,
