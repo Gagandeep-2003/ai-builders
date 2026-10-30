@@ -27,22 +27,59 @@ const jetBrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
+  applicationName: siteName,
   title: {
-    default: siteName,
+    default: "Live AI Courses for Students",
     template: `%s · ${siteName}`,
   },
   description: siteDescription,
+  keywords: [
+    "AI courses for students",
+    "AI classes for kids",
+    "live AI course",
+    "AI coding course for students",
+    "AI automation course",
+    "AI Builders Academy",
+  ],
+  authors: [{ name: siteName }],
+  creator: siteName,
+  publisher: siteName,
+  category: "education",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
     type: "website",
     siteName,
-    title: siteName,
+    locale: "en_US",
+    title: "Live AI Courses for Students",
     description: siteDescription,
     url: "/",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "AI Builders Academy live AI courses for students",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
-    title: siteName,
+    card: "summary_large_image",
+    title: "Live AI Courses for Students",
     description: siteDescription,
+    images: ["/opengraph-image"],
   },
   manifest: "/site.webmanifest",
   icons: {

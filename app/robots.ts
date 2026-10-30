@@ -9,6 +9,9 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         "/admin",
         "/api/",
+        "/login",
+        "/forgot-password",
+        "/reset-password",
         "/dashboard",
         "/journey",
         "/curriculum",
@@ -22,5 +25,6 @@ export default function robots(): MetadataRoute.Robots {
       ],
     },
     sitemap: `${getSiteUrl()}/sitemap.xml`,
+    host: getSiteUrl(),
   };
 }

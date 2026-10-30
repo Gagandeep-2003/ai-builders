@@ -20,6 +20,7 @@ const links: NavLink[] = [
   { href: "/admin/resources", label: "Resources", icon: "files" },
   { href: "/admin/attendance", label: "Attendance", icon: "attendance", priority: true },
   { href: "/admin/feedback", label: "Feedback", icon: "message" },
+  { href: "/admin/demo-requests", label: "Demo Requests", icon: "calendar" },
   { href: "/admin/referrals", label: "Referrals", icon: "referrals" },
   { href: "/admin/announcements", label: "Announcements", icon: "megaphone" },
 ];
