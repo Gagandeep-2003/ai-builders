@@ -39,6 +39,14 @@ where status = 'present'
   and joined_at is null
   and source not in ('admin_override', 'legacy');
 
+select count(*) as invalid_module_number_violation_count
+from public.student_class_occurrences
+where module_number is not null
+  and (
+    module_number < 1
+    or (course_level = 2 and module_number > 3)
+  );
+
 select count(*) as empty_override_reason_violation_count
 from public.student_class_occurrence_audit
 where nullif(trim(reason), '') is null;

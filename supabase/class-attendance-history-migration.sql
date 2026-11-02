@@ -24,7 +24,7 @@ create table if not exists public.student_class_occurrences (
   reschedule_request_id uuid references public.class_reschedule_requests(id) on delete set null,
   kind text not null check (kind in ('regular', 'makeup', 'rescheduled')),
   course_level smallint check (course_level in (1, 2)),
-  module_number smallint check (module_number between 1 and 3),
+  module_number smallint check (module_number >= 1),
   session_number smallint check (session_number between 1 and 8),
   session_id text,
   session_title text not null default 'Extra class',
@@ -43,6 +43,12 @@ create table if not exists public.student_class_occurrences (
   updated_at timestamptz not null default now(),
   constraint student_class_occurrences_valid_window
     check (scheduled_ends_at > scheduled_starts_at),
+  constraint student_class_occurrences_level_two_module
+    check (
+      course_level is distinct from 2
+      or module_number is null
+      or module_number between 1 and 3
+    ),
   constraint student_class_occurrences_present_join
     check (status <> 'present' or joined_at is not null or source in ('admin_override', 'legacy'))
 );
