@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, ExternalLink, Lock, Video } from "lucide-react";
-import { normalizeMeetLink } from "@/lib/meet-links";
+import { joinClassAction } from "@/app/actions/class";
 import { formatInTimeZone } from "@/lib/time";
 
 export function MakeupClassCard({
@@ -11,7 +11,7 @@ export function MakeupClassCard({
   detail,
   startsAtIso,
   endsAtIso,
-  meetLink,
+  requestId,
   viewerTimeZone,
 }: {
   label?: string;
@@ -19,14 +19,13 @@ export function MakeupClassCard({
   detail: string;
   startsAtIso: string;
   endsAtIso: string;
-  meetLink: string;
+  requestId: string;
   viewerTimeZone: string;
 }) {
   const [canJoin, setCanJoin] = useState(false);
   const startsAt = useMemo(() => new Date(startsAtIso), [startsAtIso]);
   const endsAt = useMemo(() => new Date(endsAtIso), [endsAtIso]);
   const opensAt = useMemo(() => new Date(startsAt.getTime() - 15 * 60_000), [startsAt]);
-  const normalizedMeetLink = useMemo(() => normalizeMeetLink(meetLink), [meetLink]);
   const classTime = `${formatInTimeZone(startsAt, viewerTimeZone, {
     weekday: "short",
     month: "short",
@@ -76,23 +75,24 @@ export function MakeupClassCard({
             {detail}
           </p>
         </div>
-        <a
-          href={canJoin && normalizedMeetLink ? normalizedMeetLink : undefined}
-          target="_blank"
-          rel="noreferrer"
-          aria-disabled={!canJoin}
-          title={canJoin ? `Join your ${label.toLowerCase()} class` : disabledMessage}
-          className="button-motion inline-flex items-center justify-center gap-3 rounded-xl bg-accent px-5 py-3 font-bold text-bg-base shadow-[0_18px_44px_rgba(110,231,183,0.18)] aria-disabled:pointer-events-none aria-disabled:border aria-disabled:border-border aria-disabled:bg-bg-elevated aria-disabled:text-text-muted aria-disabled:shadow-none"
-        >
-          <span className="relative flex h-2.5 w-2.5">
-            {canJoin ? (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bg-base opacity-75" />
-            ) : null}
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-bg-base" />
-          </span>
-          {canJoin ? `Join ${label} Class` : "Join unlocks soon"}
-          {canJoin ? <ExternalLink className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-        </a>
+        <form action={joinClassAction} target="_blank" rel="noopener noreferrer">
+          <input type="hidden" name="requestId" value={requestId} />
+          <button
+            type="submit"
+            disabled={!canJoin}
+            title={canJoin ? `Join your ${label.toLowerCase()} class` : disabledMessage}
+            className="button-motion inline-flex items-center justify-center gap-3 rounded-xl bg-accent px-5 py-3 font-bold text-bg-base shadow-[0_18px_44px_rgba(110,231,183,0.18)] disabled:pointer-events-none disabled:border disabled:border-border disabled:bg-bg-elevated disabled:text-text-muted disabled:shadow-none"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              {canJoin ? (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bg-base opacity-75" />
+              ) : null}
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-bg-base" />
+            </span>
+            {canJoin ? `Join ${label} Class` : "Join unlocks soon"}
+            {canJoin ? <ExternalLink className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+          </button>
+        </form>
       </div>
       {!canJoin ? <p className="mt-3 text-xs text-text-muted">{disabledMessage}</p> : null}
     </section>

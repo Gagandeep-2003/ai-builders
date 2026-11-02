@@ -1,5 +1,5 @@
-import { AttendanceStatusForm } from "@/components/admin/attendance-status-form";
 import {
+  overrideClassOccurrenceAction,
   reviewRescheduleRequestAction,
   updateApprovedRescheduleMeetLinkAction,
   updateApprovedRescheduleOriginalAction,
@@ -13,11 +13,9 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import {
   formatRescheduleRequestTime,
   getRescheduleRequestKind,
-  getStudentScheduledSessions,
 } from "@/lib/class-events";
-import { getAdminData } from "@/lib/data";
-import { levelTwoSessions } from "@/lib/level-two";
-import { ADMIN_TIME_ZONE, formatSessionTime, getSessionScheduleDate } from "@/lib/time";
+import { getAdminClassHistoryData, getAdminData } from "@/lib/data";
+import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 
 function SchedulerField({
   label,
@@ -43,18 +41,40 @@ function SchedulerField({
 export default async function AdminAttendancePage({
   searchParams,
 }: {
-  searchParams?: Promise<{ sessionId?: string; reschedule?: string }>;
+  searchParams?: Promise<{
+    reschedule?: string;
+    attendanceOverride?: string;
+    studentId?: string;
+    status?: string;
+    kind?: string;
+    level?: string;
+    from?: string;
+    to?: string;
+    page?: string;
+  }>;
 }) {
-  const data = await getAdminData();
   const params = await searchParams;
-  const hasLevelTwoStudents = data.students.some((student) =>
-    student.courseEnrollments?.some((enrollment) => enrollment.courseLevel === 2),
-  );
-  const availableSessions = hasLevelTwoStudents
-    ? [...data.sessions, ...levelTwoSessions]
-    : data.sessions;
-  const selectedSession =
-    availableSessions.find((session) => session.id === params?.sessionId) ?? availableSessions[0];
+  const status = ["present", "absent", "rescheduled"].includes(params?.status ?? "")
+    ? params?.status as "present" | "absent" | "rescheduled"
+    : undefined;
+  const kind = ["regular", "makeup", "rescheduled"].includes(params?.kind ?? "")
+    ? params?.kind as "regular" | "makeup" | "rescheduled"
+    : undefined;
+  const level = params?.level === "1" || params?.level === "2"
+    ? Number(params.level) as 1 | 2
+    : undefined;
+  const [data, history] = await Promise.all([
+    getAdminData(),
+    getAdminClassHistoryData({
+      studentId: params?.studentId,
+      status,
+      kind,
+      level,
+      from: params?.from,
+      to: params?.to,
+      page: Number(params?.page) || 1,
+    }),
+  ]);
   const pendingReschedules = data.rescheduleRequests.filter((request) => request.status === "pending");
   const approvedReschedules = data.rescheduleRequests.filter((request) => request.status === "approved");
   const rejectedReschedules = data.rescheduleRequests.filter((request) => request.status === "rejected").slice(0, 4);
@@ -84,20 +104,29 @@ export default async function AdminAttendancePage({
           ? "Enter a valid Google Meet link before saving."
           : "";
   const rescheduleNoticeIsError = ["create-error", "invalid-link"].includes(params?.reschedule ?? "");
-  const studentSessionRows = data.students.flatMap((student) => {
-    const batch = data.batches.find((item) => item.id === student.batchId);
-    if (!batch || !selectedSession) return [];
-    const scheduledSession = getStudentScheduledSessions({
-      student,
-      batch,
-      levelOneSessions: data.sessions,
-    }).find((session) => session.id === selectedSession.id);
-    return scheduledSession ? [{ student, batch, session: scheduledSession }] : [];
-  });
+  const historyPageHref = (page: number) => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params ?? {})) {
+      if (value && key !== "page") query.set(key, value);
+    }
+    query.set("page", String(page));
+    return `/admin/attendance?${query.toString()}#class-history`;
+  };
+  const overrideNotice = params?.attendanceOverride === "saved"
+    ? "Attendance correction saved with an audit record."
+    : params?.attendanceOverride
+      ? "Attendance correction could not be saved. A valid status and reason are required."
+      : "";
+  const totalHistoryPages = Math.max(1, Math.ceil(history.total / history.pageSize));
 
   return (
     <AnimatedPage>
-      <PageHeader title="Attendance" subtitle="Select a session and mark each student as present, absent, or rescheduled." />
+      <PageHeader title="Attendance" subtitle="Review every finished class and make audited attendance corrections." />
+      {overrideNotice ? (
+        <div className={`rounded-xl border p-4 text-sm ${params?.attendanceOverride === "saved" ? "border-accent/30 bg-accent/10 text-accent" : "border-danger/35 bg-danger/10 text-danger"}`}>
+          {overrideNotice}
+        </div>
+      ) : null}
       {rescheduleNotice ? (
         <div
           className={`rounded-xl border p-4 text-sm ${
@@ -362,69 +391,136 @@ export default async function AdminAttendancePage({
         ) : null}
       </section>
 
-      <section className="premium-card rounded-xl p-6">
-        <h2 className="font-heading text-2xl font-bold">Session selector</h2>
-        <form className="mt-5 flex flex-col gap-3 sm:flex-row" action="/admin/attendance">
-          <select
-            name="sessionId"
-            defaultValue={selectedSession.id}
-            className="w-full rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm"
-          >
-            {availableSessions.map((session) => (
-              <option key={session.id} value={session.id}>
-                Level {session.courseLevel ?? 1} · Module {session.moduleNumber ?? Math.ceil(session.globalNumber / 8)} · Session {session.sessionNumber}: {session.title}
-              </option>
-            ))}
-          </select>
-          <button className="button-motion rounded-xl bg-accent px-5 py-3 font-bold text-bg-base">
-            View
-          </button>
-        </form>
-        <p className="mt-3 text-sm text-text-muted">
-          Attendance dates are calculated per student batch and timezone. Only students enrolled for the selected level and session appear below.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        {studentSessionRows.map(({ student, batch, session }) => {
-          const current = data.attendance.find(
-            (item) => item.studentId === student.id && item.sessionId === session.id,
-          )?.status ?? "pending";
-          const attendanceDate = getSessionScheduleDate(session, batch);
-
-          return (
-            <article key={student.id} className="premium-card rounded-xl p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h3 className="font-heading text-lg font-bold">{student.fullName}</h3>
-                  <p className="mt-1 text-sm text-text-secondary">
-                    Level {session.courseLevel ?? 1} · Module {session.moduleNumber ?? Math.ceil(session.globalNumber / 8)} · Session {session.sessionNumber}
-                    {` · ${formatSessionTime(session, batch, student.timeZone)}`}
-                  </p>
-                  <p className="mt-1 font-mono text-xs text-text-muted">
-                    {session.title} · Admin time: {formatSessionTime(session, batch, ADMIN_TIME_ZONE)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={current} />
-                  {["present", "absent", "rescheduled"].map((status) => (
-                    <AttendanceStatusForm
-                      key={status}
-                      sessionId={session.id}
-                      studentId={student.id}
-                      status={status}
-                      date={attendanceDate}
-                    />
-                  ))}
-                </div>
-              </div>
-            </article>
-          );
-        })}
-        {studentSessionRows.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
-            No student is enrolled for this session in their current course placement.
+      <section id="class-history" className="scroll-mt-6 space-y-5">
+        <div className="premium-card rounded-xl p-6">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="font-mono text-xs uppercase text-accent">Unified attendance</p>
+              <h2 className="mt-2 font-heading text-2xl font-bold">Class History</h2>
+              <p className="mt-2 text-sm text-text-secondary">
+                Finished regular, make-up, and rescheduled classes. Join clicks are Present; no recorded join is Absent.
+              </p>
+            </div>
+            <p className="text-sm text-text-muted">{history.total} matching classes</p>
           </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {([
+              ["Present", history.summary.present, "text-accent"],
+              ["Absent", history.summary.absent, "text-rose-200"],
+              ["Rescheduled", history.summary.rescheduled, "text-blue-200"],
+            ] as const).map(([label, value, color]) => (
+              <div key={label} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
+                <p className="font-mono text-[11px] uppercase text-text-muted">{label}</p>
+                <p className={`mt-2 font-heading text-3xl font-bold ${color}`}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <form action="/admin/attendance" className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+            <select name="studentId" defaultValue={params?.studentId ?? ""} aria-label="Filter by student" className="rounded-xl border border-border bg-bg-elevated px-3 py-3 text-sm xl:col-span-2">
+              <option value="">All students</option>
+              {data.students.map((student) => <option key={student.id} value={student.id}>{student.fullName}</option>)}
+            </select>
+            <select name="status" defaultValue={status ?? ""} aria-label="Filter by attendance status" className="rounded-xl border border-border bg-bg-elevated px-3 py-3 text-sm">
+              <option value="">All statuses</option>
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="rescheduled">Rescheduled</option>
+            </select>
+            <select name="kind" defaultValue={kind ?? ""} aria-label="Filter by class type" className="rounded-xl border border-border bg-bg-elevated px-3 py-3 text-sm">
+              <option value="">All class types</option>
+              <option value="regular">Regular</option>
+              <option value="makeup">Make-up</option>
+              <option value="rescheduled">Rescheduled</option>
+            </select>
+            <select name="level" defaultValue={level ?? ""} aria-label="Filter by level" className="rounded-xl border border-border bg-bg-elevated px-3 py-3 text-sm">
+              <option value="">All levels</option>
+              <option value="1">Level 1</option>
+              <option value="2">Level 2</option>
+            </select>
+            <input name="from" type="date" defaultValue={params?.from ?? ""} aria-label="From date" className="rounded-xl border border-border bg-bg-elevated px-3 py-3 text-sm" />
+            <input name="to" type="date" defaultValue={params?.to ?? ""} aria-label="To date" className="rounded-xl border border-border bg-bg-elevated px-3 py-3 text-sm" />
+            <div className="flex gap-2 md:col-span-2 xl:col-span-7 xl:justify-end">
+              <a href="/admin/attendance#class-history" className="button-motion rounded-xl border border-border px-4 py-3 text-sm font-bold text-text-secondary">Clear</a>
+              <button className="button-motion rounded-xl bg-accent px-5 py-3 text-sm font-bold text-bg-base">Apply filters</button>
+            </div>
+          </form>
+        </div>
+
+        {!history.available ? (
+          <div className="rounded-xl border border-accent-warm/35 bg-accent-warm/10 p-5 text-sm text-amber-100">
+            Class History will appear after the attendance migration is installed. Existing attendance remains available during rollout.
+          </div>
+        ) : history.rows.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
+            No finished classes match these filters.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {history.rows.map((occurrence) => {
+              const curriculumLabel = occurrence.courseLevel && occurrence.moduleNumber && occurrence.sessionNumber
+                ? `Level ${occurrence.courseLevel} · Module ${occurrence.moduleNumber} · Session ${occurrence.sessionNumber}`
+                : "Extra class";
+              const sourceLabel = occurrence.source === "join_button"
+                ? "Join button"
+                : occurrence.source === "admin_override"
+                  ? "Admin correction"
+                  : occurrence.source === "legacy"
+                    ? "Legacy/admin history"
+                    : "Automatic reconciliation";
+              return (
+                <article key={occurrence.id} className="premium-card rounded-xl p-5">
+                  <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr_0.9fr]">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-heading text-lg font-bold">{occurrence.studentName}</h3>
+                        <StatusBadge status={occurrence.status} />
+                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-[10px] uppercase text-text-muted">{occurrence.kind}</span>
+                      </div>
+                      <p className="mt-2 text-sm font-bold text-text-primary">{curriculumLabel}</p>
+                      <p className="mt-1 text-sm text-text-secondary">{occurrence.sessionTitle}</p>
+                      <p className="mt-2 font-mono text-[11px] uppercase text-text-muted">{occurrence.batchName} · {sourceLabel}</p>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <p><span className="text-text-muted">Scheduled IST:</span> {formatInTimeZone(occurrence.scheduledStartsAt, ADMIN_TIME_ZONE, { dateStyle: "medium", timeStyle: "short" })} – {formatInTimeZone(occurrence.scheduledEndsAt, ADMIN_TIME_ZONE, { dateStyle: "medium", timeStyle: "short" })}</p>
+                      <p><span className="text-text-muted">Student time:</span> {formatInTimeZone(occurrence.scheduledStartsAt, occurrence.studentTimeZone, { dateStyle: "medium", timeStyle: "short" })} – {formatInTimeZone(occurrence.scheduledEndsAt, occurrence.studentTimeZone, { dateStyle: "medium", timeStyle: "short" })} ({occurrence.studentTimeZone})</p>
+                      <p className={occurrence.joinedAt ? "text-accent" : "text-rose-200"}>
+                        {occurrence.joinedAt
+                          ? `Joined IST: ${formatInTimeZone(occurrence.joinedAt, ADMIN_TIME_ZONE, { dateStyle: "medium", timeStyle: "short" })}`
+                          : "No join recorded"}
+                      </p>
+                      {occurrence.joinedAt ? <p className="text-xs text-text-muted">Joined student time: {formatInTimeZone(occurrence.joinedAt, occurrence.studentTimeZone, { dateStyle: "medium", timeStyle: "short" })}</p> : null}
+                      {occurrence.overrideReason ? (
+                        <p className="rounded-lg border border-accent-warm/25 bg-accent-warm/5 p-2 text-xs text-amber-100">
+                          Corrected by {occurrence.overriddenByName ?? "administrator"}{occurrence.overriddenAt ? ` on ${formatInTimeZone(occurrence.overriddenAt, ADMIN_TIME_ZONE, { dateStyle: "medium", timeStyle: "short" })}` : ""}: {occurrence.overrideReason}
+                        </p>
+                      ) : null}
+                    </div>
+                    <form action={overrideClassOccurrenceAction} className="space-y-2 rounded-xl border border-border/70 bg-white/[0.025] p-3">
+                      <input type="hidden" name="occurrenceId" value={occurrence.id} />
+                      <p className="font-mono text-[11px] uppercase text-text-muted">Audited correction</p>
+                      <select name="status" defaultValue={occurrence.status} className="w-full rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm">
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                        <option value="rescheduled">Rescheduled</option>
+                      </select>
+                      <input name="reason" required minLength={3} placeholder="Reason required" className="w-full rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm" />
+                      <SubmitButton pendingLabel="Saving..." className="button-motion w-full rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-bold text-accent">Save correction</SubmitButton>
+                    </form>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        {history.available && totalHistoryPages > 1 ? (
+          <nav className="flex items-center justify-between rounded-xl border border-border/70 bg-bg-card/70 p-3 text-sm" aria-label="Class history pages">
+            {history.page > 1 ? <a href={historyPageHref(history.page - 1)} className="font-bold text-accent">Previous</a> : <span className="text-text-muted">Previous</span>}
+            <span className="text-text-secondary">Page {history.page} of {totalHistoryPages}</span>
+            {history.page < totalHistoryPages ? <a href={historyPageHref(history.page + 1)} className="font-bold text-accent">Next</a> : <span className="text-text-muted">Next</span>}
+          </nav>
         ) : null}
       </section>
     </AnimatedPage>

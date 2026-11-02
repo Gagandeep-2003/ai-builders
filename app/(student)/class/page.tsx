@@ -22,6 +22,7 @@ import {
   formatBatchSchedule,
   formatSessionTime,
   getActiveOrNextJoinSession,
+  getCurrentOrNextBatchClassOccurrence,
   getSessionDateTimes,
   getSessionScheduleDate,
 } from "@/lib/time";
@@ -48,17 +49,44 @@ export default async function ClassPage({
     getAdminAvailabilityData(),
   ]);
   const now = new Date();
+  const enrolledSessions = data.sessions.filter(
+    (session) =>
+      (session.courseLevel ?? 1) === data.activeCourseLevel &&
+      session.status !== "skipped" &&
+      session.status !== "not_enrolled",
+  );
+  const curriculumComplete = enrolledSessions.length > 0 && enrolledSessions.every(
+    (session) => session.status === "completed",
+  );
+  const nextExtraOccurrence = curriculumComplete
+    ? getCurrentOrNextBatchClassOccurrence(data.batch, now)
+    : null;
+  const finalSession = enrolledSessions.at(-1);
+  const extraSession = nextExtraOccurrence && finalSession
+    ? {
+        ...finalSession,
+        id: "extra-class",
+        title: "Extra class",
+        description: "An additional class after curriculum completion.",
+        globalNumber: finalSession.globalNumber + 1,
+        date: nextExtraOccurrence.date,
+        scheduleIndex: 1,
+        scheduleStartsAt: nextExtraOccurrence.startsAt.toISOString(),
+        status: "current" as const,
+      }
+    : null;
+  const classTimelineSessions = extraSession ? [...enrolledSessions, extraSession] : enrolledSessions;
   const classEvents = getStudentClassEvents({
     student: data.student,
     batch: data.batch,
-    sessions: data.sessions,
+    sessions: classTimelineSessions,
     requests: data.rescheduleRequests,
     now,
   });
   const nextClassEvent = getNextClassEvent(classEvents, now);
   const nextSession = nextClassEvent?.kind === "regular" && nextClassEvent.session
     ? nextClassEvent.session
-    : getActiveOrNextJoinSession(data.sessions, data.batch) ?? data.sessions[0];
+    : getActiveOrNextJoinSession(classTimelineSessions, data.batch) ?? classTimelineSessions[0];
   const requestMessage = rescheduleMessage(reschedule);
   const rescheduleOptions = getStudentRescheduleOptions(data.student.timeZone, {
     bookedSlots: getBookedSlots(mentorSchedule.batches, mentorSchedule.students),
@@ -69,7 +97,7 @@ export default async function ClassPage({
   });
   const pendingRequest = data.rescheduleRequests.find((request) => request.status === "pending");
   const latestRejectedRequest = getActiveRejectedClassRequest(data.rescheduleRequests, classEvents, now);
-  const originalClassOptions = data.sessions
+  const originalClassOptions = enrolledSessions
     .filter(
       (session) =>
         session.status !== "skipped" &&
@@ -120,11 +148,16 @@ export default async function ClassPage({
             detail={nextClassEvent.detail}
             startsAtIso={nextClassEvent.startsAt.toISOString()}
             endsAtIso={nextClassEvent.endsAt.toISOString()}
-            meetLink={nextClassEvent.meetLink}
+            requestId={nextClassEvent.request?.id ?? ""}
             viewerTimeZone={data.student.timeZone}
           />
         ) : (
-          <ClassLiveCard batch={data.batch} nextSession={nextSession} viewerTimeZone={data.student.timeZone} />
+          <ClassLiveCard
+            batch={data.batch}
+            nextSession={nextSession}
+            viewerTimeZone={data.student.timeZone}
+            isExtraClass={nextSession.id === "extra-class"}
+          />
         )}
 
         <div className="premium-card rounded-xl p-5">

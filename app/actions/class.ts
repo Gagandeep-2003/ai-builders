@@ -17,8 +17,9 @@ import { getSessionDateTimes, getSessionScheduleDate, isSessionJoinWindowOpen } 
 
 export async function joinClassAction(formData: FormData) {
   const sessionId = String(formData.get("sessionId") ?? "");
+  const requestId = String(formData.get("requestId") ?? "").trim();
 
-  if (!sessionId || !isSupabaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     redirect("/class");
   }
 
@@ -30,6 +31,45 @@ export async function joinClassAction(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  const joinResult = await supabase.rpc("record_student_class_join", {
+    p_reschedule_request_id: requestId || null,
+  });
+  if (!joinResult.error) {
+    const result = joinResult.data as { meet_link?: unknown } | null;
+    const meetLink = normalizeMeetLink(
+      typeof result?.meet_link === "string" ? result.meet_link : "",
+    );
+    if (!meetLink) redirect("/class?join=missing-link");
+
+    revalidatePath("/dashboard");
+    revalidatePath("/journey");
+    revalidatePath("/curriculum");
+    revalidatePath("/homework");
+    revalidatePath("/class");
+    revalidatePath("/progress");
+    revalidatePath("/league");
+    revalidatePath("/admin");
+    revalidatePath("/admin/attendance");
+    revalidatePath("/admin/students");
+    redirect(meetLink);
+  }
+
+  const rpcUnavailable = ["42883", "PGRST202"].includes(joinResult.error.code ?? "");
+  if (!rpcUnavailable || requestId) {
+    console.error("Unable to record class join", joinResult.error);
+    const message = joinResult.error.message.toLowerCase();
+    if (message.includes("rescheduled")) redirect("/class?join=rescheduled");
+    if (message.includes("not currently open") || message.includes("no regular class")) {
+      redirect("/class?join=not-open");
+    }
+    if (message.includes("meet link")) redirect("/class?join=missing-link");
+    redirect("/class?join=attendance-error");
+  }
+
+  // Short mixed-version fallback while the additive migration is deployed
+  // before the application. It is intentionally regular-class only.
+  if (!sessionId) redirect("/class?join=attendance-error");
 
   const data = await getStudentClassData();
   const session = data.sessions.find((item) => item.id === sessionId);
