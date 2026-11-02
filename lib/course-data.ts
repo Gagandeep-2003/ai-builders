@@ -275,6 +275,38 @@ export type ClassJoinEvent = {
   sessionName: string;
 };
 
+export type ClassOccurrenceKind = "regular" | "makeup" | "rescheduled";
+export type ClassOccurrenceSource = "join_button" | "admin_override" | "legacy" | "reconciled";
+
+export type StudentClassOccurrence = {
+  id: string;
+  occurrenceKey: string;
+  studentId: string;
+  studentName: string;
+  batchId: string;
+  batchName: string;
+  rescheduleRequestId?: string;
+  kind: ClassOccurrenceKind;
+  courseLevel?: CourseLevel;
+  moduleNumber?: number;
+  sessionNumber?: number;
+  sessionId?: string;
+  sessionTitle: string;
+  scheduledStartsAt: string;
+  scheduledEndsAt: string;
+  joinedAt?: string;
+  status: AttendanceStatus;
+  source: ClassOccurrenceSource;
+  meetLink: string;
+  batchTimeZone: string;
+  studentTimeZone: string;
+  overrideReason?: string;
+  overriddenByName?: string;
+  overriddenAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ClassRescheduleRequest = {
   id: string;
   studentId: string;

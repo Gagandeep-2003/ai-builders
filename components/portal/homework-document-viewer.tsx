@@ -401,14 +401,14 @@ export function HomeworkDocumentViewer({
               thrusters
               trigger="click"
               carryCursor
-              smoke={2}
-              turbulence={2}
-              wobble={2.4}
+              smoke={3}
+              turbulence={1.5}
+              wobble={0.8}
               ramp={false}
-              thrustColor="#ec04e8"
-              smokeColor="#1d1ea6"
-              buttonColor="#27272a"
-              textColor="#f5f5f5"
+              thrustColor="#FFB54A"
+              smokeColor="#A8A39C"
+              buttonColor="#2B2D31"
+              textColor="#E8E6E3"
               onClick={launchTask}
               onFlightComplete={finishLaunch}
             >

@@ -37,6 +37,7 @@ import {
   type SubmissionStatus,
   type StudentProfile,
   type StudentCourseEnrollment,
+  type StudentClassOccurrence,
   type BadgeDefinition,
   type StudentBadge,
 } from "@/lib/course-data";
@@ -53,7 +54,11 @@ import {
   createServiceRoleSupabaseClient,
 } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { applySessionStatuses } from "@/lib/time";
+import { ADMIN_TIME_ZONE, applySessionStatuses, zonedDateTimeToUtc } from "@/lib/time";
+import {
+  applyAttendanceDrivenProgress,
+  occurrenceAttendanceItems,
+} from "@/lib/attendance-progress";
 import {
   activeCourseLevel,
   buildAdminLevelTwoHomework,
@@ -83,12 +88,14 @@ export type DashboardData = {
   resources: ResourceItem[];
   announcements: Announcement[];
   attendance: AttendanceItem[];
+  classOccurrences: StudentClassOccurrence[];
   feedback: FeedbackItem[];
   rescheduleRequests: ClassRescheduleRequest[];
   passwordRequests: PasswordChangeRequest[];
   curricula: CourseLevelCurriculum[];
   activeCourseLevel: CourseLevel;
   coursePlacementAvailable: boolean;
+  classHistoryAvailable: boolean;
 };
 
 export type AdminData = {
@@ -102,6 +109,7 @@ export type AdminData = {
   attendance: AttendanceItem[];
   feedback: FeedbackItem[];
   classJoinEvents: ClassJoinEvent[];
+  classOccurrences: StudentClassOccurrence[];
   rescheduleRequests: ClassRescheduleRequest[];
   passwordRequests: PasswordChangeRequest[];
 };
@@ -115,7 +123,28 @@ export type StudentContextData = Pick<
   | "curricula"
   | "activeCourseLevel"
   | "coursePlacementAvailable"
+  | "classHistoryAvailable"
+  | "classOccurrences"
 >;
+
+export type AdminClassHistoryFilters = {
+  studentId?: string;
+  status?: AttendanceStatus;
+  kind?: "regular" | "makeup" | "rescheduled";
+  level?: CourseLevel;
+  from?: string;
+  to?: string;
+  page?: number;
+};
+
+export type AdminClassHistoryData = {
+  rows: StudentClassOccurrence[];
+  total: number;
+  page: number;
+  pageSize: number;
+  summary: { present: number; absent: number; rescheduled: number };
+  available: boolean;
+};
 
 export type StudentShellData = StudentContextData & Pick<
   DashboardData,
@@ -201,6 +230,8 @@ function fallbackStudentContext(): StudentContextData {
     curricula,
     activeCourseLevel: 1,
     coursePlacementAvailable: false,
+    classHistoryAvailable: false,
+    classOccurrences: [],
   };
 }
 
@@ -212,6 +243,7 @@ function fallbackDashboardData(): DashboardData {
     resources: filterUnlockedResources(demoResources, context.sessions),
     announcements: demoAnnouncements,
     attendance: demoAttendance,
+    classOccurrences: [],
     feedback: demoFeedback,
     rescheduleRequests: [],
     passwordRequests: demoPasswordChangeRequests,
@@ -230,6 +262,7 @@ function fallbackAdminData(): AdminData {
     attendance: demoAttendance,
     feedback: demoFeedback,
     classJoinEvents: demoClassJoinEvents,
+    classOccurrences: [],
     rescheduleRequests: [],
     passwordRequests: demoPasswordChangeRequests,
   };
@@ -770,6 +803,42 @@ function mapClassJoinEvent(row: DbRow): ClassJoinEvent {
   };
 }
 
+function mapClassOccurrence(row: DbRow): StudentClassOccurrence {
+  const student = relation(row, "students");
+  const batch = relation(row, "batches");
+  const rawLevel = optionalNum(row, "course_level");
+  return {
+    id: text(row, "id"),
+    occurrenceKey: text(row, "occurrence_key"),
+    studentId: text(row, "student_id"),
+    studentName: student ? text(student, "full_name", "Student") : "Student",
+    batchId: text(row, "batch_id"),
+    batchName: batch ? text(batch, "name", "Batch") : "Batch",
+    rescheduleRequestId: text(row, "reschedule_request_id") || undefined,
+    kind: text(row, "kind", "regular") as StudentClassOccurrence["kind"],
+    courseLevel: rawLevel === 1 || rawLevel === 2 ? rawLevel : undefined,
+    moduleNumber: optionalNum(row, "module_number"),
+    sessionNumber: optionalNum(row, "session_number"),
+    sessionId: text(row, "session_id") || undefined,
+    sessionTitle: text(row, "session_title", "Extra class"),
+    scheduledStartsAt: text(row, "scheduled_starts_at"),
+    scheduledEndsAt: text(row, "scheduled_ends_at"),
+    joinedAt: text(row, "joined_at") || undefined,
+    status: text(row, "status", "absent") as AttendanceStatus,
+    source: text(row, "source", "reconciled") as StudentClassOccurrence["source"],
+    meetLink: normalizeMeetLink(text(row, "meet_link")),
+    batchTimeZone: text(row, "batch_time_zone", "Asia/Kolkata"),
+    studentTimeZone: text(row, "student_time_zone", "Asia/Kolkata"),
+    overrideReason: text(row, "override_reason") || undefined,
+    overriddenByName: relation(row, "overridden_by_profile")
+      ? text(relation(row, "overridden_by_profile") as DbRow, "full_name", "Administrator")
+      : undefined,
+    overriddenAt: text(row, "overridden_at") || undefined,
+    createdAt: text(row, "created_at"),
+    updatedAt: text(row, "updated_at"),
+  };
+}
+
 function mapRescheduleRequest(row: DbRow): ClassRescheduleRequest {
   const student = relation(row, "students");
 
@@ -1031,6 +1100,39 @@ async function loadAllLevelTwoClassJoinEvents(
   });
 }
 
+const classOccurrenceSelect =
+  "id, occurrence_key, student_id, batch_id, reschedule_request_id, kind, course_level, module_number, session_number, session_id, session_title, scheduled_starts_at, scheduled_ends_at, joined_at, status, source, meet_link, batch_time_zone, student_time_zone, override_reason, overridden_at, created_at, updated_at, students(full_name), batches(name), overridden_by_profile:profiles!student_class_occurrences_overridden_by_fkey(full_name)";
+
+async function loadStudentClassOccurrences(
+  supabase: ServerSupabaseClient,
+  studentId: string,
+): Promise<{ available: boolean; rows: StudentClassOccurrence[] }> {
+  const result = await supabase
+    .from("student_class_occurrences")
+    .select(classOccurrenceSelect)
+    .eq("student_id", studentId)
+    .order("scheduled_starts_at", { ascending: true });
+  if (result.error) {
+    logOptionalCourseError("student-class-occurrences", result.error);
+    return { available: false, rows: [] };
+  }
+  return { available: true, rows: (result.data ?? []).map((row) => mapClassOccurrence(row)) };
+}
+
+async function loadAllClassOccurrences(
+  supabase: ServerSupabaseClient,
+): Promise<{ available: boolean; rows: StudentClassOccurrence[] }> {
+  const result = await supabase
+    .from("student_class_occurrences")
+    .select(classOccurrenceSelect)
+    .order("scheduled_starts_at", { ascending: false });
+  if (result.error) {
+    logOptionalCourseError("admin-class-occurrences", result.error);
+    return { available: false, rows: [] };
+  }
+  return { available: true, rows: (result.data ?? []).map((row) => mapClassOccurrence(row)) };
+}
+
 function attachCourseEnrollmentState(
   studentsToAttach: StudentProfile[],
   result: { available: boolean; rows: StudentCourseEnrollment[] },
@@ -1184,9 +1286,15 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
   const curriculum = await getCurriculum(effectiveBatch);
 
   const courseClient = await createServerSupabaseClient();
-  const enrollmentResult = courseClient
-    ? await loadStudentCourseEnrollments(courseClient, effectiveStudent.id)
-    : { available: false, rows: [] as StudentCourseEnrollment[] };
+  const [enrollmentResult, occurrenceResult] = courseClient
+    ? await Promise.all([
+        loadStudentCourseEnrollments(courseClient, effectiveStudent.id),
+        loadStudentClassOccurrences(courseClient, effectiveStudent.id),
+      ])
+    : [
+        { available: false, rows: [] as StudentCourseEnrollment[] },
+        { available: false, rows: [] as StudentClassOccurrence[] },
+      ];
   const levelTwoEnrollment = enrollmentResult.rows.find((item) => item.courseLevel === 2);
   const levelOneEnrollment = enrollmentResult.rows.find((item) => item.courseLevel === 1)
     ?? (levelTwoEnrollment?.source === "direct"
@@ -1204,7 +1312,7 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
     levelOneEnrollment,
     ...enrollmentResult.rows.filter((item) => item.courseLevel === 2),
   ];
-  const curricula = buildCourseCurricula({
+  const scheduledCurricula = buildCourseCurricula({
     modules: curriculum.modules,
     sessions: curriculum.sessions,
     batch: effectiveBatch,
@@ -1212,6 +1320,14 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
     includeLevelTwo: enrollmentResult.available,
   });
   const activeLevel = activeCourseLevel(enrollments);
+  const curricula = occurrenceResult.available
+    ? applyAttendanceDrivenProgress({
+        curricula: scheduledCurricula,
+        occurrences: occurrenceResult.rows,
+        activeLevel,
+        batch: effectiveBatch,
+      })
+    : scheduledCurricula;
   const activeCurriculum = curricula.find((item) => item.level === activeLevel) ?? curricula[0];
   const studentWithPlacement: StudentProfile = {
     ...effectiveStudent,
@@ -1228,6 +1344,8 @@ async function getStudentContextImpl(): Promise<StudentContextData> {
     curricula,
     activeCourseLevel: activeLevel,
     coursePlacementAvailable: enrollmentResult.available,
+    classHistoryAvailable: occurrenceResult.available,
+    classOccurrences: occurrenceResult.rows,
   };
 }
 
@@ -1346,10 +1464,13 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
   const homework = [...levelOneHomework, ...levelTwoHomework];
   const resources = filterUnlockedResources(resourceRows?.map((row) => mapResource(row)) ?? demoResources, curriculumSessions);
   const feedback = feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback;
-  const attendance = [
+  const legacyAttendance = [
     ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
     ...(await loadLevelTwoAttendance(supabase, effectiveStudent.id)),
   ];
+  const attendance = context.classHistoryAvailable
+    ? occurrenceAttendanceItems(context.classOccurrences)
+    : legacyAttendance;
 
   return {
     ...context,
@@ -1479,10 +1600,12 @@ async function getStudentProgressDataImpl() {
   ]);
   return {
     ...data,
-    attendance: [
-      ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
-      ...(await loadLevelTwoAttendance(supabase, context.student.id)),
-    ],
+    attendance: context.classHistoryAvailable
+      ? occurrenceAttendanceItems(context.classOccurrences)
+      : [
+          ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
+          ...(await loadLevelTwoAttendance(supabase, context.student.id)),
+        ],
     feedback: feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback,
   };
 }
@@ -1974,6 +2097,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
     enrollmentResult,
     levelTwoAttendance,
     levelTwoClassJoinEvents,
+    occurrenceResult,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -2031,6 +2155,7 @@ async function getAdminDataImpl(): Promise<AdminData> {
     loadAllCourseEnrollments(supabase),
     loadAllLevelTwoAttendance(supabase),
     loadAllLevelTwoClassJoinEvents(supabase),
+    loadAllClassOccurrences(supabase),
   ]);
 
   const mappedModules = mapLegacyLevelOneModules(moduleRows ?? []);
@@ -2065,21 +2190,115 @@ async function getAdminDataImpl(): Promise<AdminData> {
       }).filter((item) => !legacySessionIds || legacySessionIds.has(item.sessionId)) ?? demoHomework,
     resources: resourceRows?.map((row) => mapResource(row)) ?? demoResources,
     announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? demoAnnouncements,
-    attendance: [
-      ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
-      ...levelTwoAttendance,
-    ],
+    attendance: occurrenceResult.available
+      ? occurrenceAttendanceItems(occurrenceResult.rows)
+      : [
+          ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
+          ...levelTwoAttendance,
+        ],
     feedback: feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback,
     classJoinEvents: [
       ...(classJoinEventRows?.map((row) => mapClassJoinEvent(row)) ?? demoClassJoinEvents),
       ...levelTwoClassJoinEvents,
     ].sort((a, b) => b.joinedAt.localeCompare(a.joinedAt)).slice(0, 20),
+    classOccurrences: occurrenceResult.rows,
     rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
   };
 }
 
 export const getAdminData = cache(() => measureServer("admin.page", getAdminDataImpl));
+
+export async function getAdminClassHistoryData(
+  filters: AdminClassHistoryFilters = {},
+): Promise<AdminClassHistoryData> {
+  const pageSize = 25;
+  const page = Math.max(1, Math.floor(filters.page ?? 1));
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    return {
+      rows: [],
+      total: 0,
+      page,
+      pageSize,
+      summary: { present: 0, absent: 0, rescheduled: 0 },
+      available: false,
+    };
+  }
+
+  const reconciliation = await supabase.rpc("reconcile_student_class_history", {
+    p_through: new Date().toISOString(),
+  });
+  if (
+    reconciliation.error &&
+    !["42883", "PGRST202"].includes(reconciliation.error.code ?? "")
+  ) {
+    console.warn("Class history reconciliation failed", reconciliation.error);
+  }
+
+  const throughTime = new Date().toISOString();
+  const fromTime = filters.from
+    ? zonedDateTimeToUtc(filters.from, "00:00", ADMIN_TIME_ZONE).toISOString()
+    : undefined;
+  const toTimeExclusive = filters.to
+    ? new Date(
+        zonedDateTimeToUtc(filters.to, "00:00", ADMIN_TIME_ZONE).getTime() + 86_400_000,
+      ).toISOString()
+    : undefined;
+  let historyQuery = supabase
+    .from("student_class_occurrences")
+    .select(classOccurrenceSelect, { count: "exact" })
+    .lt("scheduled_ends_at", throughTime);
+  if (filters.studentId) historyQuery = historyQuery.eq("student_id", filters.studentId);
+  if (filters.status) historyQuery = historyQuery.eq("status", filters.status);
+  if (filters.kind) historyQuery = historyQuery.eq("kind", filters.kind);
+  if (filters.level) historyQuery = historyQuery.eq("course_level", filters.level);
+  if (fromTime) historyQuery = historyQuery.gte("scheduled_starts_at", fromTime);
+  if (toTimeExclusive) historyQuery = historyQuery.lt("scheduled_starts_at", toTimeExclusive);
+  const historyResult = await historyQuery
+    .order("scheduled_starts_at", { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
+  if (historyResult.error) {
+    logOptionalCourseError("admin-class-history", historyResult.error);
+    return {
+      rows: [],
+      total: 0,
+      page,
+      pageSize,
+      summary: { present: 0, absent: 0, rescheduled: 0 },
+      available: false,
+    };
+  }
+
+  const countStatus = async (status: AttendanceStatus) => {
+    let countQuery = supabase
+      .from("student_class_occurrences")
+      .select("id", { count: "exact", head: true })
+      .lt("scheduled_ends_at", throughTime)
+      .eq("status", status);
+    if (filters.studentId) countQuery = countQuery.eq("student_id", filters.studentId);
+    if (filters.kind) countQuery = countQuery.eq("kind", filters.kind);
+    if (filters.level) countQuery = countQuery.eq("course_level", filters.level);
+    if (fromTime) countQuery = countQuery.gte("scheduled_starts_at", fromTime);
+    if (toTimeExclusive) countQuery = countQuery.lt("scheduled_starts_at", toTimeExclusive);
+    const result = await countQuery;
+    return result.count ?? 0;
+  };
+  const [present, absent, rescheduled] = await Promise.all([
+    countStatus("present"),
+    countStatus("absent"),
+    countStatus("rescheduled"),
+  ]);
+
+  return {
+    rows: (historyResult.data ?? []).map((row) => mapClassOccurrence(row)),
+    total: historyResult.count ?? 0,
+    page,
+    pageSize,
+    summary: { present, absent, rescheduled },
+    available: true,
+  };
+}
 
 async function getAdminHomeworkDataImpl(): Promise<AdminData> {
   const data = await getAdminData();

@@ -183,9 +183,15 @@ export function getSessionDateTimes(session: CourseSession, batch: Batch) {
   const classSlot = occurrence?.slot ?? null;
   const sessionDate = occurrence?.date ?? session.date;
 
+  const startsAt = zonedDateTimeToUtc(sessionDate, classSlot?.startTime ?? batch.startTime, timeZone);
+  let endsAt = zonedDateTimeToUtc(sessionDate, classSlot?.endTime ?? batch.endTime, timeZone);
+  if (endsAt.getTime() <= startsAt.getTime()) {
+    endsAt = new Date(endsAt.getTime() + 86_400_000);
+  }
+
   return {
-    startsAt: zonedDateTimeToUtc(sessionDate, classSlot?.startTime ?? batch.startTime, timeZone),
-    endsAt: zonedDateTimeToUtc(sessionDate, classSlot?.endTime ?? batch.endTime, timeZone),
+    startsAt,
+    endsAt,
     meetLink: normalizeMeetLink(classSlot?.meetLink || batch.meetLink),
     slot: classSlot,
   };
@@ -213,6 +219,46 @@ export function getNextBatchClassOccurrence(batch: Batch, now = new Date()) {
         slot,
         startsAt,
         endsAt: zonedDateTimeToUtc(date, slot.endTime, timeZone),
+        meetLink: normalizeMeetLink(slot.meetLink || batch.meetLink),
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns the class occurrence that is currently joinable/in progress, or the
+ * next future occurrence. Unlike getNextBatchClassOccurrence this deliberately
+ * keeps the current slot visible until its scheduled end.
+ */
+export function getCurrentOrNextBatchClassOccurrence(batch: Batch, now = new Date()) {
+  const slots = sortedClassSlots(batch);
+  if (slots.length === 0 || !batch.startDate) return null;
+
+  const timeZone = batch.timeZone || DEFAULT_TIME_ZONE;
+  const today = dateKeyInTimeZone(now, timeZone);
+  const yesterday = addDays(today, -1);
+  const firstDate = batch.startDate > yesterday ? batch.startDate : yesterday;
+
+  for (let dayOffset = 0; dayOffset < 731; dayOffset += 1) {
+    const date = addDays(firstDate, dayOffset);
+    if (isBatchPausedOnDate(batch, date)) continue;
+    const dayOfWeek = dayOfWeekForDateKey(date);
+    const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeek);
+
+    for (const slot of daySlots) {
+      const startsAt = zonedDateTimeToUtc(date, slot.startTime, timeZone);
+      let endsAt = zonedDateTimeToUtc(date, slot.endTime, timeZone);
+      if (endsAt.getTime() <= startsAt.getTime()) {
+        endsAt = new Date(endsAt.getTime() + 86_400_000);
+      }
+      if (endsAt.getTime() < now.getTime()) continue;
+      return {
+        date,
+        slot,
+        startsAt,
+        endsAt,
         meetLink: normalizeMeetLink(slot.meetLink || batch.meetLink),
       };
     }

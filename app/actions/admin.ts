@@ -1104,6 +1104,41 @@ export async function reviewHomeworkSubmissionAction(formData: FormData) {
   }
 }
 
+export async function overrideClassOccurrenceAction(formData: FormData) {
+  const supabase = await getAdminClient();
+  if (!supabase) redirect("/admin/attendance?attendanceOverride=unauthorized");
+
+  const occurrenceId = requiredValue(formData, "occurrenceId");
+  const status = requiredValue(formData, "status");
+  const reason = requiredValue(formData, "reason");
+  if (
+    !occurrenceId ||
+    !["present", "absent", "rescheduled"].includes(status) ||
+    reason.length < 3
+  ) {
+    redirect("/admin/attendance?attendanceOverride=invalid");
+  }
+
+  const { error } = await supabase.rpc("override_student_class_attendance", {
+    p_occurrence_id: occurrenceId,
+    p_status: status,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("Unable to override class attendance", error);
+    redirect("/admin/attendance?attendanceOverride=error");
+  }
+
+  revalidatePath("/admin/attendance");
+  revalidatePath("/dashboard");
+  revalidatePath("/journey");
+  revalidatePath("/curriculum");
+  revalidatePath("/homework");
+  revalidatePath("/progress");
+  revalidatePath("/league");
+  redirect("/admin/attendance?attendanceOverride=saved");
+}
+
 export async function awardMentorBadgeAction(formData: FormData) {
   const supabase = await getAdminClient();
   if (!supabase) return;

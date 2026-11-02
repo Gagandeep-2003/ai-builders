@@ -10,10 +10,12 @@ export function ClassLiveCard({
   batch,
   nextSession,
   viewerTimeZone,
+  isExtraClass = false,
 }: {
   batch: Batch;
   nextSession: CourseSession;
   viewerTimeZone: string;
+  isExtraClass?: boolean;
 }) {
   const [nearClass, setNearClass] = useState(false);
   const [canJoin, setCanJoin] = useState(false);
@@ -54,7 +56,9 @@ export function ClassLiveCard({
             {formatSessionTime(nextSession, batch, viewerTimeZone)}
           </p>
           <p className="mt-2 font-mono text-xs uppercase text-accent">
-            Level {nextSession.courseLevel ?? 1} · Module {nextSession.moduleNumber ?? Math.ceil(nextSession.globalNumber / 8)} · Session {nextSession.sessionNumber}
+            {isExtraClass
+              ? "Extra class · Curriculum remains complete"
+              : `Level ${nextSession.courseLevel ?? 1} · Module ${nextSession.moduleNumber ?? Math.ceil(nextSession.globalNumber / 8)} · Session ${nextSession.sessionNumber}`}
           </p>
           <p className="mt-2 font-mono text-xs text-text-muted">
             Batch timezone: {batch.timeZone}

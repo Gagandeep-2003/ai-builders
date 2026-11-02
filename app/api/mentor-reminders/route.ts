@@ -292,6 +292,15 @@ async function runMentorReminders(request: Request) {
   }
 
   const warnings: string[] = [];
+  const reconciliation = await supabase.rpc("reconcile_student_class_history", {
+    p_through: new Date().toISOString(),
+  });
+  if (
+    reconciliation.error &&
+    !["42883", "PGRST202"].includes(reconciliation.error.code ?? "")
+  ) {
+    warnings.push(`Class history reconciliation skipped: ${reconciliation.error.message}`);
+  }
   const cleanupResult = await supabase
     .from("submission_evidence")
     .delete()
