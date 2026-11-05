@@ -2044,6 +2044,15 @@ textarea:focus-visible {
   }
 }
 
+html[data-portal-effects="reduced"] .referral-launch-coins,
+html[data-portal-effects="reduced"] .referral-launch-gold-burst,
+html[data-portal-effects="reduced"] .referral-launch-card-glint,
+html[data-portal-effects="reduced"] .referral-vault-card-glint,
+html[data-portal-effects="reduced"] .badge-rays {
+  display: none !important;
+  animation: none !important;
+}
+
 @media (min-width: 1024px) {
   .student-splash-cursor > div {
     clip-path: inset(0 0 0 18rem);

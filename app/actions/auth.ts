@@ -24,13 +24,10 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { error: "Supabase is not configured." };
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: "The email or password is incorrect." };
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = signInData.user;
   if (!user) return { error: "Could not load the signed-in user." };
 
   const { data: profile, error: profileError } = await supabase

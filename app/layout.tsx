@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { WebVitalsReporter } from "@/components/performance/web-vitals-reporter";
 import { getSiteUrl, siteDescription, siteName } from "@/lib/site";
 import "./globals.css";
 
@@ -74,6 +75,7 @@ export default function RootLayout({
               "try{var t=localStorage.getItem('ai-builders-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}",
           }}
         />
+        <WebVitalsReporter />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

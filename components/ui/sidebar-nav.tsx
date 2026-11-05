@@ -33,6 +33,10 @@ import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useChatUnread } from "@/components/chat/chat-unread-state";
+import {
+  beginPortalNavigation,
+  completePortalNavigation,
+} from "@/lib/client-performance";
 import { playLeagueEntrySound } from "@/lib/league-audio";
 import { cn } from "@/lib/utils";
 
@@ -109,16 +113,7 @@ export function SidebarNav({
   }, [navigationPending]);
 
   useEffect(() => {
-    if (typeof performance === "undefined") return;
-    const startMark = "portal-navigation-start";
-    if (!performance.getEntriesByName(startMark).length) return;
-    performance.mark("portal-navigation-content");
-    const measure = performance.measure("portal-navigation", startMark, "portal-navigation-content");
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      console.info(`[portal-navigation] ${pathname} ${Math.round(measure.duration)}ms`);
-    }
-    performance.clearMarks(startMark);
-    performance.clearMarks("portal-navigation-content");
+    completePortalNavigation(pathname);
   }, [pathname]);
 
   const nav = (
@@ -162,17 +157,15 @@ export function SidebarNav({
               key={link.href}
               href={link.href}
               aria-current={active ? "page" : undefined}
-              prefetch={link.priority ? true : null}
+              prefetch={false}
               onMouseEnter={() => router.prefetch(link.href)}
               onFocus={() => router.prefetch(link.href)}
+              onTouchStart={() => router.prefetch(link.href)}
               onClick={() => {
                 if (link.href === "/league" && pathname !== "/league") {
                   playLeagueEntrySound();
                 }
-                if (typeof performance !== "undefined") {
-                  performance.clearMarks("portal-navigation-start");
-                  performance.mark("portal-navigation-start");
-                }
+                if (!active) beginPortalNavigation(link.href);
                 setNavigatingTo(link.href);
                 setOpen(false);
               }}
@@ -281,7 +274,7 @@ export function SidebarNav({
 
   return (
     <>
-      {showNavigationPending ? (
+      {navigationPending ? (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-1 overflow-hidden bg-accent/10">
           <div className="h-full w-1/3 animate-[navigation-progress_0.9s_ease-in-out_infinite] bg-accent shadow-[0_0_18px_rgba(110,231,183,0.75)]" />
         </div>
