@@ -55,5 +55,77 @@ create policy "referrals_delete_admin"
 on public.referrals for delete
 using (private.is_admin());
 
+create or replace function public.create_own_referral(
+  referred_name_input text,
+  referred_contact_input text,
+  relationship_input text,
+  note_input text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_student_id uuid;
+  created_referral_id uuid;
+  cleaned_name text := nullif(trim(referred_name_input), '');
+  cleaned_contact text := nullif(trim(referred_contact_input), '');
+  cleaned_relationship text := nullif(trim(relationship_input), '');
+  cleaned_note text := nullif(trim(note_input), '');
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if cleaned_name is null or length(cleaned_name) > 120 then
+    raise exception 'A valid referred learner name is required';
+  end if;
+
+  if cleaned_contact is null or length(cleaned_contact) > 320 then
+    raise exception 'A valid referral contact is required';
+  end if;
+
+  if cleaned_relationship is null or length(cleaned_relationship) > 64 then
+    raise exception 'A valid relationship is required';
+  end if;
+
+  if cleaned_note is not null and length(cleaned_note) > 2000 then
+    raise exception 'Referral note is too long';
+  end if;
+
+  select student.id
+  into current_student_id
+  from public.students as student
+  where student.user_id = auth.uid()
+  limit 1;
+
+  if current_student_id is null then
+    raise exception 'Student profile not found';
+  end if;
+
+  insert into public.referrals (
+    student_id,
+    referred_name,
+    referred_contact,
+    relationship,
+    note,
+    status
+  )
+  values (
+    current_student_id,
+    cleaned_name,
+    cleaned_contact,
+    cleaned_relationship,
+    cleaned_note,
+    'pending'
+  )
+  returning id into created_referral_id;
+
+  return created_referral_id;
+end;
+$$;
+
 grant select, insert, update, delete on public.referrals to authenticated;
 grant select, insert, update, delete on public.referrals to service_role;
+grant execute on function public.create_own_referral(text, text, text, text) to authenticated;

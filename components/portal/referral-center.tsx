@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -97,10 +97,20 @@ const eligibilityItems = [
 export function ReferralCenter({ referrals }: { referrals: ReferralSubmission[] }) {
   const [state, action] = useActionState(createReferralAction, { ok: false, message: "" });
   const [copied, setCopied] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const reducedMotion = useReducedMotion();
-  const paidReferrals = referrals.filter((referral) => referral.status === "rewarded").length;
-  const dueReferrals = referrals.filter((referral) => referral.status === "enrolled").length;
+  const visibleReferrals =
+    state.ok && state.referral && !referrals.some((item) => item.id === state.referral?.id)
+      ? [state.referral, ...referrals]
+      : referrals;
+  const paidReferrals = visibleReferrals.filter((referral) => referral.status === "rewarded").length;
+  const dueReferrals = visibleReferrals.filter((referral) => referral.status === "enrolled").length;
   const shareBody = encodeURIComponent(shareMessage);
+
+  useEffect(() => {
+    if (!state.ok || !state.referral) return;
+    formRef.current?.reset();
+  }, [state.ok, state.referral]);
 
   const copyShareMessage = async () => {
     await navigator.clipboard.writeText(shareMessage);
@@ -274,7 +284,7 @@ export function ReferralCenter({ referrals }: { referrals: ReferralSubmission[] 
             </div>
           </div>
 
-          <form id="refer-now" action={action} className="referral-vault-form scroll-mt-24">
+          <form ref={formRef} id="refer-now" action={action} className="referral-vault-form scroll-mt-24">
             <div className="referral-vault-subheading">
               <span><Send className="h-5 w-5" /></span>
               <div>
@@ -339,14 +349,14 @@ export function ReferralCenter({ referrals }: { referrals: ReferralSubmission[] 
             </div>
           </div>
           <div className="referral-vault-ledger-totals">
-            <span><strong>{referrals.length}</strong> submitted</span>
+            <span><strong>{visibleReferrals.length}</strong> submitted</span>
             <span><strong>{dueReferrals}</strong> awaiting payout</span>
             <span><strong>${paidReferrals * 100}</strong> paid</span>
           </div>
         </div>
 
         <div className="referral-vault-ledger-list">
-          {referrals.length ? referrals.map((referral, index) => {
+          {visibleReferrals.length ? visibleReferrals.map((referral, index) => {
             const status = statusDetails[referral.status];
             return (
               <motion.article
