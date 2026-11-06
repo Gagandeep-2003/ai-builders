@@ -101,25 +101,17 @@ export async function updateStudentContactAction(
     return { ok: false, message: "Please enter a valid parent name, parent email, and country." };
   }
 
-  const { error } = await context.supabase.rpc("update_own_student_contact", {
+  const { error: rpcError } = await context.supabase.rpc("update_own_student_contact", {
     parent_name_input: parentName,
     parent_email_input: parentEmail,
     country_input: country,
   });
 
   const serviceSupabase = createServiceRoleSupabaseClient();
+  let studentTableSaved = !rpcError;
 
-  if (error) {
-    const { error: fallbackError } = serviceSupabase
-      ? await serviceSupabase
-          .from("students")
-          .update({
-            parent_name: parentName,
-            parent_email: parentEmail,
-            country,
-          })
-          .eq("id", context.studentId)
-      : await context.supabase
+  if (rpcError && serviceSupabase) {
+    const { error: serviceError } = await serviceSupabase
       .from("students")
       .update({
         parent_name: parentName,
@@ -128,41 +120,13 @@ export async function updateStudentContactAction(
       })
       .eq("id", context.studentId);
 
-    if (fallbackError) {
-      revalidatePath("/profile");
-      return {
-        ok: false,
-        message:
-          "Could not save profile details. Run the profile metadata migration or add SUPABASE_SERVICE_ROLE_KEY in Vercel.",
-      };
-    }
+    studentTableSaved = !serviceError;
   }
 
-  const readSupabase = serviceSupabase ?? context.supabase;
-  const { data: savedStudent, error: readError } = await readSupabase
-    .from("students")
-    .select("parent_name, parent_email, country")
-    .eq("id", context.studentId)
-    .maybeSingle();
-
-  const savedParentName = String(savedStudent?.parent_name ?? "").trim();
-  const savedParentEmail = String(savedStudent?.parent_email ?? "").trim().toLowerCase();
-  const savedCountry = String(savedStudent?.country ?? "").trim();
-
-  const studentTableSaved =
-    !readError &&
-    Boolean(savedStudent) &&
-    savedParentName === parentName &&
-    savedParentEmail === parentEmail &&
-    savedCountry === country;
-
-  if (
-    readError ||
-    !savedStudent ||
-    savedParentName !== parentName ||
-    savedParentEmail !== parentEmail ||
-    savedCountry !== country
-  ) {
+  // The auth metadata belongs to the signed-in student and does not require a
+  // service-role key. Keep it as a durable self-service fallback while older
+  // deployments are waiting for the profile RPC migration.
+  if (!studentTableSaved) {
     const { error: metadataError } = await context.supabase.auth.updateUser({
       data: {
         student_contact: {
@@ -174,6 +138,10 @@ export async function updateStudentContactAction(
     });
 
     if (metadataError) {
+      console.error("[profile.contact] Unable to save student contact", {
+        rpcCode: rpcError?.code,
+        metadataCode: metadataError.code,
+      });
       revalidatePath("/profile");
       return {
         ok: false,
@@ -189,9 +157,9 @@ export async function updateStudentContactAction(
     ok: true,
     message: "Profile details updated.",
     values: {
-      parentName: studentTableSaved ? savedParentName : parentName,
-      parentEmail: studentTableSaved ? savedParentEmail : parentEmail,
-      country: studentTableSaved ? savedCountry : country,
+      parentName,
+      parentEmail,
+      country,
     },
   };
 }

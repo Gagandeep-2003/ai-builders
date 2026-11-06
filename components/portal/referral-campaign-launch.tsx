@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -31,14 +30,7 @@ export function replayReferralCampaign() {
   window.dispatchEvent(new Event(REFERRAL_CAMPAIGN_REPLAY_EVENT));
 }
 
-const goldCoins = Array.from({ length: 42 }, (_, index) => ({
-  left: 2 + ((index * 37) % 96),
-  delay: (index % 14) * 0.09 + Math.floor(index / 14) * 0.08,
-  duration: 4.15 + (index % 6) * 0.18,
-  size: 28 + (index % 7) * 7,
-  drift: (index % 2 === 0 ? 1 : -1) * (38 + ((index * 29) % 145)),
-  rotation: (index * 47) % 360,
-}));
+const goldSparks = Array.from({ length: 8 }, (_, index) => index);
 
 export function ReferralCampaignLaunch({
   studentId,
@@ -160,32 +152,10 @@ export function ReferralCampaignLaunch({
           }}
         >
           {!reducedMotion ? (
-            <div key={`coins-${revealKey}`} className="referral-launch-coins" aria-hidden="true">
-              {goldCoins.map((coin, index) => (
-                <span
-                  key={index}
-                  className="referral-launch-coin"
-                  style={
-                    {
-                      "--coin-left": `${coin.left}%`,
-                      "--coin-delay": `${coin.delay}s`,
-                      "--coin-duration": `${coin.duration}s`,
-                      "--coin-size": `${coin.size}px`,
-                      "--coin-drift": `${coin.drift}px`,
-                      "--coin-drift-mid": `${Math.round(coin.drift * 0.38)}px`,
-                      "--coin-rotation": `${coin.rotation}deg`,
-                    } as CSSProperties
-                  }
-                >
-                  <Image
-                    src="/referral-gold-coin.webp"
-                    alt=""
-                    width={192}
-                    height={192}
-                    unoptimized
-                    className="h-full w-full object-contain"
-                  />
-                </span>
+            <div key={`reveal-${revealKey}`} className="referral-launch-reveal" aria-hidden="true">
+              <span className="referral-launch-halo" />
+              {goldSparks.map((index) => (
+                <span key={index} className={`referral-launch-spark spark-${index + 1}`} />
               ))}
             </div>
           ) : null}
