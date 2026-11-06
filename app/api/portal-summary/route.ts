@@ -5,7 +5,7 @@ import {
   getNextClassEvent,
   getStudentClassEvents,
 } from "@/lib/class-events";
-import { getAdminShellData, getStudentShellData } from "@/lib/data";
+import { getAdminPortalSummaryData, getStudentShellData } from "@/lib/data";
 import type { AdminPortalSummary, StudentPortalSummary } from "@/lib/portal-summary";
 import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 
@@ -34,7 +34,7 @@ export async function GET() {
   }
 
   if (profile.role === "admin") {
-    const data = await getAdminShellData();
+    const data = await getAdminPortalSummaryData();
     const now = new Date();
     const today = dayKey(now, ADMIN_TIME_ZONE);
     const todayClasses = getAdminClassEvents({
@@ -42,20 +42,15 @@ export async function GET() {
       batches: data.batches,
       sessions: data.sessions,
       requests: data.rescheduleRequests,
-      attendance: data.attendance,
+      attendance: [],
       now,
     }).filter((event) => dayKey(event.startsAt, ADMIN_TIME_ZONE) === today).length;
     const summary: AdminPortalSummary = {
       role: "admin",
       todayClasses,
-      pendingHomework: data.homework.reduce(
-        (count, item) =>
-          count +
-          (item.submissions?.filter((submission) => submission.status === "submitted").length ?? 0),
-        0,
-      ),
+      pendingHomework: data.pendingHomeworkCount,
       pendingReschedules: data.rescheduleRequests.filter((request) => request.status === "pending").length,
-      pendingPasswords: data.passwordRequests.filter((request) => request.status === "pending").length,
+      pendingPasswords: data.pendingPasswordCount,
       onlineStudents: data.students.filter((student) => {
         if (!student.lastSeenAt) return false;
         const seenAt = new Date(student.lastSeenAt).getTime();

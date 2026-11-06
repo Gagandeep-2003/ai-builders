@@ -2,11 +2,11 @@ import { createResourceAction, deleteResourceAction } from "@/app/actions/admin"
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { getAdminData } from "@/lib/data";
+import { getAdminResourcesData } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
 export default async function AdminResourcesPage() {
-  const data = await getAdminData();
+  const data = await getAdminResourcesData();
 
   return (
     <AnimatedPage>

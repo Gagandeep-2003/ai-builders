@@ -1,6 +1,6 @@
 import { getCurrentProfile } from "@/lib/auth";
 import { getNextClassEvent, getStudentClassEvents } from "@/lib/class-events";
-import { getStudentDashboardData } from "@/lib/data";
+import { getStudentSearchData } from "@/lib/data";
 
 export const runtime = "nodejs";
 
@@ -10,7 +10,7 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const data = await getStudentDashboardData();
+  const data = await getStudentSearchData();
   const nextClassEvent = getNextClassEvent(
     getStudentClassEvents({
       student: data.student,

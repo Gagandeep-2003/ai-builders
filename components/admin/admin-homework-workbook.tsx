@@ -1,9 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import { useMemo, useState } from "react";
-import { ChevronDown, FileText, MonitorSmartphone, Paperclip, UserRound } from "lucide-react";
+import { ChevronDown, UserRound } from "lucide-react";
+import { AdminSubmissionEvidence } from "@/components/admin/admin-submission-evidence";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { HomeworkReviewForm } from "@/components/admin/homework-review-form";
@@ -57,21 +56,6 @@ function isHomeworkAssignedToStudent(
     }
   }
   return (!homework.batchId && !homework.assignedStudentId) || homework.batchId === student.batchId || homework.assignedStudentId === student.id;
-}
-
-function getDeviceFields(submission: NonNullable<HomeworkItem["submissions"]>[number]) {
-  return [
-    ["Browser", [submission.browserName, submission.browserVersion].filter(Boolean).join(" ")],
-    ["Device", submission.deviceType],
-    ["OS", submission.osName],
-    [
-      "Viewport",
-      submission.viewportWidth && submission.viewportHeight
-        ? `${submission.viewportWidth} × ${submission.viewportHeight}`
-        : "",
-    ],
-    ["Language", submission.language],
-  ].filter((item): item is [string, string] => Boolean(item[1]));
 }
 
 export function AdminHomeworkWorkbook({
@@ -285,7 +269,6 @@ export function AdminHomeworkWorkbook({
                         {items.map((item) => {
                           const submission = getStudentSubmission(item, selectedStudent.id);
                           const status = submission?.status ?? "pending";
-                          const deviceFields = submission ? getDeviceFields(submission) : [];
                           return (
                             <article key={item.id} className="rounded-xl border border-border/70 bg-white/[0.025] p-4">
                               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -300,96 +283,11 @@ export function AdminHomeworkWorkbook({
                                     <span>Time {formatDuration(submission?.timeSpentSeconds)}</span>
                                   </div>
                                   {submission && ["submitted", "revision_requested", "reviewed"].includes(submission.status) ? (
-                                    <div className="mt-4 rounded-xl border border-accent/20 bg-accent/5 p-3">
-                                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <MonitorSmartphone className="h-4 w-4 text-accent" />
-                                          <p className="font-mono text-xs uppercase text-accent">Submission proof</p>
-                                        </div>
-                                        <p className="font-mono text-[11px] text-text-muted">
-                                          {submission.proofCapturedAt ? `Captured ${formatDate(submission.proofCapturedAt)}` : "No evidence row saved"}
-                                          {submission.proofExpiresAt ? ` · Deletes ${formatDate(submission.proofExpiresAt)}` : ""}
-                                        </p>
-                                      </div>
-                                      {submission.screenImage || submission.cameraImage ? (
-                                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                          {submission.screenImage ? (
-                                            <a href={submission.screenImage} target="_blank" rel="noreferrer" className="group block">
-                                              <p className="mb-2 font-mono text-[11px] uppercase text-text-muted">Screen</p>
-                                              <img
-                                                src={submission.screenImage}
-                                                alt="Student screen submission proof"
-                                                className="aspect-video w-full rounded-lg border border-border object-cover transition group-hover:border-accent/50"
-                                              />
-                                            </a>
-                                          ) : null}
-                                          {submission.cameraImage ? (
-                                            <a href={submission.cameraImage} target="_blank" rel="noreferrer" className="group block">
-                                              <p className="mb-2 font-mono text-[11px] uppercase text-text-muted">Camera</p>
-                                              <img
-                                                src={submission.cameraImage}
-                                                alt="Student camera submission proof"
-                                                className="aspect-video w-full rounded-lg border border-border object-cover transition group-hover:border-accent/50"
-                                              />
-                                            </a>
-                                          ) : null}
-                                        </div>
-                                      ) : (
-                                        <div className="mt-3 rounded-lg border border-border/70 bg-bg-card/60 p-3 text-sm text-text-secondary">
-                                          {submission.proofText || submission.attachmentData
-                                            ? "No screen or camera image was attached. Text or file evidence is shown below."
-                                            : submission.proofCapturedAt
-                                            ? "No proof image was attached. The student may have submitted after capture was blocked or skipped."
-                                            : "No evidence row was found for this submitted task. Ask the student to submit again after the evidence migration is applied."}
-                                        </div>
-                                      )}
-                                      {submission.proofText ? (
-                                        <div className="mt-3 rounded-lg border border-border/70 bg-bg-base/40 p-3">
-                                          <div className="flex items-center gap-2">
-                                            <FileText className="h-4 w-4 text-accent" />
-                                            <p className="font-mono text-[10px] uppercase text-text-muted">Text evidence</p>
-                                          </div>
-                                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
-                                            {submission.proofText}
-                                          </p>
-                                        </div>
-                                      ) : null}
-                                      {submission.attachmentData ? (
-                                        <a
-                                          href={submission.attachmentData}
-                                          download={submission.attachmentName || "student-attachment"}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent/5 p-3 text-sm text-accent transition hover:border-accent/45"
-                                        >
-                                          <span className="flex min-w-0 items-center gap-2">
-                                            <Paperclip className="h-4 w-4 shrink-0" />
-                                            <span className="truncate">{submission.attachmentName || "Student attachment"}</span>
-                                          </span>
-                                          <span className="shrink-0 font-mono text-[10px] uppercase text-text-muted">
-                                            {submission.attachmentMime || "file"}
-                                          </span>
-                                        </a>
-                                      ) : null}
-                                      {deviceFields.length || submission.userAgent ? (
-                                        <div className="mt-3 grid gap-2 rounded-lg border border-border/70 bg-bg-base/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
-                                          {deviceFields.map(([label, value]) => (
-                                            <div key={label}>
-                                              <p className="font-mono text-[10px] uppercase text-text-muted">{label}</p>
-                                              <p className="mt-1 truncate text-xs font-semibold text-text-primary">{value}</p>
-                                            </div>
-                                          ))}
-                                          {submission.userAgent ? (
-                                            <div className="sm:col-span-2 lg:col-span-3">
-                                              <p className="font-mono text-[10px] uppercase text-text-muted">User agent</p>
-                                              <p className="mt-1 line-clamp-2 break-all text-[11px] leading-5 text-text-secondary">
-                                                {submission.userAgent}
-                                              </p>
-                                            </div>
-                                          ) : null}
-                                        </div>
-                                      ) : null}
-                                    </div>
+                                    <AdminSubmissionEvidence
+                                      homeworkId={item.id}
+                                      studentId={selectedStudent.id}
+                                      courseLevel={item.courseLevel ?? 1}
+                                    />
                                   ) : null}
                                   {submission?.mentorFeedback ? (
                                     <div className="mt-3 rounded-xl border border-info/25 bg-info/5 p-3">

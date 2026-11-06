@@ -14,7 +14,7 @@ import {
   formatRescheduleRequestTime,
   getRescheduleRequestKind,
 } from "@/lib/class-events";
-import { getAdminClassHistoryData, getAdminData } from "@/lib/data";
+import { getAdminAttendanceData, getAdminClassHistoryData } from "@/lib/data";
 import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 
 function SchedulerField({
@@ -64,7 +64,7 @@ export default async function AdminAttendancePage({
     ? Number(params.level) as 1 | 2
     : undefined;
   const [data, history] = await Promise.all([
-    getAdminData(),
+    getAdminAttendanceData(),
     getAdminClassHistoryData({
       studentId: params?.studentId,
       status,

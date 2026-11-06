@@ -18,7 +18,7 @@ import {
   getAdminClassEvents,
   getRescheduleRequestKind,
 } from "@/lib/class-events";
-import { getAdminData } from "@/lib/data";
+import { getAdminDashboardData } from "@/lib/data";
 import { ADMIN_TIME_ZONE, formatInTimeZone } from "@/lib/time";
 import { formatDate } from "@/lib/utils";
 
@@ -90,7 +90,7 @@ function formatLastSeen(lastSeenAt: string | undefined, now: Date) {
 }
 
 export default async function AdminDashboardPage() {
-  const data = await getAdminData();
+  const data = await getAdminDashboardData();
   const pendingReviews = data.homework.filter((item) => item.status === "submitted").length;
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
