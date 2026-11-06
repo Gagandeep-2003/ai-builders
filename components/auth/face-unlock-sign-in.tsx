@@ -8,6 +8,7 @@ import { listFaceUnlockEnrollments } from "@/lib/face-unlock/client-store";
 import { FACE_MATCH_THRESHOLD, faceDescriptorDistance } from "@/lib/face-unlock/recognition";
 import type { FaceUnlockEnrollment } from "@/lib/face-unlock/types";
 import { createClient } from "@/lib/supabase/client";
+import { clearSignInStart, markSignInStart } from "@/lib/client-performance";
 
 type FaceUnlockResponse = {
   ok?: boolean;
@@ -68,6 +69,8 @@ export function FaceUnlockSignIn() {
           };
         }
 
+        markSignInStart("face");
+
         const response = await fetch("/api/auth/face-unlock", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -99,10 +102,10 @@ export function FaceUnlockSignIn() {
         window.setTimeout(() => {
           setCameraOpen(false);
           router.replace("/dashboard");
-          router.refresh();
-        }, 650);
+        }, 220);
         return { ok: true };
       } catch (verificationFailure) {
+        clearSignInStart();
         const message =
           verificationFailure instanceof Error
             ? verificationFailure.message

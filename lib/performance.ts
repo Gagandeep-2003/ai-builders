@@ -3,7 +3,12 @@ export async function measureServer<T>(label: string, work: () => Promise<T>): P
   try {
     return await work();
   } finally {
-    if (process.env.PERFORMANCE_LOGS === "1" || process.env.NODE_ENV === "development") {
+    const sampledProductionRequest = process.env.NODE_ENV === "production" && Math.random() < 0.05;
+    if (
+      process.env.PERFORMANCE_LOGS === "1" ||
+      process.env.NODE_ENV === "development" ||
+      sampledProductionRequest
+    ) {
       console.info(JSON.stringify({
         type: "server-timing",
         label,

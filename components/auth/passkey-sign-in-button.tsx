@@ -9,6 +9,7 @@ import {
   getDeviceUnlockLabel,
   isPasskeySupported,
 } from "@/lib/passkeys";
+import { clearSignInStart, markSignInStart } from "@/lib/client-performance";
 
 export function PasskeySignInButton() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export function PasskeySignInButton() {
 
     setPending(true);
     setError(null);
+    markSignInStart("passkey");
 
     try {
       const supabase = createClient();
@@ -49,8 +51,8 @@ export function PasskeySignInButton() {
       }
 
       router.replace(profile.role === "admin" ? "/admin" : "/dashboard");
-      router.refresh();
     } catch (signInError) {
+      clearSignInStart();
       setError(formatPasskeyError(signInError, "sign-in"));
     } finally {
       setPending(false);

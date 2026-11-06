@@ -1,16 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { loginAction, type LoginState } from "@/app/actions/auth";
 import { FaceUnlockSignIn } from "@/components/auth/face-unlock-sign-in";
 import { PasskeySignInButton } from "@/components/auth/passkey-sign-in-button";
+import { clearSignInStart, markSignInStart } from "@/lib/client-performance";
 
 const initialState: LoginState = {};
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(loginAction, initialState);
+
+  useEffect(() => {
+    if (state.error) clearSignInStart();
+  }, [state.error]);
 
   return (
     <motion.div
@@ -28,7 +33,11 @@ export function LoginForm() {
 
       <FaceUnlockSignIn />
 
-      <form action={action} className="mt-6 space-y-4">
+      <form
+        action={action}
+        onSubmit={() => markSignInStart("password")}
+        className="mt-6 space-y-4"
+      >
         <label className="block">
           <span className="mb-2 block text-sm text-text-secondary">Email</span>
           <span className="flex items-center gap-3 rounded-xl border border-border bg-bg-elevated px-3 py-3 focus-within:border-accent/55">

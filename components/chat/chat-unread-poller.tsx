@@ -141,8 +141,8 @@ export function ChatUnreadPoller({
       }
     }
 
-    const firstCheck = window.setTimeout(() => void checkUnread(true), 1_500);
-    const interval = window.setInterval(() => void checkUnread(true), 15_000);
+    const firstCheck = window.setTimeout(() => void checkUnread(true), 10_000);
+    const interval = window.setInterval(() => void checkUnread(true), 30_000);
     const onVisibility = () => {
       if (document.visibilityState === "visible") void checkUnread(true);
     };

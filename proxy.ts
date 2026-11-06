@@ -3,11 +3,15 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const protectedPrefixes = [
   "/dashboard",
+  "/journey",
   "/curriculum",
   "/homework",
   "/resources",
   "/class",
+  "/chat",
   "/progress",
+  "/league",
+  "/referrals",
   "/profile",
   "/admin",
 ];
@@ -50,7 +54,9 @@ export async function proxy(request: NextRequest) {
   const userId = claimsData?.claims?.sub;
 
   const pathname = request.nextUrl.pathname;
-  const isProtected = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
+  const isProtected = protectedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 
   if (isProtected && !userId) {
     const url = request.nextUrl.clone();
@@ -74,5 +80,19 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: [
+    "/login",
+    "/dashboard/:path*",
+    "/journey/:path*",
+    "/curriculum/:path*",
+    "/homework/:path*",
+    "/resources/:path*",
+    "/class/:path*",
+    "/chat/:path*",
+    "/progress/:path*",
+    "/league/:path*",
+    "/referrals/:path*",
+    "/profile/:path*",
+    "/admin/:path*",
+  ],
 };
