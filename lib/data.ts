@@ -127,6 +127,15 @@ export type StudentContextData = Pick<
   | "classOccurrences"
 >;
 
+export type StudentDashboardCoreData = StudentContextData & Pick<
+  DashboardData,
+  "rescheduleRequests"
+>;
+export type StudentSearchData = StudentContextData & Pick<
+  DashboardData,
+  "homework" | "resources" | "rescheduleRequests"
+>;
+
 export type AdminClassHistoryFilters = {
   studentId?: string;
   status?: AttendanceStatus;
@@ -170,6 +179,11 @@ export type StudentChatData = StudentContextData & {
   messages: ChatMessage[];
 };
 
+export type StudentChatContextItem = Pick<
+  HomeworkItem,
+  "id" | "title" | "kind" | "sessionName" | "status"
+>;
+
 export type AdminChatData = {
   students: StudentProfile[];
   threads: ChatThreadSummary[];
@@ -180,6 +194,21 @@ export type AdminChatData = {
 export type MentorScheduleData = Pick<AdminData, "students" | "batches" | "rescheduleRequests">;
 export type AdminStudentsData = Pick<AdminData, "students" | "batches" | "modules"> & {
   coursePlacementAvailable: boolean;
+};
+export type AdminAnnouncementsData = Pick<AdminData, "batches" | "announcements">;
+export type AdminResourcesData = Pick<AdminData, "sessions" | "resources">;
+export type AdminFeedbackData = Pick<AdminData, "students" | "sessions" | "feedback">;
+export type AdminAttendanceData = Pick<AdminData, "students" | "rescheduleRequests">;
+export type AdminDashboardData = AdminShellData & Pick<AdminData, "classJoinEvents">;
+export type AdminHomeworkData = Pick<AdminData, "students" | "batches" | "sessions" | "homework">;
+export type AdminProgressData = AdminHomeworkData & Pick<AdminData, "attendance">;
+export type AdminPortalSummaryData = Pick<
+  AdminData,
+  "students" | "batches" | "sessions" | "rescheduleRequests"
+> & {
+  pendingHomeworkCount: number;
+  pendingPasswordCount: number;
+  unreadChatCount: number;
 };
 export type AdminAvailabilityData = {
   bucket: AvailabilityDay[];
@@ -688,57 +717,6 @@ function mapHomework(row: DbRow, currentStudentId?: string): HomeworkItem {
   };
 }
 
-async function getSubmissionEvidenceRows(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
-  if (!supabase) return [];
-
-  const expiresAt = new Date().toISOString();
-  const coreColumns = "homework_id, student_id, screen_image, camera_image, proof_text, attachment_name, attachment_mime, attachment_data, captured_at, expires_at";
-  const coreWithExpiry = await supabase
-    .from("submission_evidence")
-    .select(coreColumns)
-    .gt("expires_at", expiresAt);
-
-  let coreRows: DbRow[] = coreWithExpiry.error ? [] : coreWithExpiry.data ?? [];
-
-  if (coreWithExpiry.error) {
-    const coreWithoutExpiry = await supabase
-      .from("submission_evidence")
-      .select("homework_id, student_id, screen_image, camera_image, proof_text, attachment_name, attachment_mime, attachment_data, captured_at");
-    if (!coreWithoutExpiry.error) coreRows = coreWithoutExpiry.data ?? [];
-  }
-
-  if (coreRows.length > 0) {
-    const metadata = await supabase
-      .from("submission_evidence")
-      .select("homework_id, student_id, user_agent, browser_name, browser_version, os_name, device_type, viewport_width, viewport_height, language");
-
-    if (!metadata.error) {
-      const metadataBySubmission = new Map(
-        (metadata.data ?? []).map((row) => [`${text(row, "homework_id")}:${text(row, "student_id")}`, row]),
-      );
-      return coreRows.map((row) => ({
-        ...row,
-        ...metadataBySubmission.get(`${text(row, "homework_id")}:${text(row, "student_id")}`),
-      }));
-    }
-
-    return coreRows;
-  }
-
-  const imagesWithExpiry = await supabase
-    .from("submission_evidence")
-    .select("homework_id, student_id, screen_image, camera_image, captured_at, expires_at")
-    .gt("expires_at", expiresAt);
-
-  if (!imagesWithExpiry.error) return imagesWithExpiry.data ?? [];
-
-  const legacy = await supabase
-    .from("submission_evidence")
-    .select("homework_id, student_id, screen_image, camera_image, captured_at");
-
-  return legacy.data ?? [];
-}
-
 function mapResource(row: DbRow): ResourceItem {
   const session = relation(row, "sessions");
 
@@ -950,10 +928,16 @@ const homeworkSelect =
   "id, session_id, batch_id, assigned_student_id, title, description, kind, content_url, due_date, created_at, sessions(title, module_id), submissions(student_id, status, notes, started_at, submitted_at, reviewed_at, reviewed_by, mentor_feedback)";
 const shellHomeworkSelect =
   "id, session_id, batch_id, assigned_student_id, submissions(student_id, status)";
+const chatHomeworkSelect =
+  "id, session_id, batch_id, assigned_student_id, title, kind, due_date, created_at, sessions(title, module_id), submissions(student_id, status)";
 const rescheduleSelect =
   "id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at, students(full_name)";
 const studentRescheduleSelect =
   "id, student_id, batch_id, original_date, requested_date, requested_start_time, requested_end_time, requested_time_zone, reason, status, admin_note, meet_link, requested_at, reviewed_at";
+const courseEnrollmentSelect =
+  "id, student_id, course_level, status, starts_at, ends_at, start_module_number, start_session_number, source, created_at, updated_at";
+const levelTwoSubmissionSummarySelect =
+  "activity_id, student_id, status, notes, started_at, submitted_at, reviewed_at, reviewed_by, mentor_feedback, time_spent_seconds, proof_text, attachment_name, attachment_mime, captured_at, expires_at, browser_name, browser_version, os_name, device_type, user_agent, viewport_width, viewport_height, language";
 
 type ServerSupabaseClient = NonNullable<
   Awaited<ReturnType<typeof createServerSupabaseClient>>
@@ -975,7 +959,7 @@ async function loadStudentCourseEnrollments(
 ): Promise<{ available: boolean; rows: StudentCourseEnrollment[] }> {
   const result = await supabase
     .from("student_course_enrollments")
-    .select("*")
+    .select(courseEnrollmentSelect)
     .eq("student_id", studentId)
     .order("course_level", { ascending: true });
   if (result.error) {
@@ -990,7 +974,7 @@ async function loadAllCourseEnrollments(
 ): Promise<{ available: boolean; rows: StudentCourseEnrollment[] }> {
   const result = await supabase
     .from("student_course_enrollments")
-    .select("*")
+    .select(courseEnrollmentSelect)
     .order("course_level", { ascending: true });
   if (result.error) {
     logOptionalCourseError("admin-course-enrollments", result.error);
@@ -1005,7 +989,7 @@ async function loadLevelTwoSubmissions(
 ): Promise<LevelTwoSubmissionRow[]> {
   const result = await supabase
     .from("course_activity_submissions")
-    .select("*")
+    .select(levelTwoSubmissionSummarySelect)
     .eq("student_id", studentId);
   if (result.error) {
     logOptionalCourseError("level-two-submissions", result.error);
@@ -1019,7 +1003,7 @@ async function loadAllLevelTwoSubmissions(
 ): Promise<{ available: boolean; rows: LevelTwoSubmissionRow[] }> {
   const result = await supabase
     .from("course_activity_submissions")
-    .select("*")
+    .select(levelTwoSubmissionSummarySelect)
     .order("submitted_at", { ascending: false });
   if (result.error) {
     logOptionalCourseError("admin-level-two-submissions", result.error);
@@ -1035,10 +1019,16 @@ async function loadLevelTwoAttendance(
   supabase: ServerSupabaseClient,
   studentId: string,
 ): Promise<AttendanceItem[]> {
-  const result = await supabase
+  const primaryResult = await supabase
     .from("course_session_attendance")
-    .select("*")
+    .select("id, session_id, student_id, status, class_date")
     .eq("student_id", studentId);
+  const result = primaryResult.error?.code === "42703"
+    ? await supabase
+        .from("course_session_attendance")
+        .select("id, session_id, student_id, status, date")
+        .eq("student_id", studentId)
+    : primaryResult;
   if (result.error) {
     logOptionalCourseError("level-two-attendance", result.error);
     return [];
@@ -1055,9 +1045,14 @@ async function loadLevelTwoAttendance(
 async function loadAllLevelTwoAttendance(
   supabase: ServerSupabaseClient,
 ): Promise<AttendanceItem[]> {
-  const result = await supabase
+  const primaryResult = await supabase
     .from("course_session_attendance")
-    .select("*");
+    .select("id, session_id, student_id, status, class_date");
+  const result = primaryResult.error?.code === "42703"
+    ? await supabase
+        .from("course_session_attendance")
+        .select("id, session_id, student_id, status, date")
+    : primaryResult;
   if (result.error) {
     logOptionalCourseError("admin-level-two-attendance", result.error);
     return [];
@@ -1102,6 +1097,8 @@ async function loadAllLevelTwoClassJoinEvents(
 
 const classOccurrenceSelect =
   "id, occurrence_key, student_id, batch_id, reschedule_request_id, kind, course_level, module_number, session_number, session_id, session_title, scheduled_starts_at, scheduled_ends_at, joined_at, status, source, meet_link, batch_time_zone, student_time_zone, override_reason, overridden_at, created_at, updated_at, students(full_name), batches(name), overridden_by_profile:profiles!student_class_occurrences_overridden_by_fkey(full_name)";
+const studentProgressOccurrenceSelect =
+  "id, student_id, kind, course_level, module_number, session_number, session_id, session_title, scheduled_starts_at, scheduled_ends_at, joined_at, status, source, batch_time_zone, student_time_zone";
 
 async function loadStudentClassOccurrences(
   supabase: ServerSupabaseClient,
@@ -1109,7 +1106,7 @@ async function loadStudentClassOccurrences(
 ): Promise<{ available: boolean; rows: StudentClassOccurrence[] }> {
   const result = await supabase
     .from("student_class_occurrences")
-    .select(classOccurrenceSelect)
+    .select(studentProgressOccurrenceSelect)
     .eq("student_id", studentId)
     .order("scheduled_starts_at", { ascending: true });
   if (result.error) {
@@ -1128,6 +1125,20 @@ async function loadAllClassOccurrences(
     .order("scheduled_starts_at", { ascending: false });
   if (result.error) {
     logOptionalCourseError("admin-class-occurrences", result.error);
+    return { available: false, rows: [] };
+  }
+  return { available: true, rows: (result.data ?? []).map((row) => mapClassOccurrence(row)) };
+}
+
+async function loadAllProgressClassOccurrences(
+  supabase: ServerSupabaseClient,
+): Promise<{ available: boolean; rows: StudentClassOccurrence[] }> {
+  const result = await supabase
+    .from("student_class_occurrences")
+    .select(studentProgressOccurrenceSelect)
+    .order("scheduled_starts_at", { ascending: false });
+  if (result.error) {
+    logOptionalCourseError("admin-progress-occurrences", result.error);
     return { available: false, rows: [] };
   }
   return { available: true, rows: (result.data ?? []).map((row) => mapClassOccurrence(row)) };
@@ -1437,10 +1448,12 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
         .or(`batch_id.eq.${effectiveBatch.id},batch_id.is.null`)
         .order("created_at", { ascending: false })
         .limit(10),
-      supabase
-        .from("attendance")
-        .select("id, session_id, student_id, status, date")
-        .eq("student_id", effectiveStudent.id),
+      context.classHistoryAvailable
+        ? Promise.resolve({ data: null })
+        : supabase
+            .from("attendance")
+            .select("id, session_id, student_id, status, date")
+            .eq("student_id", effectiveStudent.id),
       supabase
         .from("feedback")
         .select("id, student_id, session_id, tutor_note, created_at, sessions(title)")
@@ -1464,13 +1477,12 @@ async function getStudentDashboardDataImpl(): Promise<DashboardData> {
   const homework = [...levelOneHomework, ...levelTwoHomework];
   const resources = filterUnlockedResources(resourceRows?.map((row) => mapResource(row)) ?? demoResources, curriculumSessions);
   const feedback = feedbackRows?.map((row) => mapFeedback(row)) ?? demoFeedback;
-  const legacyAttendance = [
-    ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
-    ...(await loadLevelTwoAttendance(supabase, effectiveStudent.id)),
-  ];
   const attendance = context.classHistoryAvailable
     ? occurrenceAttendanceItems(context.classOccurrences)
-    : legacyAttendance;
+    : [
+        ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
+        ...(await loadLevelTwoAttendance(supabase, effectiveStudent.id)),
+      ];
 
   return {
     ...context,
@@ -1581,16 +1593,49 @@ async function getStudentClassDataImpl() {
 
 export const getStudentClassData = cache(() => measureServer("student.class", getStudentClassDataImpl));
 
+async function getStudentDashboardCoreDataImpl(): Promise<StudentDashboardCoreData> {
+  const context = await getStudentContextData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { ...context, rescheduleRequests: [] };
+  return {
+    ...context,
+    rescheduleRequests: await loadStudentRescheduleRequests(context.student.id, supabase),
+  };
+}
+
+export const getStudentDashboardCoreData = cache(() =>
+  measureServer("student.dashboard-core", getStudentDashboardCoreDataImpl),
+);
+
+async function getStudentSearchDataImpl(): Promise<StudentSearchData> {
+  const [core, homework, resources] = await Promise.all([
+    getStudentDashboardCoreData(),
+    getStudentHomeworkData(),
+    getStudentResourcesData(),
+  ]);
+  return {
+    ...core,
+    homework: homework.homework,
+    resources: resources.resources,
+  };
+}
+
+export const getStudentSearchData = cache(() =>
+  measureServer("student.search", getStudentSearchDataImpl),
+);
+
 async function getStudentProgressDataImpl() {
   const context = await getStudentContextData();
   const data = await getStudentHomeworkData();
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { ...data, attendance: demoAttendance, feedback: demoFeedback };
   const [{ data: attendanceRows }, { data: feedbackRows }] = await Promise.all([
-    supabase
-      .from("attendance")
-      .select("id, session_id, student_id, status, date")
-      .eq("student_id", context.student.id),
+    context.classHistoryAvailable
+      ? Promise.resolve({ data: null })
+      : supabase
+          .from("attendance")
+          .select("id, session_id, student_id, status, date")
+          .eq("student_id", context.student.id),
     supabase
       .from("feedback")
       .select("id, student_id, session_id, tutor_note, created_at, sessions(title)")
@@ -1699,6 +1744,40 @@ export async function getStudentChatData(): Promise<StudentChatData> {
     messages: data?.map((row) => mapChatMessage(row)) ?? [],
   };
 }
+
+async function getStudentChatContextImpl(): Promise<StudentChatContextItem[]> {
+  const context = await getStudentContextData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    return demoHomework
+      .filter((item) => item.status === "pending" || item.status === "revision_requested")
+      .slice(0, 8)
+      .map(({ id, title, kind, sessionName, status }) => ({ id, title, kind, sessionName, status }));
+  }
+
+  const { data: rows } = await supabase
+    .from("homework")
+    .select(chatHomeworkSelect)
+    .or(`batch_id.eq.${context.batch.id},assigned_student_id.eq.${context.student.id},and(batch_id.is.null,assigned_student_id.is.null)`)
+    .order("due_date", { ascending: true });
+  const levelOneHomework = withLevelOneHomeworkAccess(
+    context,
+    rows?.map((row) => mapHomework(row, context.student.id)) ?? [],
+  );
+  const levelTwoHomework = await getLevelTwoHomeworkForContext(context, supabase);
+
+  return [...levelOneHomework, ...levelTwoHomework]
+    .filter((item) =>
+      item.accessState === "available" &&
+      (item.status === "pending" || item.status === "revision_requested"),
+    )
+    .slice(0, 8)
+    .map(({ id, title, kind, sessionName, status }) => ({ id, title, kind, sessionName, status }));
+}
+
+export const getStudentChatContext = cache(() =>
+  measureServer("student.chat-context", getStudentChatContextImpl),
+);
 
 export async function getAdminChatData(selectedStudentId?: string): Promise<AdminChatData> {
   const supabase = await createServerSupabaseClient();
@@ -1887,13 +1966,12 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
     { data: batchRows },
     { data: sessionRows },
     { data: homeworkRows },
-    { data: attendanceRows },
     { data: rescheduleRequestRows },
     { data: passwordRequestRows },
     { data: pauseRows },
     chatUnread,
     enrollmentResult,
-    levelTwoAttendance,
+    occurrenceResult,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -1911,9 +1989,6 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
       .from("homework")
       .select(homeworkSelect)
       .order("created_at", { ascending: false }),
-    supabase
-      .from("attendance")
-      .select("id, session_id, student_id, status, date"),
     supabase
       .from("class_reschedule_requests")
       .select(rescheduleSelect)
@@ -1933,7 +2008,7 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
       .eq("sender_role", "student")
       .is("read_by_admin_at", null),
     loadAllCourseEnrollments(supabase),
-    loadAllLevelTwoAttendance(supabase),
+    loadAllProgressClassOccurrences(supabase),
   ]);
 
   const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
@@ -1941,6 +2016,16 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
   const legacySessionIds = mappedSessions.length
     ? new Set(mappedSessions.map((session) => session.id))
     : null;
+
+  const legacyAttendance = occurrenceResult.available
+    ? []
+    : await Promise.all([
+        supabase.from("attendance").select("id, session_id, student_id, status, date"),
+        loadAllLevelTwoAttendance(supabase),
+      ]).then(([legacy, levelTwo]) => [
+        ...(legacy.data?.map((row) => mapAttendance(row)) ?? demoAttendance),
+        ...levelTwo,
+      ]);
 
   return {
     students: attachCourseEnrollmentState(
@@ -1963,10 +2048,9 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
         };
       })
       .filter((item) => !legacySessionIds || legacySessionIds.has(item.sessionId)) ?? demoHomework,
-    attendance: [
-      ...(attendanceRows?.map((row) => mapAttendance(row)) ?? demoAttendance),
-      ...levelTwoAttendance,
-    ],
+    attendance: occurrenceResult.available
+      ? occurrenceAttendanceItems(occurrenceResult.rows)
+      : legacyAttendance,
     rescheduleRequests: rescheduleRequestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
     passwordRequests: passwordRequestRows?.map((row) => mapPasswordChangeRequest(row)) ?? demoPasswordChangeRequests,
     unreadChatCount: chatUnread.count ?? 0,
@@ -1974,6 +2058,90 @@ async function getAdminShellDataImpl(): Promise<AdminShellData> {
 }
 
 export const getAdminShellData = cache(() => measureServer("admin.shell", getAdminShellDataImpl));
+
+async function getAdminPortalSummaryDataImpl(): Promise<AdminPortalSummaryData> {
+  const fallback = fallbackAdminData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    return {
+      students: fallback.students,
+      batches: fallback.batches,
+      sessions: fallback.sessions,
+      rescheduleRequests: fallback.rescheduleRequests,
+      pendingHomeworkCount: fallback.homework.filter((item) => item.status === "submitted").length,
+      pendingPasswordCount: fallback.passwordRequests.filter((item) => item.status === "pending").length,
+      unreadChatCount: 0,
+    };
+  }
+
+  const [
+    { data: studentRows },
+    { data: batchRows },
+    { data: sessionRows },
+    { data: requestRows },
+    { data: pauseRows },
+    levelOneSubmitted,
+    levelTwoSubmitted,
+    pendingPasswords,
+    unreadChat,
+  ] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, user_id, full_name, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
+      .order("enrolled_at", { ascending: false }),
+    supabase
+      .from("batches")
+      .select("id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, students(id), batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order)")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("sessions")
+      .select("id, module_id, title, session_number, session_date, modules(order_index)")
+      .order("session_number", { ascending: true }),
+    supabase
+      .from("class_reschedule_requests")
+      .select(rescheduleSelect)
+      .in("status", ["pending", "approved"])
+      .order("requested_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("batch_pauses")
+      .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
+    supabase
+      .from("submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "submitted"),
+    supabase
+      .from("course_activity_submissions")
+      .select("activity_id", { count: "exact", head: true })
+      .eq("status", "submitted"),
+    supabase
+      .from("password_change_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("sender_role", "student")
+      .is("read_by_admin_at", null),
+  ]);
+  const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
+  return {
+    students: studentRows?.map((row) => mapStudent(row)) ?? fallback.students,
+    batches: batchRows?.map((row) => attachBatchPauses(
+      mapBatch(row, relationRows(row, "students").length),
+      pauseRows,
+    )) ?? fallback.batches,
+    sessions: mappedSessions.length ? mappedSessions : fallback.sessions,
+    rescheduleRequests: requestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
+    pendingHomeworkCount: (levelOneSubmitted.count ?? 0) + (levelTwoSubmitted.count ?? 0),
+    pendingPasswordCount: pendingPasswords.count ?? 0,
+    unreadChatCount: unreadChat.count ?? 0,
+  };
+}
+
+export const getAdminPortalSummaryData = cache(() =>
+  measureServer("admin.portal-summary", getAdminPortalSummaryDataImpl),
+);
 
 async function getAdminStudentsDataImpl(): Promise<AdminStudentsData> {
   if (!isSupabaseConfigured()) {
@@ -2209,6 +2377,141 @@ async function getAdminDataImpl(): Promise<AdminData> {
 
 export const getAdminData = cache(() => measureServer("admin.page", getAdminDataImpl));
 
+async function getAdminAnnouncementsDataImpl(): Promise<AdminAnnouncementsData> {
+  const fallback = fallbackAdminData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { batches: fallback.batches, announcements: fallback.announcements };
+  const [{ data: batchRows }, { data: announcementRows }] = await Promise.all([
+    supabase
+      .from("batches")
+      .select("id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, students(id), batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order)")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("announcements")
+      .select("id, batch_id, message, created_at")
+      .order("created_at", { ascending: false }),
+  ]);
+  return {
+    batches: batchRows?.map((row) => mapBatch(row, relationRows(row, "students").length)) ?? fallback.batches,
+    announcements: announcementRows?.map((row) => mapAnnouncement(row)) ?? fallback.announcements,
+  };
+}
+
+export const getAdminAnnouncementsData = cache(() =>
+  measureServer("admin.announcements", getAdminAnnouncementsDataImpl),
+);
+
+async function getAdminResourcesDataImpl(): Promise<AdminResourcesData> {
+  const fallback = fallbackAdminData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { sessions: fallback.sessions, resources: fallback.resources };
+  const [{ data: sessionRows }, { data: resourceRows }] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select("id, module_id, title, session_number, focus, tools_covered, student_output, description, session_date, modules(order_index)")
+      .order("session_number", { ascending: true }),
+    supabase
+      .from("resources")
+      .select("id, module_id, session_id, title, type, url, created_at, sessions(title)")
+      .order("created_at", { ascending: false }),
+  ]);
+  const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
+  return {
+    sessions: mappedSessions.length ? mappedSessions : fallback.sessions,
+    resources: resourceRows?.map((row) => mapResource(row)) ?? fallback.resources,
+  };
+}
+
+export const getAdminResourcesData = cache(() =>
+  measureServer("admin.resources", getAdminResourcesDataImpl),
+);
+
+async function getAdminFeedbackDataImpl(): Promise<AdminFeedbackData> {
+  const fallback = fallbackAdminData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    return { students: fallback.students, sessions: fallback.sessions, feedback: fallback.feedback };
+  }
+  const [{ data: studentRows }, { data: sessionRows }, { data: feedbackRows }] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
+      .order("full_name", { ascending: true }),
+    supabase
+      .from("sessions")
+      .select("id, module_id, title, session_number, focus, tools_covered, student_output, description, session_date, modules(order_index)")
+      .order("session_number", { ascending: true }),
+    supabase
+      .from("feedback")
+      .select("id, student_id, session_id, tutor_note, created_at, sessions(title)")
+      .order("created_at", { ascending: false }),
+  ]);
+  const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
+  return {
+    students: studentRows?.map((row) => mapStudent(row)) ?? fallback.students,
+    sessions: mappedSessions.length ? mappedSessions : fallback.sessions,
+    feedback: feedbackRows?.map((row) => mapFeedback(row)) ?? fallback.feedback,
+  };
+}
+
+export const getAdminFeedbackData = cache(() =>
+  measureServer("admin.feedback", getAdminFeedbackDataImpl),
+);
+
+async function getAdminAttendanceDataImpl(): Promise<AdminAttendanceData> {
+  const fallback = fallbackAdminData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) {
+    return { students: fallback.students, rescheduleRequests: fallback.rescheduleRequests };
+  }
+  const [{ data: studentRows }, { data: requestRows }] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
+      .order("full_name", { ascending: true }),
+    supabase
+      .from("class_reschedule_requests")
+      .select(rescheduleSelect)
+      .order("requested_at", { ascending: false })
+      .limit(100),
+  ]);
+  return {
+    students: studentRows?.map((row) => mapStudent(row)) ?? fallback.students,
+    rescheduleRequests: requestRows?.map((row) => mapRescheduleRequest(row)) ?? [],
+  };
+}
+
+export const getAdminAttendanceData = cache(() =>
+  measureServer("admin.attendance", getAdminAttendanceDataImpl),
+);
+
+async function getAdminDashboardDataImpl(): Promise<AdminDashboardData> {
+  const [shell, supabase] = await Promise.all([
+    getAdminShellData(),
+    createServerSupabaseClient(),
+  ]);
+  if (!supabase) return { ...shell, classJoinEvents: fallbackAdminData().classJoinEvents };
+  const [{ data: legacyRows }, levelTwoRows] = await Promise.all([
+    supabase
+      .from("class_join_events")
+      .select("id, session_id, student_id, batch_id, joined_at, class_date, meet_link, students(full_name), sessions(title)")
+      .order("joined_at", { ascending: false })
+      .limit(8),
+    loadAllLevelTwoClassJoinEvents(supabase),
+  ]);
+  return {
+    ...shell,
+    classJoinEvents: [
+      ...(legacyRows?.map((row) => mapClassJoinEvent(row)) ?? []),
+      ...levelTwoRows,
+    ].sort((a, b) => b.joinedAt.localeCompare(a.joinedAt)).slice(0, 8),
+  };
+}
+
+export const getAdminDashboardData = cache(() =>
+  measureServer("admin.dashboard", getAdminDashboardDataImpl),
+);
+
 export async function getAdminClassHistoryData(
   filters: AdminClassHistoryFilters = {},
 ): Promise<AdminClassHistoryData> {
@@ -2300,19 +2603,49 @@ export async function getAdminClassHistoryData(
   };
 }
 
-async function getAdminHomeworkDataImpl(): Promise<AdminData> {
-  const data = await getAdminData();
+async function getAdminHomeworkDataImpl(): Promise<AdminHomeworkData> {
+  const fallback = fallbackAdminData();
   const supabase = await createServerSupabaseClient();
-  if (!supabase) return data;
+  if (!supabase) {
+    return {
+      students: fallback.students,
+      batches: fallback.batches,
+      sessions: fallback.sessions,
+      homework: fallback.homework,
+    };
+  }
 
-  const [evidenceRows, enrollmentResult, levelTwoSubmissionResult] = await Promise.all([
-    getSubmissionEvidenceRows(supabase),
+  const [
+    { data: studentRows },
+    { data: batchRows },
+    { data: sessionRows },
+    { data: homeworkRows },
+    { data: pauseRows },
+    enrollmentResult,
+    levelTwoSubmissionResult,
+  ] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, user_id, full_name, parent_name, parent_email, country, time_zone, batch_id, enrolled_at, profiles(email, last_seen_at)")
+      .order("full_name", { ascending: true }),
+    supabase
+      .from("batches")
+      .select("id, name, days, time_slot, time_zone, start_date, start_time, end_time, meet_link, module_id, students(id), batch_class_slots(id, label, day_of_week, start_time, end_time, meet_link, sort_order)")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("sessions")
+      .select("id, module_id, title, session_number, focus, tools_covered, student_output, description, session_date, modules(order_index)")
+      .order("session_number", { ascending: true }),
+    supabase
+      .from("homework")
+      .select(homeworkSelect)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("batch_pauses")
+      .select("id, batch_id, starts_on, resumes_on, reason, created_at"),
     loadAllCourseEnrollments(supabase),
     loadAllLevelTwoSubmissions(supabase),
   ]);
-  const evidenceBySubmission = new Map(
-    (evidenceRows ?? []).map((row) => [`${text(row, "homework_id")}:${text(row, "student_id")}`, row]),
-  );
   const enrollmentsByStudent = new Map<string, StudentCourseEnrollment[]>();
   for (const enrollment of enrollmentResult.rows) {
     const studentEnrollments = enrollmentsByStudent.get(enrollment.studentId) ?? [];
@@ -2320,56 +2653,72 @@ async function getAdminHomeworkDataImpl(): Promise<AdminData> {
     enrollmentsByStudent.set(enrollment.studentId, studentEnrollments);
   }
 
-  const levelOneHomework = data.homework.map((homework) => ({
-    ...homework,
-    submissions: homework.submissions?.map((submission) => {
-      const evidence = evidenceBySubmission.get(`${homework.id}:${submission.studentId}`);
-      if (!evidence) return submission;
+  const mappedSessions = mapLegacyLevelOneSessions(sessionRows ?? []);
+  const levelOneSessions = mappedSessions.length ? mappedSessions : fallback.sessions;
+  const legacySessionIds = mappedSessions.length
+    ? new Set(mappedSessions.map((session) => session.id))
+    : null;
+  const levelOneHomework = homeworkRows
+    ?.map((row) => {
+      const mapped = mapHomework(row);
       return {
-        ...submission,
-        screenImage: text(evidence, "screen_image") || undefined,
-        cameraImage: text(evidence, "camera_image") || undefined,
-        proofText: text(evidence, "proof_text") || undefined,
-        attachmentName: text(evidence, "attachment_name") || undefined,
-        attachmentMime: text(evidence, "attachment_mime") || undefined,
-        attachmentData: text(evidence, "attachment_data") || undefined,
-        proofCapturedAt: text(evidence, "captured_at") || undefined,
-        proofExpiresAt: text(evidence, "expires_at") || undefined,
-        userAgent: text(evidence, "user_agent") || undefined,
-        browserName: text(evidence, "browser_name") || undefined,
-        browserVersion: text(evidence, "browser_version") || undefined,
-        osName: text(evidence, "os_name") || undefined,
-        deviceType: text(evidence, "device_type") || undefined,
-        viewportWidth: num(evidence, "viewport_width") || undefined,
-        viewportHeight: num(evidence, "viewport_height") || undefined,
-        language: text(evidence, "language") || undefined,
+        ...mapped,
+        status: relationRows(row, "submissions").some((submission) => text(submission, "status") === "submitted")
+          ? "submitted" as const
+          : mapped.status,
       };
-    }),
-  }));
+    })
+    .filter((item) => !legacySessionIds || legacySessionIds.has(item.sessionId)) ?? fallback.homework;
   const levelTwoAvailable = enrollmentResult.available && levelTwoSubmissionResult.available;
   const levelTwoHomework = levelTwoAvailable
-    ? buildAdminLevelTwoHomework(data.batches[0] ?? demoBatch, levelTwoSubmissionResult.rows)
+    ? buildAdminLevelTwoHomework(
+        batchRows?.[0] ? mapBatch(batchRows[0]) : demoBatch,
+        levelTwoSubmissionResult.rows,
+      )
     : [];
 
   return {
-    ...data,
-    students: data.students.map((student) => {
+    students: (studentRows?.map((row) => mapStudent(row)) ?? fallback.students).map((student) => {
       if (!enrollmentResult.available) return student;
       const stored = enrollmentsByStudent.get(student.id) ?? [];
       const courseEnrollments = stored.length ? stored : [legacyLevelOneEnrollment(student)];
-      return {
-        ...student,
-        courseEnrollments,
-        activeCourseLevel: activeCourseLevel(courseEnrollments),
-        coursePlacementAvailable: true,
-      };
+      return { ...student, courseEnrollments, activeCourseLevel: activeCourseLevel(courseEnrollments), coursePlacementAvailable: true };
     }),
-    sessions: levelTwoAvailable ? [...data.sessions, ...levelTwoSessions] : data.sessions,
+    batches: batchRows?.map((row) => attachBatchPauses(
+      mapBatch(row, relationRows(row, "students").length),
+      pauseRows,
+    )) ?? fallback.batches,
+    sessions: levelTwoAvailable ? [...levelOneSessions, ...levelTwoSessions] : levelOneSessions,
     homework: [...levelOneHomework, ...levelTwoHomework],
   };
 }
 
 export const getAdminHomeworkData = cache(() => measureServer("admin.homework", getAdminHomeworkDataImpl));
+
+async function getAdminProgressDataImpl(): Promise<AdminProgressData> {
+  const homework = await getAdminHomeworkData();
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { ...homework, attendance: fallbackAdminData().attendance };
+  const occurrences = await loadAllProgressClassOccurrences(supabase);
+  if (occurrences.available) {
+    return { ...homework, attendance: occurrenceAttendanceItems(occurrences.rows) };
+  }
+  const [{ data: legacyRows }, levelTwo] = await Promise.all([
+    supabase.from("attendance").select("id, session_id, student_id, status, date"),
+    loadAllLevelTwoAttendance(supabase),
+  ]);
+  return {
+    ...homework,
+    attendance: [
+      ...(legacyRows?.map((row) => mapAttendance(row)) ?? fallbackAdminData().attendance),
+      ...levelTwo,
+    ],
+  };
+}
+
+export const getAdminProgressData = cache(() =>
+  measureServer("admin.progress", getAdminProgressDataImpl),
+);
 
 async function getMentorScheduleDataImpl(): Promise<MentorScheduleData> {
   const supabase = createServiceRoleSupabaseClient();

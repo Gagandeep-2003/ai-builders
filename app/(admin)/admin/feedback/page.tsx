@@ -1,11 +1,11 @@
 import { saveFeedbackAction } from "@/app/actions/admin";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getAdminData } from "@/lib/data";
+import { getAdminFeedbackData } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
 export default async function AdminFeedbackPage() {
-  const data = await getAdminData();
+  const data = await getAdminFeedbackData();
 
   return (
     <AnimatedPage>

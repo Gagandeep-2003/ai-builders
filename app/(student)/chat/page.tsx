@@ -4,28 +4,25 @@ import { sendStudentChatMessageAction, markStudentChatReadAction } from "@/app/a
 import { ChatPanel, type ChatContextItem } from "@/components/chat/chat-panel";
 import { ChatReadMarker } from "@/components/chat/chat-read-marker";
 import { AnimatedPage } from "@/components/ui/animated";
-import { getStudentChatData, getStudentDashboardData } from "@/lib/data";
+import { getStudentChatContext, getStudentChatData } from "@/lib/data";
 
 const Aurora = dynamic(
   () => import("@/components/ui/aurora").then((module) => module.Aurora),
 );
 
 export default async function StudentChatPage() {
-  const [data, dashboard] = await Promise.all([
+  const [data, pendingHomework] = await Promise.all([
     getStudentChatData(),
-    getStudentDashboardData(),
+    getStudentChatContext(),
   ]);
 
-  const contextItems: ChatContextItem[] = dashboard.homework
-    .filter((item) => item.status === "pending" || item.status === "revision_requested")
-    .slice(0, 8)
-    .map((item) => ({
+  const contextItems: ChatContextItem[] = pendingHomework.map((item) => ({
       id: item.id,
       title: item.title,
       kind: item.kind,
       sessionName: item.sessionName,
       status: item.status,
-    }));
+  }));
 
   return (
     <AnimatedPage>

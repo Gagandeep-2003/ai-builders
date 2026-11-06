@@ -1,11 +1,11 @@
 import { deleteAnnouncementAction, postAnnouncementAction } from "@/app/actions/admin";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getAdminData } from "@/lib/data";
+import { getAdminAnnouncementsData } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
 export default async function AdminAnnouncementsPage() {
-  const data = await getAdminData();
+  const data = await getAdminAnnouncementsData();
 
   return (
     <AnimatedPage>

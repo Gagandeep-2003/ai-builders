@@ -5,7 +5,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { filterUnlockedHomework, getSessionAccessBoundary } from "@/lib/content-access";
 import type { HomeworkItem, StudentProfile } from "@/lib/course-data";
-import { getAdminAchievementData, getAdminHomeworkData } from "@/lib/data";
+import { getAdminAchievementData, getAdminProgressData } from "@/lib/data";
 import { getStudentScheduledSessions } from "@/lib/class-events";
 import { formatSessionTime, getNextSession } from "@/lib/time";
 import { StudentBadgeManager } from "@/components/admin/student-badge-manager";
@@ -28,7 +28,7 @@ function getStudentSubmission(homework: HomeworkItem, studentId: string) {
 }
 
 export default async function AdminProgressPage() {
-  const [data, achievements] = await Promise.all([getAdminHomeworkData(), getAdminAchievementData()]);
+  const [data, achievements] = await Promise.all([getAdminProgressData(), getAdminAchievementData()]);
   const levelOneSessions = data.sessions.filter((session) => (session.courseLevel ?? 1) === 1);
   const summaries = data.students
     .map((student) => {

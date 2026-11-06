@@ -3,7 +3,7 @@ import { addAvailabilitySlotAction } from "@/app/actions/admin";
 import { DeleteAvailabilitySlotForm } from "@/components/admin/delete-availability-slot-form";
 import { AnimatedPage } from "@/components/ui/animated";
 import { PageHeader } from "@/components/ui/page-header";
-import { getAdminAvailabilityData, getAdminData } from "@/lib/data";
+import { getAdminAvailabilityData, getMentorScheduleData } from "@/lib/data";
 import {
   formatSlotMinutes,
   getAvailabilitySlots,
@@ -89,7 +89,7 @@ function SlotTile({ slot, managedSlotId }: { slot: AvailabilitySlot; managedSlot
 }
 
 export default async function AdminSlotsPage() {
-  const [data, availability] = await Promise.all([getAdminData(), getAdminAvailabilityData()]);
+  const [data, availability] = await Promise.all([getMentorScheduleData(), getAdminAvailabilityData()]);
   const bookedSlots = getBookedSlots(data.batches, data.students);
   const slotsByDay = getAvailabilitySlots(bookedSlots, availability.bucket);
   const summary = summarizeAvailability(slotsByDay);
