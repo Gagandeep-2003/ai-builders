@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -16,7 +17,13 @@ import {
   Sparkles,
 } from "lucide-react";
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useSpring } from "framer-motion";
+import BlurText from "@/components/effects/blur-text";
+import TextLoop from "@/components/effects/text-loop";
 import styles from "./level-two-story.module.css";
+
+const ElectricLogo = dynamic(() => import("@/components/effects/electric-logo"), {
+  ssr: false,
+});
 
 const LevelTwoWorld = dynamic(
   () => import("./level-two-world").then((module) => module.LevelTwoWorld),
@@ -104,7 +111,10 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
         <Link href="/dashboard" className={styles.backLink}>
           <ArrowLeft /> <span>Dashboard</span>
         </Link>
-        <span className={styles.navSignal}><i /> LEVEL 2 · WORLD {activeWorld}</span>
+        <span className={styles.navSignal}>
+          <Image src="/level-two-agentic-mark.svg" alt="" width={22} height={22} aria-hidden="true" />
+          <i /> LEVEL 2 · WORLD {activeWorld}
+        </span>
         <Link href="/chat" className={styles.navCta}>Talk to mentor <MessageCircle /></Link>
       </nav>
 
@@ -119,6 +129,51 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
       </aside>
 
       <section className={styles.hero}>
+        <div className={styles.heroIdentity} aria-hidden="true">
+          <div className={styles.heroLoop}>
+            <TextLoop
+              text="REMEMBER · DECIDE · BUILD · VERIFY"
+              shape="circle"
+              speed={42}
+              separator="✦"
+              curviness={145}
+              tilt={-10}
+              fontSize={29}
+              fontWeight={800}
+              letterSpacing={2.8}
+              color="#b9ffe9"
+              ribbon={false}
+              pauseOnHover={false}
+              scrollBoost={0.12}
+              outline
+              outlineWidth={1.25}
+            />
+          </div>
+          <div className={styles.electricMark}>
+            <ElectricLogo
+              src="/level-two-agentic-mark.svg"
+              color="#f3fffb"
+              glowColor="#8b5cf6"
+              scale={0.56}
+              intensity={0.62}
+              glow={0.62}
+              thickness={1.05}
+              strands={3}
+              bend={0.58}
+              crackle={1.2}
+              arcs={1}
+              flicker={0.32}
+              fill={0}
+              speed={1.8}
+              interactive
+              cursorIntensity={0.7}
+              cursorRadius={110}
+              theme="dark"
+            />
+          </div>
+          <span className={styles.identityLabel}>AGENTIC SYSTEM ONLINE</span>
+        </div>
+
         <motion.div
           className={styles.heroCopy}
           initial={{ opacity: 0, y: 34 }}
@@ -126,10 +181,35 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
           transition={{ duration: reducedMotion ? 0 : 0.95, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className={styles.eyebrow}><Sparkles /> LEVEL 2 TRANSMISSION RECEIVED</div>
-          <h1>
-            The world beyond
-            <span>the prompt.</span>
-          </h1>
+          <div className={styles.heroTitle} role="heading" aria-level={1} aria-label="The world beyond the prompt.">
+            <BlurText
+              text="The world beyond"
+              effect="drift"
+              animateBy="words"
+              direction="left"
+              trigger="load"
+              delay={105}
+              stepDuration={0.52}
+              blur={16}
+              distance={70}
+              color="#f7f8fb"
+              fromColor="#6ee7b7"
+              className={styles.heroHeadline}
+            />
+            <BlurText
+              text="the prompt."
+              effect="focus"
+              animateBy="words"
+              trigger="load"
+              delay={120}
+              stepDuration={0.68}
+              blur={20}
+              distance={0}
+              color="#8cebd2"
+              fromColor="#a78bfa"
+              className={styles.heroHeadlineAccent}
+            />
+          </div>
           <p>
             {firstName}, you learned to make AI answer. Now cross into a world where it can <strong>remember, decide, use tools and prove its work.</strong>
           </p>
@@ -155,7 +235,20 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
         >
           <span>LEAVE THE FLAT WORLD</span>
           <p>Level 1 taught you what AI can create.</p>
-          <h2>Level 2 reveals how intelligent systems actually come alive.</h2>
+          <div className={styles.thresholdTitle} role="heading" aria-level={2}>
+            <BlurText
+              text="Level 2 reveals how intelligent systems actually come alive."
+              effect="focus"
+              animateBy="words"
+              trigger="view"
+              delay={52}
+              stepDuration={0.42}
+              blur={18}
+              distance={0}
+              color="#f7f8fb"
+              fromColor="#69ddff"
+            />
+          </div>
         </motion.div>
       </section>
 
@@ -179,7 +272,21 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
               transition={{ duration: reducedMotion ? 0 : 0.95, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className={styles.sceneSignal}><span>{world.number}</span><Icon /> {world.eyebrow}</div>
-              <h2>{world.title}</h2>
+              <div className={styles.sceneTitle} role="heading" aria-level={2}>
+                <BlurText
+                  text={world.title}
+                  effect={world.color === "violet" ? "tilt" : world.color === "amber" ? "focus" : "drift"}
+                  animateBy="words"
+                  direction={world.align === "right" ? "right" : "left"}
+                  trigger="view"
+                  delay={85}
+                  stepDuration={0.45}
+                  blur={15}
+                  distance={56}
+                  color="currentColor"
+                  fromColor={world.color === "mint" ? "#6ee7b7" : world.color === "violet" ? "#a78bfa" : "#ffbd67"}
+                />
+              </div>
               <p>{world.story}</p>
               <ul>
                 {world.proof.map((item) => <li key={item}><CheckCircle2 /> {item}</li>)}
@@ -202,7 +309,20 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
           transition={{ duration: reducedMotion ? 0 : 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
           <span>THE BUILDER YOU BECOME</span>
-          <h2>You stop using AI.<br />You start directing intelligence.</h2>
+          <div className={styles.transformationTitle} role="heading" aria-level={2}>
+            <BlurText
+              text="You stop using AI. You start directing intelligence."
+              effect="zoom"
+              animateBy="words"
+              trigger="view"
+              delay={72}
+              stepDuration={0.46}
+              blur={17}
+              distance={42}
+              color="#f7f8fb"
+              fromColor="#a78bfa"
+            />
+          </div>
         </motion.div>
         <div className={styles.orbitingOutcomes}>
           {outcomes.map(([title, text], index) => (
@@ -236,7 +356,20 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
           transition={{ duration: reducedMotion ? 0 : 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className={styles.finalSignal}><i /> PORTAL OPEN · INVITATION READY</div>
-          <h2>Ready to build what other people only imagine?</h2>
+          <div className={styles.finalTitle} role="heading" aria-level={2}>
+            <BlurText
+              text="Ready to build what other people only imagine?"
+              effect="focus"
+              animateBy="words"
+              trigger="view"
+              delay={68}
+              stepDuration={0.46}
+              blur={20}
+              distance={0}
+              color="#f7f8fb"
+              fromColor="#6ee7b7"
+            />
+          </div>
           <p>Step into Level 2 and turn your AI curiosity into intelligent systems you can demonstrate, defend and proudly call your own.</p>
           <div className={styles.finalActions}>
             <Link href="/chat" className={styles.finalPrimary}>I&apos;m ready for Level 2 <ArrowRight /></Link>

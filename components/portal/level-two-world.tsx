@@ -299,7 +299,8 @@ export function LevelTwoWorld({ className }: { className?: string }) {
     resizeObserver.observe(mount);
     resize();
 
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
+    timer.connect(document);
     let frame = 0;
     let smoothProgress = 0;
     let running = true;
@@ -307,10 +308,11 @@ export function LevelTwoWorld({ className }: { className?: string }) {
     const emissiveTarget = new THREE.Color();
     const scaleTarget = new THREE.Vector3(1, 1, 1);
 
-    const animate = () => {
+    const animate = (timestamp?: number) => {
       if (!running) return;
       frame = window.requestAnimationFrame(animate);
-      const elapsed = clock.getElapsedTime();
+      timer.update(timestamp);
+      const elapsed = timer.getElapsed();
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       const rawProgress = THREE.MathUtils.clamp(window.scrollY / maxScroll, 0, 1);
       smoothProgress = reduceMotion ? rawProgress : THREE.MathUtils.lerp(smoothProgress, rawProgress, 0.065);
@@ -398,7 +400,7 @@ export function LevelTwoWorld({ className }: { className?: string }) {
         running = false;
       } else if (!running) {
         running = true;
-        clock.getDelta();
+        timer.reset();
         animate();
       }
     };
@@ -411,6 +413,7 @@ export function LevelTwoWorld({ className }: { className?: string }) {
       window.removeEventListener("pointermove", onPointerMove);
       document.removeEventListener("visibilitychange", onVisibility);
       resizeObserver.disconnect();
+      timer.dispose();
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points) {
           object.geometry.dispose();

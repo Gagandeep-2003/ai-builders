@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BrainCircuit, Orbit, Sparkles, X } from "lucide-react";
+import dynamic from "next/dynamic";
+import Image from "next/image";
+import { ArrowRight, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+
+const ElectricLogo = dynamic(() => import("@/components/effects/electric-logo"), {
+  ssr: false,
+});
 
 const REMIND_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -74,7 +80,7 @@ export function LevelTwoDiscovery({
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-violet-300/25 bg-violet-300/10 text-violet-200 shadow-[0_0_30px_rgba(167,139,250,0.14)]">
-              <BrainCircuit className="h-5 w-5" />
+              <Image src="/level-two-agentic-mark.svg" alt="" width={28} height={28} aria-hidden="true" className="h-7 w-7 drop-shadow-[0_0_10px_rgba(167,139,250,0.72)]" />
               <i className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_12px_#67e8f9]" />
             </span>
             <div>
@@ -119,7 +125,7 @@ export function LevelTwoDiscovery({
               animate={reducedMotion ? undefined : { rotate: 360 }}
               transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
             />
-            <Orbit className="h-6 w-6 text-cyan-100 xl:h-7 xl:w-7" />
+            <Image src="/level-two-agentic-mark.svg" alt="" width={34} height={34} aria-hidden="true" className="relative h-7 w-7 drop-shadow-[0_0_12px_rgba(103,232,249,0.7)] xl:h-9 xl:w-9" />
             <span className="absolute -right-1 -top-1 rounded-full border border-[#21173d] bg-violet-300 px-1.5 py-0.5 font-mono text-[8px] font-black tracking-tight text-[#100b20] shadow-[0_0_16px_rgba(196,181,253,0.7)]">L2</span>
           </span>
 
@@ -176,13 +182,29 @@ export function LevelTwoDiscovery({
               </button>
 
               <div className="relative">
-                <motion.div
-                  className="grid h-16 w-16 place-items-center rounded-2xl border border-violet-200/25 bg-violet-200/10 text-violet-100 shadow-[0_0_40px_rgba(167,139,250,0.18)]"
-                  animate={reducedMotion ? undefined : { y: [0, -5, 0], rotate: [0, 2, -2, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <Sparkles className="h-7 w-7" />
-                </motion.div>
+                <div className="relative h-28 w-28 overflow-visible rounded-[2rem] border border-violet-200/20 bg-[radial-gradient(circle,rgba(139,92,246,0.13),transparent_68%)] shadow-[0_0_55px_rgba(139,92,246,0.12)] sm:h-32 sm:w-32" aria-hidden="true">
+                  <ElectricLogo
+                    src="/level-two-agentic-mark.svg"
+                    color="#f3fffb"
+                    glowColor="#8b5cf6"
+                    scale={0.7}
+                    intensity={1.15}
+                    glow={1.1}
+                    thickness={1.35}
+                    strands={4}
+                    bend={0.68}
+                    crackle={1.4}
+                    arcs={1}
+                    flicker={0.42}
+                    fill={0.08}
+                    speed={2.1}
+                    interactive
+                    cursorIntensity={0.7}
+                    cursorRadius={90}
+                    theme="dark"
+                  />
+                  <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-cyan-200/20 bg-[#0c0b15]/90 px-3 py-1 font-mono text-[8px] font-bold tracking-[0.18em] text-cyan-100">AGENTIC CORE</span>
+                </div>
                 <p className="mt-6 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-violet-200">Level 2 has arrived</p>
                 <h2 id="level-two-invitation-title" className="mt-3 max-w-xl font-heading text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
                   {firstName}, your AI story is about to change.
