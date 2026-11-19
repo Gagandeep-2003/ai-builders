@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BrainCircuit, Sparkles, X } from "lucide-react";
+import { ArrowRight, BrainCircuit, Orbit, Sparkles, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 const REMIND_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
@@ -96,6 +96,47 @@ export function LevelTwoDiscovery({
           </a>
         </div>
       </section>
+
+      <div className="fixed bottom-3 left-1/2 z-[75] w-[calc(100%_-_1rem)] max-w-md -translate-x-1/2 xl:bottom-auto xl:left-auto xl:right-4 xl:top-1/2 xl:w-[18.5rem] xl:translate-x-0 xl:-translate-y-1/2">
+        <motion.button
+          type="button"
+          onClick={() => setShowModal(true)}
+          aria-haspopup="dialog"
+          aria-expanded={showModal}
+          aria-label="Open the Level 2 discovery experience"
+          className="group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-violet-300/30 bg-[linear-gradient(125deg,rgba(24,18,49,0.97),rgba(7,23,31,0.97))] p-3 text-left shadow-[0_20px_65px_rgba(0,0,0,0.48),0_0_45px_rgba(124,58,237,0.15)] backdrop-blur-xl transition-colors hover:border-cyan-200/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07080d] xl:flex-col xl:items-stretch xl:p-4"
+          initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={reducedMotion ? undefined : { y: -4 }}
+          transition={{ duration: reducedMotion ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_30%,rgba(167,139,250,0.2),transparent_34%),radial-gradient(circle_at_88%_65%,rgba(103,232,249,0.14),transparent_38%)]" />
+          <span className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/80 to-transparent" />
+
+          <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-violet-200/30 bg-[linear-gradient(145deg,rgba(167,139,250,0.22),rgba(103,232,249,0.1))] shadow-[inset_0_0_22px_rgba(167,139,250,0.12),0_0_28px_rgba(103,232,249,0.12)] xl:h-16 xl:w-16">
+            <motion.span
+              className="absolute inset-1.5 rounded-full border border-dashed border-cyan-200/40"
+              animate={reducedMotion ? undefined : { rotate: 360 }}
+              transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+            />
+            <Orbit className="h-6 w-6 text-cyan-100 xl:h-7 xl:w-7" />
+            <span className="absolute -right-1 -top-1 rounded-full border border-[#21173d] bg-violet-300 px-1.5 py-0.5 font-mono text-[8px] font-black tracking-tight text-[#100b20] shadow-[0_0_16px_rgba(196,181,253,0.7)]">L2</span>
+          </span>
+
+          <span className="relative min-w-0 flex-1">
+            <span className="flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200">
+              <i className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" /> Level 2 unlocked
+            </span>
+            <strong className="mt-1 block truncate font-heading text-sm text-white xl:mt-2 xl:whitespace-normal xl:text-lg">Build agents. Go further.</strong>
+            <span className="mt-1 hidden text-xs leading-5 text-text-secondary xl:block">Open the interactive story behind your next AI chapter.</span>
+          </span>
+
+          <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.05] text-violet-100 transition group-hover:border-cyan-200/30 group-hover:bg-cyan-200/10 group-hover:text-cyan-100 xl:absolute xl:bottom-4 xl:right-4">
+            <ArrowRight className="h-4 w-4" />
+          </span>
+          <span className="sr-only">Click to open the Level 2 introduction</span>
+        </motion.button>
+      </div>
 
       <AnimatePresence>
         {showModal ? (
