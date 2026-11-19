@@ -13,6 +13,7 @@ const protectedPrefixes = [
   "/league",
   "/referrals",
   "/profile",
+  "/level-two-preview",
   "/admin",
 ];
 
@@ -93,6 +94,7 @@ export const config = {
     "/league/:path*",
     "/referrals/:path*",
     "/profile/:path*",
+    "/level-two-preview/:path*",
     "/admin/:path*",
   ],
 };
