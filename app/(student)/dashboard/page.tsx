@@ -17,6 +17,7 @@ import { AchievementStrip } from "@/components/portal/achievement-strip";
 import { BatchPauseNotice } from "@/components/portal/batch-pause-notice";
 import { ChatDashboardBanner } from "@/components/chat/chat-dashboard-banner";
 import { ExtraSessionsNotice } from "@/components/portal/extra-sessions-notice";
+import { LevelTwoDiscovery } from "@/components/portal/level-two-discovery";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -52,6 +53,7 @@ function getGreeting(now: Date, timeZone: string) {
 export default async function DashboardPage() {
   const [data, achievements] = await Promise.all([getStudentDashboardData(), getStudentAchievementData()]);
   const now = new Date();
+  const firstName = data.student.fullName.split(" ")[0];
   const showExtraSessionsNotice = data.student.email.trim().toLowerCase() === "yug.sharma@student.com";
   const completed = data.sessions.filter((session) => session.status === "completed").length;
   const pendingHomework = data.homework.filter(
@@ -95,9 +97,13 @@ export default async function DashboardPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        title={`${getGreeting(now, data.student.timeZone)}, ${data.student.fullName.split(" ")[0]} 👋`}
+        title={`${getGreeting(now, data.student.timeZone)}, ${firstName} 👋`}
         subtitle={`Today is ${formatDate(new Date(), { weekday: "long" })}. Your next class is ${nextClassEvent?.kind === "makeup" ? "a make-up class" : nextClassEvent?.kind === "rescheduled" ? "a rescheduled class" : nextSession.title} at ${nextClassEvent ? formatClassEventTime(nextClassEvent, data.student.timeZone) : formatSessionTime(nextSession, data.batch, data.student.timeZone)}.`}
       />
+
+      {data.activeCourseLevel === 1 ? (
+        <LevelTwoDiscovery studentId={data.student.id} firstName={firstName} />
+      ) : null}
 
       {showExtraSessionsNotice ? <ExtraSessionsNotice studentId={data.student.id} /> : null}
 
