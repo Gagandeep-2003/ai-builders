@@ -206,6 +206,10 @@
   margin: 0 auto;
 }
 
+.hero,
+.scene,
+.transformation { scroll-margin-top: 5.5rem; }
+
 .hero {
   display: flex;
   min-height: 112svh;
@@ -331,9 +335,9 @@
 .scene {
   --accent: var(--mint);
   display: flex;
-  min-height: 128svh;
+  min-height: 118svh;
   align-items: center;
-  padding: 11rem 0;
+  padding: 9rem 0;
 }
 .scene_mint { --accent: var(--mint); }
 .scene_violet { --accent: var(--violet); }
@@ -341,17 +345,33 @@
 
 .sceneCopy {
   position: relative;
-  width: min(39rem, 48%);
+  overflow: hidden;
+  width: min(41rem, 49%);
   padding: clamp(1.8rem, 4vw, 3.4rem);
-  border-left: 1px solid color-mix(in srgb, var(--accent), transparent 45%);
-  background: linear-gradient(100deg, rgb(4 7 13 / 0.88), rgb(4 7 13 / 0.5) 64%, transparent);
-  box-shadow: -35px 0 80px rgb(0 0 0 / 0.22);
-  backdrop-filter: blur(10px);
-  mask-image: linear-gradient(90deg, black 0%, black 78%, transparent 100%);
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 72%);
+  border-radius: 2rem;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent), transparent 94%), transparent 44%),
+    rgb(4 7 13 / 0.84);
+  box-shadow:
+    0 32px 90px rgb(0 0 0 / 0.38),
+    inset 0 1px rgb(255 255 255 / 0.045),
+    0 0 60px color-mix(in srgb, var(--accent), transparent 94%);
+  backdrop-filter: blur(18px) saturate(128%);
+}
+
+.sceneCopy::before {
+  position: absolute;
+  top: 0;
+  right: 2.1rem;
+  left: 2.1rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  box-shadow: 0 0 22px var(--accent);
+  content: "";
 }
 .sceneRight .sceneCopy { margin-left: auto; }
 .sceneLeft .sceneCopy { margin-right: auto; }
-.sceneRight .sceneCopy { background: linear-gradient(100deg, rgb(4 7 13 / 0.9), rgb(4 7 13 / 0.5) 72%, transparent); }
 
 .sceneSignal { display: flex; align-items: center; gap: 0.55rem; color: var(--accent); }
 .sceneSignal span { display: grid; width: 2.35rem; height: 2.35rem; place-items: center; border: 1px solid color-mix(in srgb, var(--accent), transparent 55%); border-radius: 50%; }
@@ -359,9 +379,9 @@
 .sceneTitle { max-width: 9ch; margin-top: 1.65rem; font-family: var(--font-plus-jakarta); font-size: clamp(3rem, 5.8vw, 6.1rem); font-weight: 800; line-height: 0.96; letter-spacing: -0.066em; text-wrap: balance; text-shadow: 0 18px 55px #000; }
 .sceneCopy > p { max-width: 35rem; margin-top: 1.5rem; color: #aeb2bf; font-size: 1.04rem; line-height: 1.75; }
 .sceneCopy ul { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 1.8rem; }
-.sceneCopy li { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.55rem 0.72rem; border: 1px solid rgb(255 255 255 / 0.1); border-radius: 999px; color: #c7cad4; background: rgb(255 255 255 / 0.035); font-size: 0.76rem; }
+.sceneCopy li { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.58rem 0.78rem; border: 1px solid color-mix(in srgb, var(--accent), transparent 84%); border-radius: 999px; color: #d3d7e1; background: color-mix(in srgb, var(--accent), transparent 95%); font-size: 0.76rem; }
 .sceneCopy li svg { width: 0.82rem; height: 0.82rem; color: var(--accent); }
-.sceneOutcome { display: grid; gap: 0.65rem; margin-top: 2.5rem; padding-top: 1.35rem; border-top: 1px solid rgb(255 255 255 / 0.1); }
+.sceneOutcome { display: grid; gap: 0.65rem; margin-top: 2.3rem; padding: 1.2rem 1.25rem; border: 1px solid rgb(255 255 255 / 0.08); border-radius: 1rem; background: rgb(255 255 255 / 0.025); }
 .sceneOutcome span { color: var(--accent); }
 .sceneOutcome strong { max-width: 30rem; font-size: 0.98rem; line-height: 1.6; }
 
@@ -421,7 +441,7 @@
   .transformation,
   .finalSection { width: min(100% - 2rem, 84rem); }
   .heroCopy { width: 62%; }
-  .sceneCopy { width: min(39rem, 58%); }
+  .sceneCopy { width: min(41rem, 60%); }
 }
 
 @media (max-width: 760px) {
@@ -449,7 +469,7 @@
   .scene { min-height: 142svh; align-items: flex-end; padding: 12rem 0 8rem; }
   .sceneCopy,
   .sceneRight .sceneCopy,
-  .sceneLeft .sceneCopy { width: 100%; margin: 0; padding: 2rem 1rem 1.5rem; border-left: 0; border-top: 1px solid color-mix(in srgb, var(--accent), transparent 48%); background: linear-gradient(180deg, transparent, rgb(3 5 10 / 0.9) 14%, rgb(3 5 10 / 0.98) 100%); box-shadow: 0 -45px 90px rgb(0 0 0 / 0.28); mask-image: none; backdrop-filter: blur(8px); }
+  .sceneLeft .sceneCopy { width: 100%; margin: 0; padding: 2rem 1.15rem 1.5rem; border-color: color-mix(in srgb, var(--accent), transparent 76%); border-radius: 1.5rem; background: linear-gradient(180deg, color-mix(in srgb, var(--accent), transparent 95%), rgb(3 5 10 / 0.94) 28%, rgb(3 5 10 / 0.98) 100%); box-shadow: 0 -35px 80px rgb(0 0 0 / 0.34); backdrop-filter: blur(12px); }
   .sceneTitle { max-width: 10ch; font-size: clamp(2.8rem, 13vw, 4.5rem); }
   .sceneCopy > p { font-size: 0.95rem; }
   .sceneAtmosphere span { top: 12%; font-size: 3.1rem; }

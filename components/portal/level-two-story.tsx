@@ -93,7 +93,7 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
   const [activeWorld, setActiveWorld] = useState("00");
 
   useMotionValueEvent(scrollYProgress, "change", (progress) => {
-    const nextWorld = progress < 0.19 ? "00" : progress < 0.39 ? "01" : progress < 0.56 ? "02" : progress < 0.74 ? "03" : "∞";
+    const nextWorld = progress < 0.19 ? "00" : progress < 0.39 ? "01" : progress < 0.56 ? "02" : progress < 0.72 ? "03" : "∞";
     setActiveWorld((current) => current === nextWorld ? current : nextWorld);
   });
 
@@ -119,16 +119,16 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
       </nav>
 
       <aside className={styles.worldRail} aria-label="Story chapters">
-        <span>00</span>
+        <a href="#origin" className={activeWorld === "00" ? styles.railActive : undefined} aria-current={activeWorld === "00" ? "step" : undefined}>00</a>
         <i />
-        <a href="#memory-world" className={activeWorld === "01" ? styles.railActive : undefined}>01</a>
-        <a href="#decision-world" className={activeWorld === "02" ? styles.railActive : undefined}>02</a>
-        <a href="#trust-horizon" className={activeWorld === "03" ? styles.railActive : undefined}>03</a>
+        <a href="#memory-world" className={activeWorld === "01" ? styles.railActive : undefined} aria-current={activeWorld === "01" ? "step" : undefined}>01</a>
+        <a href="#decision-world" className={activeWorld === "02" ? styles.railActive : undefined} aria-current={activeWorld === "02" ? "step" : undefined}>02</a>
+        <a href="#trust-horizon" className={activeWorld === "03" ? styles.railActive : undefined} aria-current={activeWorld === "03" ? "step" : undefined}>03</a>
         <i />
-        <span>∞</span>
+        <a href="#transformation" className={activeWorld === "∞" ? styles.railActive : undefined} aria-current={activeWorld === "∞" ? "step" : undefined}>∞</a>
       </aside>
 
-      <section className={styles.hero}>
+      <section id="origin" className={styles.hero}>
         <div className={styles.heroIdentity} aria-hidden="true">
           <div className={styles.heroLoop}>
             <TextLoop
@@ -300,7 +300,7 @@ export function LevelTwoStory({ firstName }: { firstName: string }) {
         );
       })}
 
-      <section className={styles.transformation}>
+      <section id="transformation" className={styles.transformation}>
         <motion.div
           className={styles.transformationIntro}
           initial={{ opacity: 0, scale: 0.92 }}

@@ -26,8 +26,12 @@ function setOpacity(group: THREE.Object3D, value: number) {
     const materials = Array.isArray(child.material) ? child.material : [child.material];
     for (const material of materials) {
       const fadeMaterial = material as FadeMaterial;
+      const baseOpacity = typeof material.userData.fadeBaseOpacity === "number"
+        ? material.userData.fadeBaseOpacity
+        : material.opacity;
+      material.userData.fadeBaseOpacity = baseOpacity;
       fadeMaterial.transparent = true;
-      fadeMaterial.opacity = value;
+      fadeMaterial.opacity = baseOpacity * value;
     }
   });
 }
@@ -195,10 +199,11 @@ export function LevelTwoWorld({ className }: { className?: string }) {
     const globePointsGeometry = new THREE.BufferGeometry();
     globePointsGeometry.setAttribute("position", new THREE.BufferAttribute(globePointPositions, 3));
     globePointsGeometry.setAttribute("color", new THREE.BufferAttribute(globePointColors, 3));
-    world.add(new THREE.Points(
+    const globePoints = new THREE.Points(
       globePointsGeometry,
       new THREE.PointsMaterial({ size: economical ? 0.026 : 0.034, vertexColors: true, transparent: true, opacity: 0.88, sizeAttenuation: true }),
-    ));
+    );
+    world.add(globePoints);
 
     const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0x8de9ff, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending });
     const orbitOne = new THREE.Mesh(new THREE.TorusGeometry(2.75, 0.009, 6, 170), orbitMaterial.clone());
@@ -237,7 +242,41 @@ export function LevelTwoWorld({ className }: { className?: string }) {
       chainDimension.add(node);
       if (index > 0) chainDimension.add(makeCurve(chainNodes[index - 1], new THREE.Vector3((index - 2.5) * 0.8, 0.8, -0.2), position, 0x77efd0, 0.7));
     }
-    chainDimension.scale.setScalar(0.78);
+    const memoryPlanes = new THREE.Group();
+    for (let index = 0; index < 5; index += 1) {
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.66, 0.88),
+        new THREE.MeshPhysicalMaterial({
+          color: index % 2 ? 0x8bdcff : 0x6ee7b7,
+          emissive: 0x123d3a,
+          emissiveIntensity: 1.2,
+          roughness: 0.18,
+          metalness: 0.28,
+          transparent: true,
+          opacity: 0.38,
+          side: THREE.DoubleSide,
+        }),
+      );
+      const angle = (index / 5) * Math.PI * 2;
+      plane.position.set(Math.cos(angle) * 2.35, Math.sin(angle * 1.5) * 1.25, Math.sin(angle) * 1.05);
+      plane.rotation.set(angle * 0.22, -angle + Math.PI / 2, angle * 0.08);
+      memoryPlanes.add(plane);
+
+      const lineMaterial = new THREE.LineBasicMaterial({ color: 0xb9ffe9, transparent: true, opacity: 0.5 });
+      for (let line = 0; line < 3; line += 1) {
+        const y = 0.18 - line * 0.16;
+        const geometry = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-0.2, y, 0.012),
+          new THREE.Vector3(0.2 - line * 0.045, y, 0.012),
+        ]);
+        const detail = new THREE.Line(geometry, lineMaterial.clone());
+        detail.position.copy(plane.position);
+        detail.rotation.copy(plane.rotation);
+        memoryPlanes.add(detail);
+      }
+    }
+    chainDimension.add(memoryPlanes);
+    chainDimension.scale.setScalar(0.9);
     world.add(chainDimension);
 
     const graphDimension = new THREE.Group();
@@ -255,6 +294,17 @@ export function LevelTwoWorld({ className }: { className?: string }) {
     [[0,1],[0,2],[1,3],[2,3],[3,4],[3,5],[2,6],[6,5],[5,4]].forEach(([from, to]) => {
       graphDimension.add(makeCurve(graphPositions[from], graphPositions[from].clone().lerp(graphPositions[to], 0.5).add(new THREE.Vector3(0, 0.25, -0.5)), graphPositions[to], 0xa78bfa, 0.48));
     });
+    const approvalGate = new THREE.Group();
+    const gateMaterial = new THREE.MeshBasicMaterial({ color: 0xe7ddff, transparent: true, opacity: 0.82 });
+    const gateFrame = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.025, 6, 64), gateMaterial);
+    gateFrame.scale.y = 1.3;
+    approvalGate.add(gateFrame);
+    const gateBar = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.035, 0.035), gateMaterial.clone());
+    gateBar.position.y = 0.04;
+    approvalGate.add(gateBar);
+    approvalGate.position.set(1.46, 1.16, 0.1);
+    graphDimension.add(approvalGate);
+    graphDimension.scale.setScalar(1.06);
     world.add(graphDimension);
 
     const evaluationDimension = new THREE.Group();
@@ -272,6 +322,26 @@ export function LevelTwoWorld({ className }: { className?: string }) {
       new THREE.MeshPhysicalMaterial({ color: 0xffd69b, emissive: 0x6b3213, emissiveIntensity: 1.5, roughness: 0.22, metalness: 0.6, transparent: true }),
     );
     evaluationDimension.add(evalCore);
+    const evaluationTicks = new THREE.Group();
+    const tickMaterial = new THREE.MeshBasicMaterial({ color: 0xffd69b, transparent: true, opacity: 0.64 });
+    for (let index = 0; index < 32; index += 1) {
+      const angle = (index / 32) * Math.PI * 2;
+      const tick = new THREE.Mesh(
+        new THREE.BoxGeometry(index % 4 === 0 ? 0.16 : 0.08, 0.018, 0.025),
+        tickMaterial.clone(),
+      );
+      tick.position.set(Math.cos(angle) * 2.05, Math.sin(angle) * 2.05, 0.08);
+      tick.rotation.z = angle;
+      evaluationTicks.add(tick);
+    }
+    const scanLine = new THREE.Mesh(
+      new THREE.BoxGeometry(1.9, 0.018, 0.025),
+      new THREE.MeshBasicMaterial({ color: 0xffbd67, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending }),
+    );
+    scanLine.position.x = 0.95;
+    evaluationTicks.add(scanLine);
+    evaluationDimension.add(evaluationTicks);
+    evaluationDimension.scale.setScalar(1.05);
     world.add(evaluationDimension);
 
     setOpacity(chainDimension, 0);
@@ -362,15 +432,24 @@ export function LevelTwoWorld({ className }: { className?: string }) {
       const chainFade = windowFade(progress, 0.11, 0.18, 0.31, 0.38);
       const graphFade = windowFade(progress, 0.33, 0.4, 0.53, 0.61);
       const evalFade = windowFade(progress, 0.53, 0.58, 0.68, 0.76);
-      setOpacity(chainDimension, chainFade);
-      setOpacity(graphDimension, graphFade);
-      setOpacity(evaluationDimension, evalFade);
+      const integratedFade = THREE.MathUtils.smoothstep(progress, 0.7, 0.86);
+      const strongestDimension = Math.max(chainFade, graphFade, evalFade);
+      setOpacity(chainDimension, Math.max(chainFade, integratedFade * 0.52));
+      setOpacity(graphDimension, Math.max(graphFade, integratedFade * 0.42));
+      setOpacity(evaluationDimension, Math.max(evalFade, integratedFade * 0.5));
+      surfaceMaterial.opacity = THREE.MathUtils.lerp(0.86, 0.58, strongestDimension);
+      (globePoints.material as THREE.PointsMaterial).opacity = THREE.MathUtils.lerp(0.88, 0.62, strongestDimension);
       chainDimension.rotation.y = -world.rotation.y * 1.4;
       chainDimension.rotation.z = Math.sin(elapsed * 0.6) * 0.12;
+      memoryPlanes.rotation.y = elapsed * 0.08;
+      memoryPlanes.rotation.z = Math.sin(elapsed * 0.45) * 0.08;
       graphDimension.rotation.z = elapsed * 0.05;
       graphDimension.rotation.y = -world.rotation.y * 0.72;
+      approvalGate.rotation.z = -elapsed * 0.16;
       evaluationDimension.rotation.y = -world.rotation.y * 1.12;
       evaluationDimension.rotation.z = elapsed * 0.11;
+      evaluationTicks.rotation.z = -elapsed * 0.2;
+      scanLine.rotation.z = elapsed * 0.55;
       evalCore.rotation.x = elapsed * 0.22;
       evalCore.rotation.y = elapsed * 0.3;
 
